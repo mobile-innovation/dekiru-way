@@ -1,0 +1,121 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+/*
+ * ベーススタイル。
+ * アクセシビリティ (指示書 9) を後付けにしない:
+ *   - 明確なフォーカス表示
+ *   - 文字サイズを大きくできる (html[data-font-scale])
+ *   - 十分なタップ領域
+ *   - reduced motion 尊重
+ *
+ * 注意: 基本要素セレクタは必ず @layer base に入れる。
+ *       そうしないと Tailwind ユーティリティ (text-*, bg-* 等) を上書きしてしまい、
+ *       コントラスト不足などのバグになる。
+ */
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --font-scale: 1;
+  }
+  html[data-font-scale="large"] {
+    --font-scale: 1.15;
+  }
+  html[data-font-scale="xlarge"] {
+    --font-scale: 1.32;
+  }
+
+  html {
+    font-size: calc(100% * var(--font-scale));
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    line-height: 1.75;
+    letter-spacing: 0.01em;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* リンクは色だけに頼らず下線を基本にする (指示書 8/9: 色依存禁止)。
+     ボタン/ナビ/カード等は Tailwind の no-underline / text-* ユーティリティで
+     個別に打ち消す (ユーティリティは base より後のレイヤーなので勝つ)。 */
+  a {
+    color: var(--color-primary-hover);
+    text-decoration-line: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* タップ領域 (指示書 9)。min-h-0 / tap-target で個別に調整する。 */
+  button,
+  [role="button"],
+  input,
+  select,
+  textarea {
+    min-height: var(--tap-min);
+  }
+  a.tap-target {
+    min-height: var(--tap-min);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* スクリーンリーダー専用テキスト */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* スキップリンク: フォーカス時に可視化 */
+.skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: -3rem;
+  z-index: 100;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lift);
+  transition: top 0.15s ease;
+}
+.skip-link:focus {
+  top: 0.75rem;
+}
+
+@layer utilities {
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+  }
+}

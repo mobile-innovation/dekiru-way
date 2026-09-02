@@ -1,0 +1,168 @@
+// できる道 (dekiru-way) データモデル
+// 一次仕様: 開発開始指示書 v1 セクション 4 / 16
+//
+// 方針:
+//   - 病名・障害名・年齢・介護度は必須プロフィールにしない (User は最小限)
+//   - 「道」は専用テーブルを持たず Road + Attempt から生成する
+//   - Experience 独立テーブルは作らない。公開された Attempt を「経験」として扱う
+//   - result は必ず 5 分類。失敗 (failed) も価値ある経験として保存し、自動削除しない
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// 公開範囲。Road 全体を他人が閲覧できるか。初期値は private。
+enum Visibility {
+  private
+  public
+}
+
+/// 試したことの結果。必ずこの 5 分類のいずれか。
+///   success   = できるようになった
+///   partial   = 少しできた
+///   no_change = 変化はなかった
+///   failed    = うまくいかなかった
+///   ongoing   = まだ試している
+enum AttemptResult {
+  success
+  partial
+  no_change
+  failed
+  ongoing
+}
+
+model User {
+  id          String   @id @default(uuid()) @db.Uuid
+  /// Google OpenID Connect の sub。認証プロバイダをまたいだ一意キー。
+  googleSub   String   @unique @map("google_sub")
+  displayName String?  @map("display_name")
+  avatarUrl   String?  @map("avatar_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  roads Road[]
+
+  @@map("users")
+}
+
+/// 一つの困りごと・目標に対する試行錯誤のまとまり。
+model Road {
+  id            String     @id @default(uuid()) @db.Uuid
+  userId        String     @map("user_id") @db.Uuid
+  title         String?
+  /// 以前できていたこと
+  previouslyAble String?   @map("previously_able")
+  /// 何ができなくて困っているか
+  difficulty    String?
+  /// やりたいこと・目標
+  goal          String?
+  /// いつ頃から難しくなったか
+  startedAt     DateTime?  @map("started_at") @db.Date
+  /// 困っている場面
+  situation     String?
+  memo          String?
+  /// 自由記述の状態ラベル (例: 継続中 / 一区切り)
+  status        String?
+  /// 現在の進捗
+  progress      String?
+  /// 次に試すこと
+  nextAction    String?    @map("next_action")
+  visibility    Visibility @default(private)
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempts Attempt[]
+  roadTags RoadTag[]
+
+  @@index([userId])
+  @@index([visibility])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@map("roads")
+}
+
+/// Road 内で試した一つの方法と結果。
+model Attempt {
+  id          String        @id @default(uuid()) @db.Uuid
+  roadId      String        @map("road_id") @db.Uuid
+  /// 何を試したか (必須)
+  method      String
+  result      AttemptResult
+  /// 試した時期
+  triedAt     DateTime?     @map("tried_at") @db.Date
+  /// メモ・気づき
+  memo        String?
+  /// この方法で「やりたいこと」がどのくらいできるようになったと本人が感じたか (0〜100)。
+  /// 本人入力のみ。AI で推定・自動計算しない。result とは別の情報。
+  achievementPercent Int?    @map("achievement_percent")
+  /// そのとき、どんな気持ちだったか (本人の自由記述。成功時に限らない)
+  feeling            String? @map("feeling")
+  /// その方法を試した後、実際にどういう状態になったか (result より具体的な補足)
+  stateAfter         String? @map("state_after")
+  /// その後、次に何を試すことにしたか (この Attempt 起点の次の行動)
+  nextAction         String? @map("next_action")
+  /// 実際にこの方法の前に試した Attempt (同じ Road 内のみ)。
+  /// 日付や画面の並びから推測して設定してはいけない。
+  previousAttemptId  String? @map("previous_attempt_id") @db.Uuid
+  /// この Attempt を「経験」として公開するか。初期値 false。
+  isPublished Boolean       @default(false) @map("is_published")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  road            Road           @relation(fields: [roadId], references: [id], onDelete: Cascade)
+  photos          AttemptPhoto[]
+  previousAttempt Attempt?       @relation("AttemptChain", fields: [previousAttemptId], references: [id], onDelete: SetNull)
+  nextAttempts    Attempt[]      @relation("AttemptChain")
+
+  @@index([roadId])
+  @@index([result])
+  @@index([isPublished])
+  @@index([triedAt])
+  @@index([previousAttemptId])
+  @@map("attempts")
+}
+
+model AttemptPhoto {
+  id         String   @id @default(uuid()) @db.Uuid
+  attemptId  String   @map("attempt_id") @db.Uuid
+  /// オブジェクトストレージ上の URL。DB には URL のみ保持する。
+  storageUrl String   @map("storage_url")
+  caption    String?
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
+  @@map("attempt_photos")
+}
+
+model Tag {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  roadTags RoadTag[]
+
+  @@index([name])
+  @@map("tags")
+}
+
+/// Road と Tag の中間テーブル。複合主キー (road_id, tag_id)。
+model RoadTag {
+  roadId String @map("road_id") @db.Uuid
+  tagId  String @map("tag_id") @db.Uuid
+
+  road Road @relation(fields: [roadId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([roadId, tagId])
+  @@index([tagId])
+  @@map("road_tags")
+}
