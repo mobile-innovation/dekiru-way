@@ -120,9 +120,15 @@ describe("searchMethods は方法（Attempt）側の一致だけ", () => {
     expect(items.some((m) => m.method.includes("非公開"))).toBe(false);
   });
 
-  it("検索語が無ければ方法カードは空", async () => {
-    const { items } = await searchMethods(q({ q: undefined }));
-    expect(items).toHaveLength(0);
+  it("検索語が無くても公開された試したことを一覧できる（結果でも絞れる）", async () => {
+    const all = await searchMethods(q({ q: undefined }));
+    expect(all.total).toBeGreaterThan(0);
+    expect(all.items.length).toBeGreaterThan(0);
+
+    const partial = await searchMethods(q({ q: undefined, result: "partial" }));
+    expect(partial.items.length).toBeGreaterThan(0);
+    expect(partial.items.every((m) => m.result === "partial")).toBe(true);
+    expect(partial.total).toBeLessThanOrEqual(all.total);
   });
 
   it("1 ページに収まる道の方法カードは treePage=1", async () => {

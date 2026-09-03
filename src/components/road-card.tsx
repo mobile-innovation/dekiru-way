@@ -20,7 +20,8 @@ export function RoadCard({ road }: { road: RoadCardDTO }) {
   const rest = road.attemptCount - shown.length;
 
   return (
-    <article className="card flex h-full flex-col p-5 transition-shadow hover:shadow-[var(--shadow-lift)]">
+    // 枠線は方法カード（MethodCard）／「自分の道」カードと同じ `--color-primary`。背景は白のまま。
+    <article className="flex h-full flex-col rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-5 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)]">
       <Link href={`/experiences/${road.entryId}`} className="flex flex-1 flex-col no-underline">
         <p className="text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
           だれかの道

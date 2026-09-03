@@ -84,16 +84,16 @@ export const EXPERIENCE_SORTS = ["recent", "helpful", "tried"] as const;
 export type ExperienceSort = (typeof EXPERIENCE_SORTS)[number];
 
 /**
- * 「経験を探す」で表示する結果の種類（検索語がどこに当たったか）。
- * 既定は "road"（道のみ）。方法カードは検索語を入れて種類を切り替えたときだけ出す。
+ * 「経験を探す」で表示する結果の種類。
+ * 既定は "both"（道と方法の両方）。検索語の有無に関わらず種類は切り替えられる。
  */
 export const EXPERIENCE_KINDS = ["road", "both", "method"] as const;
 export type ExperienceKind = (typeof EXPERIENCE_KINDS)[number];
-export const EXPERIENCE_KIND_DEFAULT: ExperienceKind = "road";
+export const EXPERIENCE_KIND_DEFAULT: ExperienceKind = "both";
 export const EXPERIENCE_KIND_LABEL: Record<ExperienceKind, string> = {
-  road: "道（困りごと・目標に一致）だけ",
+  road: "道（困りごと・目標）だけ",
   both: "道と方法の両方",
-  method: "方法（試したこと・気づきに一致）だけ",
+  method: "方法（試したこと・気づき）だけ",
 };
 
 /** トップページの検索例 (指示書 6-①) */

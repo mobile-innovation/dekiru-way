@@ -137,7 +137,6 @@ test("経験を探す: 語が方法の中だけにあると「方法カード」
   page,
 }) => {
   // 「ボタンエイド」はシードの方法本文にだけあり、道の困りごと・目標・場面には無い
-  // 既定は「道だけ」なので、方法カードを見るには種類を切り替える
   await page.goto("/experiences?q=" + encodeURIComponent("ボタンエイド") + "&kind=method");
   await expect(page.getByRole("heading", { name: /方法の中にあった記録/ })).toBeVisible();
 
@@ -195,15 +194,23 @@ test("経験を探す: 「この条件で探す」で検索ワードが消えな
   await expect(page.getByRole("heading", { name: /「階段」への、いろいろな道/ })).toBeVisible();
 });
 
-test("経験を探す: 検索ワードが無いあいだ「表示する種類」は道だけ・変更不可", async ({ page }) => {
+test("経験を探す: 検索ワードが無くても「表示する種類」を変えられる（方法だけ一覧）", async ({
+  page,
+}) => {
   await page.goto("/experiences");
   const kind = page.getByRole("combobox", { name: "表示する種類" });
-  await expect(kind).toBeDisabled();
-  await expect(kind).toHaveValue("road");
-  await expect(page.getByText(/検索ワードを入れると「方法」も選べます/)).toBeVisible();
-
-  await page.getByRole("searchbox").fill("階段");
   await expect(kind).toBeEnabled();
+  await expect(kind).toHaveValue("both"); // 既定は「両方」
+
+  await kind.selectOption("method");
+  await page.getByRole("button", { name: "この条件で探す" }).click();
+
+  await expect(page).toHaveURL(/[?&]kind=method(&|$)/);
+  // 検索ワード無しでも、公開された試したことの一覧（方法カード）が出る
+  await expect(page.getByRole("heading", { name: "試したことの記録" })).toBeVisible();
+  await expect(page.locator("article").filter({ hasText: "方法の記録" }).first()).toBeVisible();
+  // 道カード側は出さない
+  await expect(page.locator("article").filter({ hasText: /試したこと（\d+）/ })).toHaveCount(0);
 });
 
 test("経験を探す: 表示する種類（道 / 方法 / 両方）を指定できる", async ({ page }) => {
@@ -211,8 +218,8 @@ test("経験を探す: 表示する種類（道 / 方法 / 両方）を指定で
   const roadCard = () => page.locator("article").filter({ hasText: /試したこと（\d+）/ });
   const methodCard = () => page.locator("article").filter({ hasText: "方法の記録" });
 
-  // 既定は「道だけ」（方法カードは出さない）
-  await page.goto("/experiences?q=" + encodeURIComponent("階段"));
+  // 「道だけ」
+  await page.goto("/experiences?q=" + encodeURIComponent("階段") + "&kind=road");
   await expect(roadCard().first()).toBeVisible();
   await expect(methodCard()).toHaveCount(0);
   await expect(page.getByRole("heading", { name: /方法の中にあった記録/ })).toHaveCount(0);

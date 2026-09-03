@@ -39,8 +39,8 @@ export function FontSizeControl() {
   }
 
   return (
-    <div className="flex items-center gap-1" role="group" aria-label="文字サイズ">
-      <span aria-hidden="true" className="text-[var(--color-ink-muted)]">
+    <div className="flex items-center gap-1.5" role="group" aria-label="文字サイズ">
+      <span aria-hidden="true" className="text-sm font-semibold text-[var(--color-ink-muted)]">
         A
       </span>
       {ORDER.map((s) => (
@@ -49,10 +49,10 @@ export function FontSizeControl() {
           type="button"
           onClick={() => change(s)}
           aria-pressed={scale === s}
-          className={`min-h-0 rounded-[var(--radius-sm)] border px-2 py-1 text-xs ${
+          className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] border px-2.5 text-xs ${
             scale === s
               ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)] font-bold"
-              : "border-[var(--color-border)] bg-[var(--color-surface)]"
+              : "border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-sunken)]"
           }`}
         >
           {LABEL[s]}

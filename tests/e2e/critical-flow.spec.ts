@@ -38,7 +38,7 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
   const roadUrl = page.url();
 
   // 作成直後は Attempt が無い（この画面では道だけ作る）
-  await expect(page.getByText("まだ記録がありません。")).toBeVisible();
+  await expect(page.getByText("まだ記録がありません")).toBeVisible();
 
   // --- Attempt: failed ---
   await page.getByRole("link", { name: "試したことを記録" }).click();

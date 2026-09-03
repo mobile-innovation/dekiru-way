@@ -42,7 +42,7 @@ test("長い「できなくなったこと」でも道を作成でき、作っ�
   await page.getByRole("button", { name: "この道を作る" }).click();
 
   await expect(page).toHaveURL(/\/me\/roads\/[0-9a-f-]{36}$/);
-  await expect(page.getByText("まだ記録がありません。")).toBeVisible();
+  await expect(page.getByText("まだ記録がありません")).toBeVisible();
   await expect(page.getByText(long).first()).toBeVisible();
 });
 

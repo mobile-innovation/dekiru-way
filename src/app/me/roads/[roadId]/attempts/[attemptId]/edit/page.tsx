@@ -5,6 +5,7 @@ import { requirePageUserId } from "@/lib/session";
 import { getMyRoad } from "@/lib/queries";
 import { AttemptForm } from "@/components/attempt-form";
 import { AttemptPhotos } from "@/components/attempt-photos";
+import { IconNotebookPen } from "@/components/icons";
 
 export const metadata: Metadata = { title: "記録を編集" };
 
@@ -21,11 +22,21 @@ export default async function EditAttemptPage({
   if (!attempt) notFound();
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5">
-      <p className="text-sm">
-        <Link href={`/me/roads/${roadId}`}>← {road.title ?? road.difficulty ?? "道"} へ戻る</Link>
-      </p>
-      <h1 className="text-xl font-bold">記録を編集</h1>
+    <div className="mx-auto w-full max-w-5xl space-y-8">
+      <div className="space-y-3">
+        <p className="text-sm">
+          <Link href={`/me/roads/${roadId}`}>
+            ← {road.title ?? road.difficulty ?? "道"} へ戻る
+          </Link>
+        </p>
+        <h1 className="flex items-start gap-2 text-xl font-bold">
+          <IconNotebookPen
+            aria-hidden="true"
+            className="mt-1 h-5 w-5 shrink-0 text-[var(--color-primary)]"
+          />
+          記録を編集
+        </h1>
+      </div>
 
       <AttemptPhotos attemptId={attempt.id} photos={attempt.photos} />
       <AttemptForm

@@ -10,6 +10,7 @@ import {
   RESULT_META,
   EXPERIENCE_SORTS,
   EXPERIENCE_KINDS,
+  EXPERIENCE_KIND_DEFAULT,
   EXPERIENCE_KIND_LABEL,
 } from "@/lib/constants";
 
@@ -35,7 +36,7 @@ export function ExperienceSearchForm({
   defaultQ = "",
   defaultResult = "",
   defaultTag = "",
-  defaultKind = "road",
+  defaultKind = EXPERIENCE_KIND_DEFAULT,
   defaultSort = "recent",
   tags,
 }: {
@@ -56,11 +57,8 @@ export function ExperienceSearchForm({
   const [kind, setKind] = useState(defaultKind);
   const [sort, setSort] = useState(defaultSort);
 
-  // 「表示する種類」は検索ワードがあるときだけ意味がある（方法カード＝語のマッチ結果）。
-  // ワードが無いあいだは「道だけ」に固定して表示（実際の結果と一致させる）。
-  const searching = qText.trim().length > 0;
-  const shownKind = searching ? kind : "road";
-
+  // 「表示する種類」は検索ワードの有無に関わらず切り替えられる。
+  // ワード無しでも「方法だけ」で公開された試したことの一覧を見られる。
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const params = new URLSearchParams();
@@ -68,7 +66,7 @@ export function ExperienceSearchForm({
     if (q) params.set("q", q);
     if (result) params.set("result", result);
     if (tag) params.set("tag", tag);
-    if (q && kind && kind !== "road") params.set("kind", kind);
+    if (kind && kind !== EXPERIENCE_KIND_DEFAULT) params.set("kind", kind);
     if (sort && sort !== "recent") params.set("sort", sort);
     const qs = params.toString();
     router.push(qs ? `/experiences?${qs}` : "/experiences");
@@ -78,7 +76,7 @@ export function ExperienceSearchForm({
     setQText("");
     setResult("");
     setTag("");
-    setKind("road");
+    setKind(EXPERIENCE_KIND_DEFAULT);
     setSort("recent");
     router.push("/experiences");
   }
@@ -137,11 +135,9 @@ export function ExperienceSearchForm({
             表示する種類
             <select
               name="kind"
-              value={shownKind}
+              value={kind}
               onChange={(e) => setKind(e.target.value)}
-              disabled={!searching}
-              aria-describedby={searching ? undefined : `${inputId}-kind-hint`}
-              className={`${SELECT_CLASS} disabled:opacity-60`}
+              className={SELECT_CLASS}
             >
               {EXPERIENCE_KINDS.map((k) => (
                 <option key={k} value={k}>
@@ -149,14 +145,6 @@ export function ExperienceSearchForm({
                 </option>
               ))}
             </select>
-            {!searching && (
-              <span
-                id={`${inputId}-kind-hint`}
-                className="mt-1 block text-xs font-normal text-[var(--color-ink-muted)]"
-              >
-                検索ワードを入れると「方法」も選べます
-              </span>
-            )}
           </label>
 
           <label className="block text-sm font-bold">

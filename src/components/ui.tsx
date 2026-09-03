@@ -136,7 +136,7 @@ export function EmptyState({
 
 export function StepFlow({ steps }: { steps: { label: string; body: ReactNode }[] }) {
   return (
-    <ol className="relative space-y-4 border-l-2 border-[var(--color-border)] pl-5">
+    <ol className="relative space-y-4 border-l-2 border-[color-mix(in_srgb,var(--color-primary)_28%,white)] pl-5">
       {steps.map((s, i) => (
         <li key={i} className="relative">
           <span

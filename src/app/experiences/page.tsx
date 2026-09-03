@@ -37,9 +37,10 @@ export default async function ExperiencesPage({
         sort: "recent" as const,
       };
 
-  // kind（道 / 方法 / 両方）は検索語ありのときだけ効く。検索語なしはこれまで通り道の一覧。
-  const roadEnabled = !q.q || q.kind !== "method";
-  const methodEnabled = Boolean(q.q) && q.kind !== "road";
+  // kind（道 / 方法 / 両方）は検索語の有無に関わらず効く。
+  // 検索語なしでも「方法だけ」で公開された試したことの一覧を見られる。
+  const roadEnabled = q.kind !== "method";
+  const methodEnabled = q.kind !== "road";
   const emptyRes = { items: [] as never[], total: 0, page: 1, hasMore: false, windowExceeded: false };
 
   const [roadRes, methodMatch, tags] = await Promise.all([
@@ -125,9 +126,9 @@ export default async function ExperiencesPage({
                 </li>
               ))}
             </ul>
-          ) : q.q && hasMethodSection ? (
+          ) : hasMethodSection ? (
             <p className="text-sm text-[var(--color-ink-muted)]">
-              下の「方法の中にあった記録」を見てください。
+              下の「試したことの記録」を見てください。
             </p>
           ) : null}
 
@@ -147,10 +148,12 @@ export default async function ExperiencesPage({
         <section aria-labelledby="method-results-heading" className="space-y-4">
           <div className="space-y-1">
             <h2 id="method-results-heading" className="text-lg font-bold">
-              「{q.q}」が方法の中にあった記録
+              {q.q ? `「${q.q}」が方法の中にあった記録` : "試したことの記録"}
             </h2>
             <p className="text-sm text-[var(--color-ink-muted)]">
-              試したことや気づきの文章の中にことばが見つかった記録です。
+              {q.q
+                ? "試したことや気づきの文章の中にことばが見つかった記録です。"
+                : "誰かが試したことの記録です。"}
               カードを開くと、その方法をたどった道が見られます。
             </p>
             <p aria-live="polite" className="text-xs text-[var(--color-ink-muted)]">

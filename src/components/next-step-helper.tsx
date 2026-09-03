@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api, ClientApiError } from "@/lib/client/api";
+import { IconLightbulb } from "@/components/icons";
 
 /**
  * 「次の一歩を考える材料」を出す補助 (指示書 12)。
@@ -31,8 +32,17 @@ export function NextStepHelper({ roadId }: { roadId: string }) {
   }
 
   return (
-    <section className="card p-5" aria-labelledby="nexthelp-heading">
-      <h2 id="nexthelp-heading" className="text-base font-bold">
+    <section
+      className="rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-5 shadow-[var(--shadow-card)]"
+      aria-labelledby="nexthelp-heading"
+    >
+      <h2 id="nexthelp-heading" className="flex items-center gap-2 text-base font-bold">
+        <span
+          aria-hidden="true"
+          className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
+        >
+          <IconLightbulb className="h-4 w-4" />
+        </span>
         次に試す材料を探す
       </h2>
       <p className="mt-1 text-sm text-[var(--color-ink-muted)]">

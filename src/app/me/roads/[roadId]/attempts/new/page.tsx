@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requirePageUserId } from "@/lib/session";
 import { getMyRoad } from "@/lib/queries";
 import { AttemptForm } from "@/components/attempt-form";
+import { IconNotebookPen } from "@/components/icons";
 
 export const metadata: Metadata = { title: "試したことを記録" };
 
@@ -18,14 +19,25 @@ export default async function NewAttemptPage({
   if (!road) notFound();
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5">
-      <p className="text-sm">
-        <Link href={`/me/roads/${roadId}`}>← {road.title ?? road.difficulty ?? "道"} へ戻る</Link>
-      </p>
-      <h1 className="text-xl font-bold">試したことを記録</h1>
-      <p className="text-sm text-[var(--color-ink-muted)]">
-        うまくいったことも、いかなかったことも記録できます。どちらも次の誰かの役に立ちます。
-      </p>
+    // コンテナ幅・余白は「自分の道」詳細画面に合わせる。
+    <div className="mx-auto w-full max-w-5xl space-y-8">
+      <div className="space-y-3">
+        <p className="text-sm">
+          <Link href={`/me/roads/${roadId}`}>
+            ← {road.title ?? road.difficulty ?? "道"} へ戻る
+          </Link>
+        </p>
+        <h1 className="flex items-start gap-2 text-xl font-bold">
+          <IconNotebookPen
+            aria-hidden="true"
+            className="mt-1 h-5 w-5 shrink-0 text-[var(--color-primary)]"
+          />
+          試したことを記録
+        </h1>
+        <p className="text-sm text-[var(--color-ink-muted)]">
+          うまくいったことも、いかなかったことも記録できます。どちらも次の誰かの役に立ちます。
+        </p>
+      </div>
       <AttemptForm
         roadId={roadId}
         initialTags={road.tags}

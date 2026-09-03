@@ -29,6 +29,8 @@
   html {
     font-size: calc(100% * var(--font-scale));
     -webkit-text-size-adjust: 100%;
+    /* 上部固定ヘッダーの下にアンカー先（#main など）が隠れないようにする */
+    scroll-padding-top: 5rem;
   }
 
   body {

@@ -767,6 +767,178 @@ AI に適用。将来は Upstash 等の共有ストアに差し替え。
 - 影響範囲: `src/components/road-form.tsx` / `src/components/form.tsx`。入力項目・保存処理・
   バリデーション・音声処理・遷移・文言は不変。
 
+### 2026-09-03 トップに画像素材（1.png / 6.png）を組み込み
+- 指示書「トップ画面 画像素材組み込み v2」。`public/` に追加された 7 枚のうち **1.png / 6.png のみ**使用
+  （2〜5・7.png は未使用。指示どおり）。機能・API・DB・認証・検索は不変、`page.tsx` の見た目のみ。
+- **配置**: 1.png（「できる道」＋タグライン＋丘と道のイラストが描かれたヒーローバナー）をページ最上部の
+  ファーストビューに。6.png（「できる道とは」＋できない→探す→道を見る→試す→残す のフロー図）を
+  「できる道とは」セクションに。画像内に描かれた見出し・説明文・利用フローは HTML で二重表示しない
+  （ブランド行・タグライン・FLOW 配列・説明段落を `page.tsx` から削除）。`FLOW` 定数と
+  `IconTarget/IconSearch/IconRoute/IconCompass/IconLightbulb` の import を削除。
+- **重複回避のための構造変更**: 「できる道とは」は landmark 用の `<h2 class="sr-only">` ＋ 6.png のみ。
+  それに伴い「試した結果の見かた」は単独の `<Card>`（データ上の意味を持つので画像化せず HTML のまま。
+  §15）。v2 で作った `md:grid-cols-2` の 2 枚組みは解消（画像を読みやすい全幅に）。
+- **本物の検索フォームは維持**（`SearchBox`）。画像内の検索バー風要素は操作対象にしない。実例カード・
+  CTA・結果 5 分類は変更なし。7.png は使わず既存 CTA のまま。
+- **画像最適化**: `next/image` で配信（生 PNG 1.5〜1.7MB → ブラウザには WebP で 6.png ≒ 40〜90KB /
+  1.png ≒ 22〜33KB、viewport 別リサイズ）。元 PNG は `public/` に保持。1.png に `priority`（LCP）。
+- alt は内容を説明するテキストを設定（装飾ではなく情報として扱う）。四隅の欠け・ダーク vignette は
+  両画像とも無し。PC / タブレット / スマホで横スクロールなし。
+- 影響範囲: `src/app/page.tsx`、`public/1.png`・`public/6.png`。
+- **v3 追加**: 指示書「トップ画面 追加 v3」で `3/4/5.png` も追加。検索カードと「できる道とは」の間に
+  新セクション **「できる道で、できること」**（h2 ＋ 3 カード）を挿入。各カードは画像バナー
+  （`aspect-[16/9] object-cover`、`objectPosition` を画像ごとに調整して四隅のダーク vignette を
+  フレーム外へ）＋ 短い h3 ＋ 1 文（焼き込み文と重複させない）。`sm:grid-cols-2 lg:grid-cols-3`。
+  役割分担：3〜5＝「何ができる・どんな価値か」／6.png＝仕組み（フロー）／1.png＝世界観。
+  画像内のボタン・カード・検索欄はイラストであり操作対象にしない。実データの実例カード（§13）は不変。
+  2.png / 7.png は今回も未使用。5 枚合計の最適化後転送量 ≒ 340KB/ロード（WebP、viewport 別）。
+- **v4 追加**: 指示書「トップ画面 追加 v4」で最下部 CTA に **7.png のみ**追加（2.png は未使用）。
+  7.png は左半分に見出し・説明・「自分の道を作る」ボタンが焼き込まれているため、**右側の風景部分だけ**
+  切り出した `public/7-scene.png`（692×941、元は保持）を装飾ビジュアルとして使用。CTA を
+  `flex-col sm:flex-row` にして左＝本物の HTML（見出し・本文・`LinkButton href="/me/roads/new"`）、
+  右＝`7-scene.png`（`fill` / `object-cover` / 左端を `mask-image` で card 色へフェード＝継ぎ目消し、
+  `sm:w-[38%] max-w-[22rem]`、スマホは下部 `h-24` の帯）。画像内のボタン・文言は操作対象にしない。
+  `alt=""`（装飾）。CTA の遷移先・文言・機能は不変。影響範囲: `src/app/page.tsx`、
+  `public/7-scene.png`（新規・7.png のクロップ）。
+
+### 2026-09-03 サイトアイコン（favicon / ブランドアイコン）
+- ブランドアイコン画像（青×橙の 2 人が作るハート＋中央の道、1254×1254 透過 PNG）を正式な
+  サイトアイコンに設定。従来 favicon 設定は皆無だったため「二重・旧設定の除去」は不要。
+- Next App Router のファイル規約で配置（`layout.tsx` の `metadata` は触らず、link タグは自動生成）:
+  - `src/app/icon.png` — 透明マージンをタイトクロップ → 512×512（`<link rel="icon" type="image/png">`）
+  - `src/app/favicon.ico` — 16/32/48/64 のマルチサイズ（`<link rel="icon" type="image/x-icon">`、`/favicon.ico`）
+  - `src/app/apple-icon.png` — 180×180。iOS は透過を黒地に合成するため、**apple-touch-icon のみ白地**
+    に載せた（ロゴの色・形は不変。他は透過のまま）。
+  - 元の `public/icon.png` は削除（`src/app/icon.png` と `/icon.png` ルートが衝突するため）。
+- デザインは無改変（外枠・角丸・背景・色・文字の追加なし）。16px でも「2 人・ハート・中央の道」が識別可能。
+- PWA/manifest は元々存在しないため新規作成しない。影響はサイトアイコンのみ（DB/API/UI 不変）。
+- 追記: ヘッダーのロゴも絵文字 `🛤️` から同じブランドアイコンへ差し替え（`site-header.tsx`）。
+  `next/image` で使うため `public/brand-icon.png`（`src/app/icon.png` と同一の 512px 透過）を用意
+  （`src/app/icon.png` は `/icon.png` ルートを占有していて直接は使えないため別ファイル）。
+  ヘッダーでは `h-7 w-7`、`alt=""`（隣に「できる道」の文字があるため装飾）。
+
+### 2026-09-03 「表示する種類」を検索ワード無しでも切り替え可能に
+- 以前は「kind は語のマッチ結果なので語があるときだけ」という判断で、検索ワードが空だと
+  `kind` セレクトを `disabled` にして "road" 固定にしていた。ユーザー要望で撤回し、**語の有無に
+  関わらず 道/方法/両方 を切り替えられる**ように（語なしで「方法だけ」＝公開された試したことの一覧）。
+- `experience-search-form.tsx`: `disabled`／`shownKind` 固定／「検索ワードを入れると…」ヒントを削除。
+  `submit` は語が無くても `kind !== "road"` なら URL に付与。
+- `experiences/page.tsx`: `roadEnabled = q.kind !== "method"` / `methodEnabled = q.kind !== "road"`
+  （`Boolean(q.q)` 条件を撤去）。方法セクションの見出し・説明を語なしでも成立する文言に
+  （語あり「「X」が方法の中にあった記録」／語なし「試したことの記録」）。
+- `queries.ts#searchMethods`: 先頭の `if (!q.q?.trim()) return base;` を削除。`buildMethodSearchWhere`
+  は元々 `isPublished:true` ＋任意の result/tag だけで成立するので、語なしは公開 Attempt の
+  ページング一覧になる（`MAX_RESULT_WINDOW` / `mp≤100` / `limit≤50` の窓は不変）。
+- `constants.ts`: `EXPERIENCE_KIND_LABEL` から「〜に一致」を外し「道（困りごと・目標）だけ」等に。
+- テスト追従: `search-split.test.ts`（「語が無ければ空」→「語が無くても公開分を一覧＋result で絞れる」）、
+  `branching-paths.spec.ts:198`（「道だけ・変更不可」→「語なしでも kind=method で方法一覧が出る」）。
+- **追記: 既定値を `road` → `both`（道と方法の両方）に**（ユーザー要望）。`EXPERIENCE_KIND_DEFAULT`
+  を変更。`experienceQuerySchema` の `.default()`、フォームの `defaultKind` / `clear()` の初期値も
+  この定数を参照。URL には既定と異なるときだけ `kind` を付ける（`kind !== EXPERIENCE_KIND_DEFAULT`）。
+  → `/experiences`（クエリなし）は道カードの下に方法カードの一覧も出るようになる。
+  テスト追従: `branching-paths.spec.ts` の「既定は道だけ」前提のアサーションを `kind=road` 明示／
+  既定値 `both` に更新。
+
+### 2026-09-03 「自分の道」詳細画面のレイアウトを「経験詳細」に揃える（機能・文言は不変）
+- 指示書「自分の道詳細 レイアウト統一 v1」。`me/roads/[roadId]/page.tsx` のみ。
+  - 中央コンテナ: `max-w-6xl space-y-6` → **`max-w-5xl space-y-8`**（`/experiences/[id]` と同一。
+    本文幅・左右余白・セクション間余白が他の詳細画面と揃う。実測とも 1024px で一致）。
+  - 上部ブロック: 戻るリンク＋`<header>` を `<div className="space-y-4">` で囲う（経験詳細と同じ骨格）。
+  - 「試したことが 0 件」の空状態を素の `card p-5` の `<p>` → `<Card>` に（カードの見た目を統一）。
+  - 2 カラム化はしない: このページには経験詳細のような「補足」サイド内容（免責 Callout / 作成 CTA）が
+    無く、指示書 §8「情報量が少ないのに 2 カラムで空白を増やさない」に従い 1 カラム維持。
+  - カードは既存の `<Card>`（`.card` = `--color-border`）のまま＝経験詳細と同じ。検索カード類の緑枠
+    には合わせない（参照画面が経験詳細のため）。
+  - 「道のあらまし」の `StepFlow`（点＋線）＝既存の「道」UI 言語を維持。新しいイラスト・道路画像は
+    追加しない（§13）。削除ボタンは従来どおり最後に細い `border-t` ＋ danger アウトライン。
+- 機能・API・DB・遷移・文言は不変。他画面への影響なし（共通コンポーネントは変更していない）。
+- **v2 デザイン改善（指示書 v2）**: 装飾は増やさず、アイコン・色・点線でカードの階層を整える。
+  - 各カードを白地＋`border-[var(--color-primary)]`＋`--shadow-card` に統一（ページ内の
+    `<Card>` は `.card` の border-color 固定で緑にできないため手組み。共通 `Card` は変更しない）。
+  - セクション見出しに小アイコン: 道のあらまし＝`IconSprout`、試したこと＝`IconNotebookPen`（新規）、
+    次に試す材料＝`IconLightbulb`（`accent-soft` の丸に coral）。タイトルにも小さな `IconSprout`。
+  - 試したことが複数あるとき、`<ol>` に緑の縦線＋各カード左に丸ドット（`ring-4 ring-canvas`）で
+    「試行錯誤が道になる」時系列表現に。単発カードの羅列に見えないように。
+  - 空状態は `bg-[var(--color-primary-tint)]` のごく淡い緑＋中央にアイコン＋
+    「まだ記録がありません」を太字の見出し行に（説明文の内容は不変）。
+  - `StepFlow`（あらまし内、単一利用）の縦線を `--color-border` → `color-mix(primary 28% + white)` に。
+  - `NextStepHelper`（単一利用）を緑枠カード化＋電球アイコン。AI 感を出さず「一緒に探す」トーン維持。
+  - 大きな道路画像・背景イラスト・カードごとの大イラストは追加しない（§13）。2 カラム化もしない。
+  - テスト追従: `critical-flow` / `road-create` の空状態アサーションを `まだ記録がありません`（句点なし）に。
+  - 影響範囲: `me/roads/[roadId]/page.tsx` / `next-step-helper.tsx` / `ui.tsx`(StepFlow 線色) /
+    `icons.tsx`(`IconNotebookPen` 追加)。他画面は不変。
+
+### 2026-09-03 「試したことを記録」画面を意味のまとまりで整理（機能・文言・項目は不変）
+- 指示書「試したことを記録 レイアウト整理 v1」。入力項目・必須/任意・文字数・結果 5 分類・保存・
+  バリデーション・音声入力・写真仕様・公開/非公開・遷移は不変。`<label>` の文言も全て据え置き
+  （e2e が `getByLabel("何を試しましたか？")` / `getByRole("radio",{name:/^…/})` に依存）。
+- **ページ枠**（`attempts/new` と `attempts/[id]/edit` の両方）: `max-w-6xl space-y-5` →
+  `max-w-5xl space-y-8`（自分の道詳細と統一）、戻る＋見出しを block でまとめ、h1 に `IconNotebookPen`。
+- **`attempt-form.tsx`**: 縦一列のフォームを 6 つの緑枠カード（`Section` ヘルパー、詳細画面と同じ
+  `border-[var(--color-primary)]`＋`--shadow-card`）に整理:
+  ① 試したこと（`IconFlask`）＝何を試したか＋音声 ／ ② 結果（`IconCheckCircle`）＝5 択カード＋できた度 ／
+  ③ 気づき・変化（`IconHeart`）＝気持ち＋その後 ／ ④ 次の一歩（`IconLightbulb`）＝次に試すこと ／
+  ⑤ 記録情報（`IconNotebookPen`）＝時期・メモ・前に試した方法・タグ・写真 ／ ⑥ 公開設定（`IconGlobe`）。
+  中の `<Field>` / `TextField` / `TextAreaField` / radiogroup / 写真 input は移動しただけで内容は不変。
+- **結果 5 択の選択色**: 選択時の色を一律 `primary-soft` → **結果ごとの `--color-result-*` トークン**
+  （`style` で `border`/`background`。success=緑, partial=イエロー, no_change=ニュートラル,
+  failed=淡いオレンジ(#b4480e/#fbe8dd), ongoing=ブルー系）。「うまくいかなかった」は強い赤にしない。
+  絵文字（`RESULT_META.icon`）とラベル・説明は不変＝色だけに依存しない。
+- 大きなイラスト・道路画像は追加しない。`icons.tsx` に `IconFlask` / `IconHeart` / `IconGlobe` 追加。
+- 影響範囲: `attempt-form.tsx` / `attempts/new/page.tsx` / `attempts/[attemptId]/edit/page.tsx` /
+  `icons.tsx`。編集画面も同じフォームなので同じ見た目になる。
+
+### 2026-09-03 検索の道カード（RoadCard）の枠線も `--color-primary` に統一
+- `road-card.tsx`: `.card`（`--color-border` の枠）から手組み `<article>` に
+  （`rounded-[var(--radius-lg)]` ＋ `bg-[var(--color-surface)]` 白 ＋ `shadow-[var(--shadow-card)]`
+  ＋ `hover:shadow-[var(--shadow-lift)]` は同じ）、枠線を `border-[var(--color-primary)]` に。
+  これで **道カード（検索）／方法カード（検索）／「自分の道」カード**の 3 種が同じ緑枠に揃った。
+  情報・レイアウト・遷移は不変。
+
+### 2026-09-03 「自分の道」カードの枠線・アイコンを検索カードに合わせる（見た目のみ）
+- 指示書「自分の道カード UI改善 v1 / 枠線調整 v1」。カードの情報・件数・公開状態・遷移は不変。
+- `me/page.tsx`: 道カードを `<Card>`（= `.card`、border-color 固定で上書き不可）から手組み
+  `<article>` に。`rounded-[var(--radius-lg)]` ＋ `bg-[var(--color-surface)]`（白）＋
+  `shadow-[var(--shadow-card)]` は同じ。
+  - **枠線**: ユーザー指定で検索の方法カード（`MethodCard`）と同じ `border-[var(--color-primary)]`
+    （full green `#1f6f60`、1px）。`transition-shadow hover:shadow-[var(--shadow-lift)]` も MethodCard と同様。
+    （途中経緯: 白 → `color-mix 28%` → `32%`＋hover 濃く → 最終的に MethodCard と同一の `--color-primary`。）
+  - **アイコン**: `IconSprout`（上）→ 検索カード（`RoadCard`）と同じ `IconFootprints`（タイトル
+    `<p>` 内インライン、`mt-0.5 h-4 w-4 shrink-0`）。カード高さは元のまま。
+  - 空状態の 🌱・「道を作る」ボタンは据え置き。
+- 空状態（`EmptyState icon="🌱"`）・「道を作る」ボタンは変更なし。
+- 影響範囲: `src/app/me/page.tsx`。PC(2 列)/スマホ(1 列)確認、横スクロールなし。
+
+### 2026-09-03 （撤回）検索結果カードへのテーマ挿絵
+- 「薬」カードに小さな挿絵を入れたが、ユーザー判断で不採用。`RoadCard` は挿絵追加前の状態に戻し、
+  `src/components/card-art.tsx` は削除。結果カードは文字＋実データのみで維持する。
+
+### 2026-09-03 ヘッダーの視認性・操作性を微調整（見た目のみ）
+- 指示書「ヘッダーUI改善 v1」。機能・リンク・遷移先・認証・文字サイズ機能は不変。構造も維持
+  （新ナビ・ハンバーガーは追加しない）。
+- `site-header.tsx`: 行 padding `py-3` → `py-3.5`（窮屈さ解消。ヘッダー高 ≒ 60 → 73px 程度）。
+  ロゴアイコン 28 → 32px、`gap-1.5` → `gap-2`。ナビは `font-medium`、`自分の道` のみ `font-semibold`
+  （色は変えず weight だけ控えめに強調）。
+- `font-size-control.tsx`: A/標準/大/特大 のボタンを `min-h-0`（≒24px）→ `min-h-[36px]` ＋
+  `px-2 py-1` → `px-2.5` + `inline-flex items-center`、group `gap-1` → `gap-1.5`、「A」を
+  `text-sm font-semibold`、非選択にホバー。アクセシビリティ機能なので操作領域を確保（ヘッダーが
+  極端に高くならない範囲で）。挙動（localStorage 保存・`data-font-scale`）は不変。
+- 背景は白のまま、境界は既存の細い `border-b`。大きな画像・イラストは追加しない。
+- 影響範囲: `site-header.tsx` / `font-size-control.tsx`。axe（全主要画面）・E2E green、横スクロールなし。
+- 追記: ヘッダーを画面上部に固定（`sticky top-0 z-40`）。背景は不透明の `--color-surface` なので
+  本文がきれいに下を通る。`globals.css` の `html` に `scroll-padding-top: 5rem` を追加し、
+  スキップリンク（`#main`）等のアンカー先が固定ヘッダーに隠れないようにした。
+
+### 2026-09-03 フッターを世界観に馴染ませる（見た目のみ）
+- 指示書「フッターUI改善 v1」。文言・リンクは不変で見た目だけ。現状フッターのリンクは `/terms`
+  （「利用について」）1 本のみ＝新規リンク/ページ/© 以外のテキストは追加しない。
+- `site-footer.tsx`: 背景 `--color-surface`（白）→ `--color-surface-sunken`（本文より少し濃い生成り）。
+  左寄せ → 中央寄せ、`max-w-6xl` → `max-w-3xl`、注意書きは `max-w-2xl` ＋ `leading-relaxed` で
+  読みやすい幅に。先頭に `brand-icon.png`（`h-5 w-5`、ヘッダーより小さめ、`alt=""`）＋「できる道」。
+  末尾に `© {年} できる道` を追加（§4 の推奨構成。ページ/リンクではなく定型表記）。
+- 新しい画像・イラストセクションは足さない（7.png はフッターで再利用しない）。境界は既存の細い
+  `border-t` のまま。コントラストは sunken 上でも AA（axe トップ serious/critical 0）。
+
 ### 2026-09-03 スティッキーフッター（コンテンツが短い画面でフッター下に生成りの隙間）
 - 症状: トップなどコンテンツが短いページで、ビューポートより本文が短いとフッターの下に
   生成り（`--color-canvas`）の余白が出ていた。

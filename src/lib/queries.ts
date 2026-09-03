@@ -181,8 +181,6 @@ export async function searchMethods(q: ExperienceQuery) {
     hasMore: false,
     windowExceeded: false,
   };
-  if (!q.q?.trim()) return base;
-
   const skip = (q.mp - 1) * q.limit;
   if (skip >= MAX_RESULT_WINDOW) return { ...base, windowExceeded: true };
 

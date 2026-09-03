@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requirePageUserId } from "@/lib/session";
 import { getMyRoads } from "@/lib/queries";
-import { Card, EmptyState, LinkButton, ResultBadge } from "@/components/ui";
+import { EmptyState, LinkButton, ResultBadge } from "@/components/ui";
+import { IconFootprints } from "@/components/icons";
 
 export const metadata: Metadata = { title: "自分の道" };
 
@@ -31,9 +32,14 @@ export default async function MyRoadsPage() {
             const published = road.attempts.filter((a) => a.isPublished).length;
             return (
               <li key={road.id}>
-                <Card as="article">
+                {/* 枠線は検索の方法カード（MethodCard）と同じ `--color-primary`。背景は白のまま。 */}
+                <article className="rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-5 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)]">
                   <Link href={`/me/roads/${road.id}`} className="no-underline">
-                    <p className="font-bold text-[var(--color-ink)]">
+                    <p className="flex items-start gap-1.5 font-bold text-[var(--color-ink)]">
+                      <IconFootprints
+                        aria-hidden="true"
+                        className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-primary)]"
+                      />
                       {road.title ?? road.difficulty ?? "（無題の道）"}
                     </p>
                   </Link>
@@ -56,7 +62,7 @@ export default async function MyRoadsPage() {
                       ))}
                     </ul>
                   )}
-                </Card>
+                </article>
               </li>
             );
           })}
