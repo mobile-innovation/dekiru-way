@@ -10,7 +10,7 @@ import { test, expect } from "@playwright/test";
 test("困りごと入力 → 誰かの経験 → 自分の道に failed と success を残す", async ({ page }) => {
   // --- 未ログインでトップから検索 ---
   await page.goto("/");
-  await page.getByRole("searchbox", { name: "何ができなくて困っていますか？" }).fill("ボタン");
+  await page.getByRole("searchbox", { name: "あなたの困りごと" }).fill("ボタン");
   await page.getByRole("button", { name: "似た経験を探す" }).click();
 
   await expect(page).toHaveURL(/\/experiences\?q=/);

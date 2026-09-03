@@ -85,7 +85,7 @@ function withMaxHint(hint: ReactNode, max: number | undefined): ReactNode {
 }
 
 const CONTROL =
-  "w-full rounded-[var(--radius-md)] border bg-[var(--color-surface)] px-3.5 py-2.5 text-base";
+  "w-full rounded-[var(--radius-md)] border bg-[var(--color-surface)] px-3.5 py-2.5 text-base shadow-[0_1px_2px_rgba(46,42,38,0.04)]";
 const CONTROL_OK = "border-[var(--color-border)]";
 const CONTROL_ERR = "border-[var(--color-danger)]";
 

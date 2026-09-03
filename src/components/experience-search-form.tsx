@@ -3,6 +3,8 @@
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VoiceInputButton } from "@/components/voice-input-button";
+import { Button } from "@/components/ui";
+import { IconSearch, IconSlidersHorizontal } from "@/components/icons";
 import {
   ATTEMPT_RESULTS,
   RESULT_META,
@@ -15,6 +17,9 @@ import {
  * 「経験を探す」の検索ワード＋絞り込みをまとめた 1 つのフォーム。
  * 検索ワードと絞り込みが別フォームだと「この条件で探す」でワードが消えるため、1 つにまとめる。
  * 送信で URL を組み立てて遷移（page / mp は付けない＝1 ページ目に戻す）。
+ *
+ * デザインはトップ画面の検索カードと統一（指示書「経験を探す UI 統一 v1」）:
+ *   あなたの困りごと → 浮いた入力欄 → 音声入力 → ── 絞り込み ── → 4 セレクト → 実行/クリア。
  */
 
 const SORT_LABEL: Record<string, string> = {
@@ -24,7 +29,7 @@ const SORT_LABEL: Record<string, string> = {
 };
 
 const SELECT_CLASS =
-  "mt-1 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-base";
+  "mt-1 w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-base transition-colors focus-visible:border-[var(--color-primary)]";
 
 export function ExperienceSearchForm({
   defaultQ = "",
@@ -79,119 +84,142 @@ export function ExperienceSearchForm({
   }
 
   return (
-    <form onSubmit={submit} className="card space-y-4 p-4" role="search" aria-label="経験を探す">
-      <div className="space-y-2">
-        <label htmlFor={inputId} className="sr-only">
-          何ができなくて困っていますか？
+    <form
+      onSubmit={submit}
+      className="space-y-5 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-primary-tint)] p-5 shadow-[var(--shadow-card)] sm:p-6"
+      role="search"
+      aria-label="経験を探す"
+    >
+      {/* ① 困りごとを入力（浮いた入力欄。トップ画面と同じ見た目） */}
+      <div>
+        <label
+          htmlFor={inputId}
+          className="block text-sm font-bold text-[var(--color-ink)]"
+        >
+          あなたの困りごと
         </label>
-        <p id={hintId} className="text-sm text-[var(--color-ink-muted)]">
+        <p id={hintId} className="mt-1 text-sm text-[var(--color-ink-muted)]">
           できごとや場面を、いつもの言葉で書いてください。病名は必要ありません。
         </p>
-        <input
-          id={inputId}
-          name="q"
-          type="search"
-          value={qText}
-          onChange={(e) => setQText(e.target.value)}
-          aria-describedby={hintId}
-          placeholder="例：ボタンがとめにくい"
-          className="w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-base"
-        />
-        <VoiceInputButton onResult={(t) => setQText((v) => (v ? `${v} ${t}` : t))} />
+        <div className="relative mt-2">
+          <IconSearch
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-primary)]"
+          />
+          <input
+            id={inputId}
+            name="q"
+            type="search"
+            value={qText}
+            onChange={(e) => setQText(e.target.value)}
+            aria-describedby={hintId}
+            placeholder="例：ボタンがとめにくい"
+            className="w-full rounded-[12px] border border-[color-mix(in_srgb,var(--color-primary)_30%,white)] bg-[var(--color-surface)] py-3 pl-11 pr-4 text-base shadow-[0_2px_8px_rgba(46,42,38,0.05)] transition-[border-color,box-shadow] focus-visible:rounded-[12px] focus-visible:border-[var(--color-primary)] focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_28%,white),0_2px_8px_rgba(46,42,38,0.05)]"
+          />
+        </div>
+        <div className="mt-2">
+          <VoiceInputButton onResult={(t) => setQText((v) => (v ? `${v} ${t}` : t))} />
+        </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="block text-sm font-bold">
-          表示する種類
-          <select
-            name="kind"
-            value={shownKind}
-            onChange={(e) => setKind(e.target.value)}
-            disabled={!searching}
-            aria-describedby={searching ? undefined : `${inputId}-kind-hint`}
-            className={`${SELECT_CLASS} disabled:opacity-60`}
-          >
-            {EXPERIENCE_KINDS.map((k) => (
-              <option key={k} value={k}>
-                {EXPERIENCE_KIND_LABEL[k]}
-              </option>
-            ))}
-          </select>
-          {!searching && (
-            <span
-              id={`${inputId}-kind-hint`}
-              className="mt-1 block text-xs font-normal text-[var(--color-ink-muted)]"
+      {/* ② 必要なら絞り込む（検索入力と視覚的に分ける） */}
+      <div className="border-t border-[var(--color-border)] pt-4">
+        <p className="flex items-center gap-1.5 text-sm font-bold text-[var(--color-ink)]">
+          <IconSlidersHorizontal
+            aria-hidden="true"
+            className="h-4 w-4 text-[var(--color-ink-muted)]"
+          />
+          絞り込み
+        </p>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="block text-sm font-bold">
+            表示する種類
+            <select
+              name="kind"
+              value={shownKind}
+              onChange={(e) => setKind(e.target.value)}
+              disabled={!searching}
+              aria-describedby={searching ? undefined : `${inputId}-kind-hint`}
+              className={`${SELECT_CLASS} disabled:opacity-60`}
             >
-              検索ワードを入れると「方法」も選べます
-            </span>
-          )}
-        </label>
+              {EXPERIENCE_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {EXPERIENCE_KIND_LABEL[k]}
+                </option>
+              ))}
+            </select>
+            {!searching && (
+              <span
+                id={`${inputId}-kind-hint`}
+                className="mt-1 block text-xs font-normal text-[var(--color-ink-muted)]"
+              >
+                検索ワードを入れると「方法」も選べます
+              </span>
+            )}
+          </label>
 
-        <label className="block text-sm font-bold">
-          結果で絞る
-          <select
-            name="result"
-            value={result}
-            onChange={(e) => setResult(e.target.value)}
-            className={SELECT_CLASS}
-          >
-            <option value="">すべて</option>
-            {ATTEMPT_RESULTS.map((r) => (
-              <option key={r} value={r}>
-                {RESULT_META[r].icon} {RESULT_META[r].label}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="block text-sm font-bold">
+            結果で絞る
+            <select
+              name="result"
+              value={result}
+              onChange={(e) => setResult(e.target.value)}
+              className={SELECT_CLASS}
+            >
+              <option value="">すべて</option>
+              {ATTEMPT_RESULTS.map((r) => (
+                <option key={r} value={r}>
+                  {RESULT_META[r].icon} {RESULT_META[r].label}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="block text-sm font-bold">
-          タグで絞る
-          <select
-            name="tag"
-            value={tag}
-            onChange={(e) => setTag(e.target.value)}
-            className={SELECT_CLASS}
-          >
-            <option value="">すべて</option>
-            {tags.map((t) => (
-              <option key={t.id} value={t.name}>
-                #{t.name}（{t.roadCount}）
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="block text-sm font-bold">
+            タグで絞る
+            <select
+              name="tag"
+              value={tag}
+              onChange={(e) => setTag(e.target.value)}
+              className={SELECT_CLASS}
+            >
+              <option value="">すべて</option>
+              {tags.map((t) => (
+                <option key={t.id} value={t.name}>
+                  #{t.name}（{t.roadCount}）
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="block text-sm font-bold">
-          並び順
-          <select
-            name="sort"
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className={SELECT_CLASS}
-          >
-            {EXPERIENCE_SORTS.map((s) => (
-              <option key={s} value={s}>
-                {SORT_LABEL[s]}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="block text-sm font-bold">
+            並び順
+            <select
+              name="sort"
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className={SELECT_CLASS}
+            >
+              {EXPERIENCE_SORTS.map((s) => (
+                <option key={s} value={s}>
+                  {SORT_LABEL[s]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          className="tap-target rounded-[var(--radius-pill)] bg-[var(--color-primary)] px-5 py-2 text-sm font-semibold text-[var(--color-primary-ink)]"
-        >
+      {/* ③ 探す（主操作）／クリア（副操作） */}
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" variant="primary">
+          <IconSearch aria-hidden="true" className="h-4 w-4" />
           この条件で探す
-        </button>
-        <button
-          type="button"
-          onClick={clear}
-          className="tap-target inline-flex items-center rounded-[var(--radius-pill)] border border-[var(--color-border)] px-5 py-2 text-sm font-semibold"
-        >
+        </Button>
+        <Button type="button" variant="secondary" onClick={clear}>
           条件をクリア
-        </button>
+        </Button>
       </div>
     </form>
   );

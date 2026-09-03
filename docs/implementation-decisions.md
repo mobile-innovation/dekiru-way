@@ -601,6 +601,180 @@ AI に適用。将来は Upstash 等の共有ストアに差し替え。
   ② 🌱 CTA カード＝ボタンはサイド幅いっぱい）。`lg` 未満は 1 カラムで「道 → 参考情報 → CTA」の順に
   戻る。ページング・データ・API は不変（レイアウトのみ）。道の下に補足カードは残さない。
 
+### 2026-09-03 枝分かれ（親子）をページ境界で分断しない
+- 指示書「道の見える化 ページング修正指示書 v1」。詳細ページのツリーを 10 件で機械的に切ると
+  「方法J」と「方法J-2」のような枝分かれがページをまたぐことがあった。
+- 変更前: `paginateDetailRows` が `buildRoadDetailRows` の表示順を `DETAIL_PAGE_SIZE=10` で
+  `slice` するだけ。root の部分木がページ境界で割れた。
+- 変更後: `splitDetailRowsIntoPages(all, pageSize=10)` を新設。root（`depth===0`）＋その
+  `previous_attempt_id` 子孫を 1 グループとして扱い、グループ単位でページへ詰める。
+  優先順位は ① 親子・枝分かれの連続 → ② グループのまとまり → ③ 1 ページ ≒ 10 行。
+  ページに行があるうちは次グループが 10 を超えても `pageSize` 未満なら同ページに詰める（11・12 行を許容）。
+  ページが `pageSize` に達したら次グループは次ページ先頭へ。1 グループが `pageSize × 1.5`（=15）を
+  超えるならそのグループ全体を次ページ先頭へ送る。単独で 10 超のグループは分割せず 1 ページ占有。
+  `paginateDetailRows` はこの結果からページを 1 枚取り出すだけ（`pageCount` は実生成ページ数）。
+  グループは割れないので `continuesFromLabel` は通常付かない（保険で判定は残置）。
+- 影響範囲: `src/lib/road-detail.ts`（`splitDetailRowsIntoPages` 追加・`paginateDetailRows` 書き換え）、
+  `src/lib/queries.ts#treePageByAttempt`（方法カードの `treePage` も同じ分割を使用）、
+  `tests/unit/road-detail.test.ts` / `tests/e2e/branching-paths.spec.ts`。
+- 変更しないもの: データの並び順・sort・親子関係・DB・API・検索・結果 5 分類。フロントの分割ロジックのみ。
+- 将来への影響: 「10 で切る」より「道を分断しない」を優先。1 ページの行数は目安。
+
+### 2026-09-03 トップ画面 UI 刷新（検索を主役に・ラインアイコン統一・実データの道プレビュー）
+- 指示書「トップ画面 UI・デザイン刷新指示書 v1」。説明サイト調から「誰かの経験を探しに行く」画面へ。
+  機能・API・DB・検索/ページングロジック・遷移・結果 5 分類は一切変更しない（表示のみ）。
+- **ラインアイコンの内蔵セット** `src/components/icons.tsx`（新規）: 外部ライブラリを増やさず、
+  Lucide 系 24 グリッドの線画（MIT）を必要分だけ内蔵。すべて `currentColor` / 既定 `aria-hidden`。
+  `resultIcon(result)` で結果 5 分類 → アイコン（`resultMeta()` の色・ラベルと併用。色/アイコン単独では
+  状態を伝えない）。`RESULT_META.icon`（絵文字）は据え置き＝一覧・詳細の `ResultBadge` は不変。
+- **ファーストビュー = 検索**: `page.tsx` の hero を `card` 1 枚に集約（ブランド行「できる道」＋
+  「「できない」を終点にしない。」＋ `SearchBox` ＋ 例チップ）。`SearchBox` は入力欄の左に検索アイコン、
+  送信ボタンにも検索アイコン（ボタンのアクセシブル名は「似た経験を探す」のまま＝`critical-flow` 維持）。
+  例チップは枠線付き pill、hover で枠線＋背景が primary。
+- **サービスの流れ**: 「できない → 探す → 道を見る → 試す → 残す」を丸アイコン＋ラベルで可視化。
+  PC/タブレット横並び、スマホ縦（矢印は right アイコンを `rotate-90`）。装飾なので `<div>`＋
+  見出し `sr-only`（リスト semantics は付けない）。
+- **できる道とは（短縮）＋結果の見かた**: 説明文を 2 文に圧縮。結果 5 分類をラインアイコン＋
+  ラベルのチップ列で提示（ラベルは ink 色。色は `aria-hidden` のアイコンのみ＝コントラスト安全）。
+  「うまくいかなかった」を赤警告にせず accent-soft の囲みで「道の一部」と添える。
+- **道プレビュー**: `getPathClusters({limit:3})` の**実データ**をカード化（`border/bg` は primary-soft、
+  §10 の「線＋接続点＋カード」に合わせて縦スパイン＝`bg-primary opacity-25` の線＋左に丸ドット、
+  各ステップに方法名＋結果アイコン/ラベル）。カード全体が 1 つのリンク。ダミーデータは追加しない。
+  グリッドは `1 → md:2 → lg:3` 列（§20）。
+- **CTA**: primary-soft の囲みに「あなたの試したことも、誰かの次の一歩になります」＋
+  ＋アイコン付き「自分の道を作る」（文言は既存のまま）／「経験を探す →」。
+- **モーション**: `.rise-in`（`globals.css`）は `transform` のみの控えめな立ち上がり。透明度は
+  動かさない（フェード中にテキストのコントラストが落ち axe が拾うため）。reduced-motion は
+  既存の全体ルールで無効化。
+- 影響範囲: `src/app/page.tsx`、`src/components/search-box.tsx`、`src/components/icons.tsx`（新規）、
+  `src/app/globals.css`（`.rise-in`）。`layout.tsx` / トークン / 他画面は不変。
+- 確認: PC(1280) / タブレット(834) / スマホ(390) で横スクロールなし、a11y（axe serious/critical 0）、
+  E2E 70 / Vitest 92 すべて green。
+- **v2 ブラッシュアップ（指示書「トップ画面 最終UIブラッシュアップ指示書 v2」）**：作り直しではなく順序・
+  余白・実例カードの調整。
+  - **セクション順**：hero（メッセージ＋検索）→ **できる道とは** → 利用の流れ → 試した結果の見かた →
+    いろいろな方法が試されています → CTA。「利用の流れ」を「できる道とは」の**後ろ**に移動（意味を
+    理解してから使い方、という順）。「利用の流れ」は「できる道とは」セクション内に置き、説明文の
+    すぐ下（`pt-3`＝約 12px）に。
+  - **余白を圧縮**：外側を `space-y-12 sm:space-y-16` → `space-y-10`（40px）。セクション内は
+    `space-y-3`〜。ページ高が数十 px 縮む（間延び解消）。
+  - **結果セクションを分離**：見出し「試した結果の見かた」＋ 5 分類チップ＋ accent-soft の
+    「うまくいかなかった も道の一部」注記を独立セクションに。
+  - **実例カード**：タイトルアイコンを `IconRoute` → `IconFootprints`（👣、§14）。カード下部に
+    「{件数}つの方法を試した道」＋「この道を見る →」を `flex-1` で最下部そろえ（3 枚の高さ一致）。
+    hover は `-translate-y` → `hover:shadow-[var(--shadow-lift)]` ＋「この道を見る」に
+    `group-hover:underline`。補足文を「実際に記録された道の、ほんの一部です。」に。
+  - **CTA を控えめに**：枠を `border-[var(--color-primary)]` → `border-[var(--color-border)]`、
+    padding `p-6 sm:p-8` → `p-5 sm:p-6`、中央寄せをやめ左寄せ、`IconSprout`（新規）を見出しに付与、
+    ボタンは «自分の道を作る» 1 つだけ（「経験を探す」二次ボタンは削除。ヘッダー・hero と重複のため）。
+  - 影響範囲は v1 と同じファイル＋ `icons.tsx` に `IconSprout` 追加のみ。API/DB/データ/遷移は不変。
+- **検索入力欄の浮き上げ（指示書「検索入力欄 UI 改善 v1」）**：`search-box.tsx` のみ。入力場所が
+  一目で分かるよう、入力欄を親カードから一段浮かせる。
+  - 並び：大きな問い「何ができなくて困っていますか？」（`<p>` に降格）→ 補足 → **小ラベル
+    「あなたの困りごと」**（`<label htmlFor>` に昇格。placeholder をラベル代わりにしない。§20）→
+    入力欄 → 送信ボタン → 音声入力。`space-y-3` をやめ、ラベルと入力欄は `mt-1.5` で近づける。
+  - 入力欄：白地、`border-2` のやわらかいグリーン枠
+    （`color-mix(in srgb, var(--color-primary) 32%, white)`）、`shadow-[0_1px_2px_rgba(46,42,38,.06)]`
+    （カードの影より弱い）、高さ ≒ 50px、角丸は `--radius-md`（14px、カードの 20px より小さい）、
+    左に `IconSearch`（`--color-primary` 色）。`focus:border-[var(--color-primary)]` で枠だけ強める
+    （フォーカスリングは既存の全体 `:focus-visible` outline に任せる。新しい発光は足さない）。
+  - 音声入力ボタン（`VoiceInputButton`）は既存のまま＝枠線＋surface 地で主操作より控えめ。処理は不変。
+  - 検索候補チップ（`page.tsx` 側）は従来どおり別ブロック。役割の違い（自分で入力／入力を助ける選択肢）
+    が視覚的に分かる。
+  - `size="compact"`（未使用のバリアント）は従来どおり `sr-only` ラベルのみ。
+  - テスト追従：`critical-flow.spec.ts` の searchbox 参照名を「あなたの困りごと」に更新。
+  - 影響範囲: `src/components/search-box.tsx`、`tests/e2e/critical-flow.spec.ts`。API/DB/検索/音声処理は不変。
+- **v2 再修正（指示書「トップ画面 UI 再修正 v2」）：入力欄の浮きを強める＋説明 2 セクションをカード化**。
+  - **検索入力欄**：`border-2` の緑枠 → `border`（1px）＋やわらかいグリーン
+    （`color-mix(...30%,white)`）＋`shadow-[0_2px_6px_rgba(46,42,38,.06)]`（白面が一段浮いて見える。
+    3D ボタンにはしない）、角丸 `rounded-[12px]`、フォーカスで枠＝primary＋影を少しだけ強める
+    （`focus:shadow-[0_2px_10px_rgba(46,42,38,.09)]`。発光はしない）。
+  - **「できる道とは」「試した結果の見かた」をカード化**：どちらも `Card`（白・薄枠・弱い影・
+    `p-5`）に。`page.tsx` で `grid gap-4 md:grid-cols-2 md:items-stretch` に入れ、**PC/タブレットは
+    横並び・高さ揃え、スマホは 1 列**。見出しにラインアイコン（`IconLightbulb` / `IconEye`＝新規）。
+  - **利用の流れはカード内へ**：横 5 分割 `justify-between` をやめ、`flex flex-wrap` ＋各ステップ
+    `inline-flex`（丸 `h-8 w-8`）＋矢印を `contents` で独立折り返しに。半幅カード内で 3＋2 に折り返す。
+  - カードのリズム：検索カード → 説明カード×2 → 実例カード×3 → CTA カード。ページ高も短縮
+    （PC ≒ 1944 → 1790px）。実例カード・CTA は v2 から変更なし。
+  - `icons.tsx` に `IconLightbulb` / `IconEye` 追加。API/DB/データ/検索/遷移は不変。
+- **v3 微調整（指示書「トップ画面 最終微調整 v3」）：入力欄のフォーカス色＋実例カードの情報量**。
+  - **赤・オレンジの二重線をやめる**：原因は ① `SearchBox` の `autoFocus`（読み込み時に全体
+    `:focus-visible` の accent(#d1552f) outline が出てエラー状態に見えた）＋ ② その outline 自体。
+    → `page.tsx` の `<SearchBox>` から `autoFocus` を外す（初期表示でフォーカスを奪わない）。
+    → 入力欄に `focus-visible:outline-none` ＋ 枠＝primary ＋ やわらかいグリーンの
+    `0 0 0 3px` リング（`color-mix(...28%,white)`、offset なし＝二重線に見えない）。
+    ベースの影は `0 2px 8px rgba(46,42,38,.05)` に微調整。**バリデーションエラー表示の仕組みは不変**
+    （このフォームは送信で遷移するだけでインラインエラーは持たない）。
+  - **実例カードの情報量を整理**：方法テキストを `line-clamp-1`（1 行＋末尾省略。`truncate` は
+    `nowrap` でスマホ横スクロールを誘発したため不可）。「{件数}つの方法を試した道」の行を削除。
+    道の縦線・ドット・結果アイコン＋ラベル・「この道を見る →」（`flex-1` で下端そろえ）は維持。
+    詳細は「この道を見る」先で確認。データ・件数・結果分類は不変。
+  - 影響範囲: `src/components/search-box.tsx`、`src/app/page.tsx`。
+
+### 2026-09-03 「経験を探す」をトップ画面のデザイン言語に統一
+- 指示書「経験を探す UI デザイン統一 v1」。全面刷新ではなく、トップ画面で整えた
+  「浮いた入力欄＋カード UI」を `/experiences` にも適用。API/検索ロジック/DB/結果分類/タグ/
+  ページング/音声処理/遷移は不変。
+- **検索フォーム（`experience-search-form.tsx`）**:
+  - 入力欄をトップと同じ「浮いた入力欄」に（`sr-only` ラベル → 可視「あなたの困りごと」、
+    左に `IconSearch`、白地＋`color-mix(...30%,white)` の 1px 枠＋`0 2px 8px .05` 影、
+    `rounded-[12px]`、フォーカスはやわらかいグリーンの `0 0 0 3px` リング。赤・オレンジの通常枠なし）。
+  - **検索と絞り込みを視覚的に分離**：入力＋音声の下に `border-t` ＋ 小見出し「絞り込み」
+    （`IconSlidersHorizontal`）。その下に 4 セレクト（`sm:grid-cols-2 lg:grid-cols-4`、
+    角丸 `10px`・`focus-visible:border-primary` に統一）。
+  - 「この条件で探す」「条件をクリア」を `ui.tsx` の `Button`（primary / secondary）に統一
+    ＝トップの主要ボタンと同じ `BTN_BASE`。前者に `IconSearch`。
+  - カード padding を `p-4` → `p-5 sm:p-6`、`space-y-4` → `space-y-5`。
+- **道カード（`road-card.tsx`）**: 白カードのまま（一覧は白が読みやすい＝指示 §19）、トップの
+  実例カードと同じ「方法の縦線（●│●│●）」に。`・` 箇条書き → `<ol>`＋絶対配置の縦線＋ドット、
+  方法（`line-clamp-1`）の下に `ResultBadge`。見出しに `IconFootprints`。`flex h-full flex-col`
+  ＋「この道を見る」を `mt-auto`＋`IconArrowRight` で下端そろえ。`MAX_METHODS` 4 → 3（一覧の
+  スキャン性。総数「試したこと（N）」の表示は不変＝e2e 依存）。「だれかの道」ラベルは維持（e2e）。
+- `method-card.tsx` は変更なし（緑＝道詳細ツリーと同系。既存決定と e2e を尊重）。
+- `icons.tsx` に `IconSlidersHorizontal` 追加。
+- 影響範囲: `src/components/experience-search-form.tsx` / `road-card.tsx` / `icons.tsx`。
+  `src/app/experiences/page.tsx` は不変。
+
+### 2026-09-03 検索カードを淡いグリーンに（探す＝緑 / 見る＝白）
+- 指示書「トップ画面 検索カード背景色変更 v1」。白い面が連続してメリハリが弱いため、役割で
+  色を分ける：**探す・行動する面＝淡いグリーン／説明・結果を見る面＝白**。
+- `tokens.css` に `--color-primary-tint: #edf7f3`（`--color-primary-soft #e3f1ec` よりさらに淡く
+  白に近い緑）を追加。
+- トップの hero セクションと `ExperienceSearchForm` の外枠を `.card`（白）から
+  「`--radius-lg` ＋ `--color-border` の枠 ＋ `--shadow-card` ＋ `bg-[var(--color-primary-tint)]`」
+  に置換（`.card` は背景が白固定のため、非白カードは既存パターン同様に手組み）。
+- **入力欄は白のまま**（`bg-[var(--color-surface)]`）＝淡い緑の面の中に白い入力欄が浮く 2 段構造。
+  赤・オレンジの通常枠は無し（v3 のフォーカス仕様のまま）。
+- 説明カード（できる道とは／試した結果の見かた）＝白のまま。実例カード・CTA＝`--color-primary-soft`
+  ＋緑枠のまま（検索カードよりわずかに濃い緑で役割を区別）。補足＝`--color-accent-soft` のまま。
+- コントラスト：`#edf7f3` 上で ink / ink-muted / primary いずれも AA 以上（axe serious/critical 0）。
+- 影響範囲: `src/styles/tokens.css` / `src/app/page.tsx` / `src/components/experience-search-form.tsx`。
+  機能・API・DB・検索・音声処理・遷移は不変。
+
+### 2026-09-03 「自分の道を作る」フォームカードも淡いグリーンに（3 画面統一）
+- 指示書「自分の道を作る 背景色統一 v1」。トップ・経験を探すと同じルール（探す／作る面＝淡いグリーン、
+  実際に入力する欄＝白）を `/me/roads/new` にも適用。
+- `road-form.tsx` の `<fieldset>` を `.card`（白）→ `--color-primary-tint` の手組みカード
+  （`--radius-lg` 枠＋`--shadow-card`）に。エラー表示・「この道を作る」ボタン・下部の補足文は
+  従来どおりフォームカードの**外**（生成り地）に置く。
+- `form.tsx` の `CONTROL`（TextField / TextAreaField 共通の入力欄クラス）に
+  `shadow-[0_1px_2px_rgba(46,42,38,.04)]` を追加＝緑の面に白い入力欄がわずかに浮く。
+  白カード上の他フォーム（attempt-form / road-edit-form）でもごく薄く自然。border/角丸/色は不変。
+- 通常状態の赤・オレンジ枠なし（`CONTROL_OK` は `--color-border` のまま）。エラーは `CONTROL_ERR`
+  （`--color-danger` 枠）の既存仕様を維持。文字数カウンタ・音声入力・日付入力も同じ体系のまま。
+- コントラスト：`#edf7f3` 上でラベル・ヒント・カウンタ・本文いずれも AA 以上（axe「自分の道を作る」
+  serious/critical 0）。
+- 影響範囲: `src/components/road-form.tsx` / `src/components/form.tsx`。入力項目・保存処理・
+  バリデーション・音声処理・遷移・文言は不変。
+
+### 2026-09-03 スティッキーフッター（コンテンツが短い画面でフッター下に生成りの隙間）
+- 症状: トップなどコンテンツが短いページで、ビューポートより本文が短いとフッターの下に
+  生成り（`--color-canvas`）の余白が出ていた。
+- 修正: `globals.css @layer base` で `body` を `display:flex; flex-direction:column;
+  min-height:100vh`（＋ `100dvh` で上書き）に、`body > main` を `flex:1 0 auto` に。
+  短いページでは `<main>` が伸びてフッターがビュー下端に貼り付く。
+- 影響範囲: `src/app/globals.css` のみ。全ページ共通のレイアウト挙動。
+
 ### 2026-09-03 入力欄に最大文字数を表示
 - 変更前: テキスト入力に文字数の目安が無く、超過は送信後に「N 文字以内で入力してください」で気づくだけ
 - 変更後: 自由記述の入力欄に「最大 N 文字」（hint＝aria-describedby で focus 時に読まれる）と

@@ -21,7 +21,8 @@
   --color-primary: #1f6f60; /* teal-green: 成長・道 */
   --color-primary-hover: #17564a;
   --color-primary-ink: #ffffff;
-  --color-primary-soft: #e3f1ec; /* 淡い背景 */
+  --color-primary-soft: #e3f1ec; /* 淡い背景（実例カード・CTA・結果チップ） */
+  --color-primary-tint: #edf7f3; /* さらに淡い緑。「探す場所」の面（検索カード）。白に近い */
 
   /* アクセント (やさしいコーラル。強調・リンク下線など) */
   --color-accent: #d1552f;

@@ -38,6 +38,14 @@
     line-height: 1.75;
     letter-spacing: 0.01em;
     -webkit-font-smoothing: antialiased;
+    /* コンテンツが短くてもフッターを画面下に貼り付け、下に生成りの余白が出ないようにする */
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  body > main {
+    flex: 1 0 auto;
   }
 
   /* リンクは色だけに頼らず下線を基本にする (指示書 8/9: 色依存禁止)。
@@ -117,5 +125,17 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-card);
+  }
+
+  /* 表示時の控えめな立ち上がり (指示書 v1 §19)。
+     テキストのコントラストを一瞬でも下げないよう、透明度は動かさず transform だけにする。
+     reduced-motion では @layer base の全 *::* ルールで実質無効化される。 */
+  .rise-in {
+    animation: rise-in 0.4s ease both;
+  }
+  @keyframes rise-in {
+    from {
+      transform: translateY(6px);
+    }
   }
 }

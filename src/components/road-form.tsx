@@ -155,7 +155,9 @@ export function RoadForm() {
         </div>
       )}
 
-      <fieldset className="card space-y-5 p-5">
+      {/* 入力フォームのまとまり＝「作る場所」なので淡いグリーン（トップ / 経験を探す と統一）。
+          中の各入力欄は form.tsx の CONTROL で白のまま＝緑の面に白い入力欄が浮く。 */}
+      <fieldset className="space-y-5 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-primary-tint)] p-5 shadow-[var(--shadow-card)] sm:p-6">
         <legend className="px-1 text-base font-bold">これから試していく「道」を作ります</legend>
 
         <div className="space-y-2">
