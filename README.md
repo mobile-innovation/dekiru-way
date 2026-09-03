@@ -113,7 +113,7 @@ npm run dev
 docker compose up -d              # DB / MinIO
 npx prisma migrate deploy && npm run db:seed
 npm test                          # Vitest: 89 件（lib ロジック + 道ツリー/ページ分割 + 検索の出し分け/ページ送り + 認可 + bot-guard の結合）
-npm run test:e2e                  # Playwright: 66 件（重要シナリオ / 道の作成 / 権限 / 枝分かれ道・10件ページ分割 / 検索カードの出し分け・種類指定・ページ送り / できた％・気持ち / スクレイピング対策 / axe）
+npm run test:e2e                  # Playwright: 70 件（重要シナリオ / 道の作成・文字数表示 / 権限 / 枝分かれ道・10件ページ分割 / 検索カードの出し分け・種類指定・ページ送り / できた％・気持ち / スクレイピング対策 / axe）
 ```
 
 E2E は `E2E_TEST_LOGIN=true` でモックログインを使う（Google OAuth 不要）。

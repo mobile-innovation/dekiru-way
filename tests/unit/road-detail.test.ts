@@ -168,22 +168,90 @@ describe("paginateDetailRows（表示上の 10 ブロックごとのページ分
     expect(paginateDetailRows(all, -5).page).toBe(1);
   });
 
-  it("親子チェーンがページ境界をまたぐと、次ページ先頭に親ラベルの続き表示が付く", () => {
-    // 方法A..方法J（10 root）＋ 方法J の子 方法J-2（11 行目）。境界は 10/11 の間。
+  it("10 件目に親、その子が 11・12 件目でも、親子は同じ（1）ページに収まる（10 で切らない）", () => {
+    // 独立 root 9 個 ＋ 10 個目の root（子 2 個持ち）。行数は 12。
     const branches: Branch[] = [
       ...Array.from({ length: 10 }, (_, i) =>
         b({ id: `r${i + 1}`, triedAt: `2025-02-${day(i + 1)}` }),
       ),
-      b({ id: "r10child", previousAttemptId: "r10", triedAt: "2025-02-20" }),
+      b({ id: "r10c1", previousAttemptId: "r10", triedAt: "2025-02-20" }),
+      b({ id: "r10c2", previousAttemptId: "r10", triedAt: "2025-02-21" }),
     ];
     const all = buildRoadDetailRows(branches);
-    expect(all).toHaveLength(11);
+    expect(all).toHaveLength(12);
+    const p1 = paginateDetailRows(all, 1);
+    expect(p1.pageCount).toBe(1);
+    expect(p1.rows).toHaveLength(12);
+    expect(p1.continuesToNextPage).toBe(false);
+    const ids = p1.rows.map((r) => r.branch.id);
+    expect(ids).toContain("r10");
+    expect(ids).toContain("r10c1");
+    expect(ids).toContain("r10c2");
+  });
+
+  it("9 件目に親、その子 2 件があっても親子は同じページ（I・I-2・I-3 が分かれない）", () => {
+    const branches: Branch[] = [
+      ...Array.from({ length: 9 }, (_, i) =>
+        b({ id: `r${i + 1}`, triedAt: `2025-04-${day(i + 1)}` }),
+      ),
+      b({ id: "r9c1", previousAttemptId: "r9", triedAt: "2025-04-20" }),
+      b({ id: "r9c2", previousAttemptId: "r9", triedAt: "2025-04-21" }),
+    ];
+    const all = buildRoadDetailRows(branches);
+    const p1 = paginateDetailRows(all, 1);
+    expect(p1.pageCount).toBe(1);
+    expect(p1.rows.map((r) => r.branch.id)).toEqual([
+      "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r9c1", "r9c2",
+    ]);
+  });
+
+  it("次の独立した方法グループは次ページへ送る（2 ページ目の先頭が子にならない）", () => {
+    // root 10 個 ＋ r10 の子 1 個（→ 1 ページ 11 行）＋ さらに独立 root 2 個
+    const branches: Branch[] = [
+      ...Array.from({ length: 10 }, (_, i) =>
+        b({ id: `r${i + 1}`, triedAt: `2025-05-${day(i + 1)}` }),
+      ),
+      b({ id: "r10c", previousAttemptId: "r10", triedAt: "2025-05-11" }),
+      b({ id: "x1", triedAt: "2025-05-20" }),
+      b({ id: "x2", triedAt: "2025-05-21" }),
+    ];
+    const all = buildRoadDetailRows(branches);
+    const p1 = paginateDetailRows(all, 1);
     const p2 = paginateDetailRows(all, 2);
-    expect(p2.rows[0].branch.id).toBe("r10child");
-    expect(p2.continuesFromLabel).toBe("方法J"); // 10 番目の root ラベル
-    // 親子関係・入れ子ラベルは分割しても保持
-    expect(p2.rows[0].label).toBe("方法J-2");
-    expect(p2.rows[0].depth).toBe(1);
+    expect(p1.pageCount).toBe(2);
+    const p1ids = p1.rows.map((r) => r.branch.id);
+    expect(p1ids).toContain("r10");
+    expect(p1ids).toContain("r10c");
+    // 2 ページ目の先頭は独立 root（previousAttemptId 無し）
+    expect(p2.rows[0].branch.previousAttemptId ?? null).toBeNull();
+    expect(p2.rows.map((r) => r.branch.id)).toEqual(["x1", "x2"]);
+    expect(p2.continuesFromLabel).toBeNull();
+  });
+
+  it("非常に大きい枝グループは、そのグループ全体を次ページの先頭へ送る（ページが異常に長くならない）", () => {
+    // 独立 root 9 個 ＋ 子 12 個を持つ大きな枝（13 行のグループ）
+    const branches: Branch[] = [
+      ...Array.from({ length: 9 }, (_, i) =>
+        b({ id: `r${i + 1}`, triedAt: `2025-06-${day(i + 1)}` }),
+      ),
+      b({ id: "big", triedAt: "2025-06-10" }),
+      ...Array.from({ length: 12 }, (_, i) =>
+        b({ id: `big-c${i + 1}`, previousAttemptId: "big", triedAt: `2025-06-${day(11 + i)}` }),
+      ),
+    ];
+    const all = buildRoadDetailRows(branches);
+    const p1 = paginateDetailRows(all, 1);
+    const p2 = paginateDetailRows(all, 2);
+    expect(p1.pageCount).toBe(2);
+    // 大きい枝は分割されず、1 ページに 13 行まとめて載る
+    const bigPage = [p1, p2].find((pg) => pg.rows.some((r) => r.branch.id === "big"))!;
+    const bigIds = bigPage.rows
+      .filter((r) => r.branch.id === "big" || r.branch.id.startsWith("big-c"))
+      .map((r) => r.branch.id);
+    expect(bigIds).toHaveLength(13);
+    // その他の独立 root は別ページ
+    const otherPage = bigPage === p1 ? p2 : p1;
+    expect(otherPage.rows.every((r) => r.depth === 0)).toBe(true);
   });
 
   it("チェーンをまたがない普通の次ページ先頭には続き表示を付けない", () => {

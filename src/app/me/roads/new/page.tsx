@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "自分の道を作る" };
 
 export default function NewRoadPage() {
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-5">
+    <div className="mx-auto w-full max-w-6xl space-y-5">
       <p className="text-sm">
         <Link href="/me">← 自分の道の一覧へ戻る</Link>
       </p>

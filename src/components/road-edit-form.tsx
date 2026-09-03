@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { TextField, TextAreaField } from "@/components/form";
+import { FIELD_MAX } from "@/lib/constants";
 import { api, ClientApiError } from "@/lib/client/api";
 import type { RoadDTO } from "@/lib/serializers";
 
@@ -80,16 +81,30 @@ export function RoadEditForm({ road }: { road: RoadDTO }) {
           {error}
         </p>
       )}
-      <TextField label="タイトル（一覧での見出し）" {...bind("title")} error={fieldErrors.title} />
-      <TextAreaField label="以前できていたこと" {...bind("previouslyAble")} />
-      <TextAreaField label="できなくなったこと" {...bind("difficulty")} error={fieldErrors.difficulty} />
-      <TextAreaField label="やりたいこと・目標" {...bind("goal")} />
+      <TextField
+        label="タイトル（一覧での見出し）"
+        {...bind("title")}
+        error={fieldErrors.title}
+        maxLength={FIELD_MAX.title}
+      />
+      <TextAreaField label="以前できていたこと" {...bind("previouslyAble")} maxLength={FIELD_MAX.text} />
+      <TextAreaField
+        label="できなくなったこと"
+        {...bind("difficulty")}
+        error={fieldErrors.difficulty}
+        maxLength={FIELD_MAX.text}
+      />
+      <TextAreaField label="やりたいこと・目標" {...bind("goal")} maxLength={FIELD_MAX.text} />
       <TextField label="いつ頃から難しくなったか" type="date" {...bind("startedAt")} error={fieldErrors.startedAt} />
-      <TextAreaField label="困っている場面" {...bind("situation")} />
-      <TextField label="状態（例：継続中／一区切り）" {...bind("status")} />
-      <TextAreaField label="いまの進捗" {...bind("progress")} />
-      <TextAreaField label="次に試すこと" {...bind("nextAction")} />
-      <TextAreaField label="メモ" {...bind("memo")} />
+      <TextAreaField label="困っている場面" {...bind("situation")} maxLength={FIELD_MAX.text} />
+      <TextField
+        label="状態（例：継続中／一区切り）"
+        {...bind("status")}
+        maxLength={FIELD_MAX.statusLabel}
+      />
+      <TextAreaField label="いまの進捗" {...bind("progress")} maxLength={FIELD_MAX.text} />
+      <TextAreaField label="次に試すこと" {...bind("nextAction")} maxLength={FIELD_MAX.text} />
+      <TextAreaField label="メモ" {...bind("memo")} maxLength={FIELD_MAX.longText} />
       <TextField label="タグ（カンマ区切り）" {...bind("tags")} />
 
       <div className="flex items-center justify-between">

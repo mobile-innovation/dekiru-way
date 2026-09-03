@@ -21,7 +21,7 @@ export default async function EditAttemptPage({
   if (!attempt) notFound();
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5">
+    <div className="mx-auto w-full max-w-6xl space-y-5">
       <p className="text-sm">
         <Link href={`/me/roads/${roadId}`}>← {road.title ?? road.difficulty ?? "道"} へ戻る</Link>
       </p>

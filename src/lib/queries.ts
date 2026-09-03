@@ -7,7 +7,7 @@ import {
   experienceInclude,
 } from "@/lib/search";
 import { serializeExperience, serializeRoad, sortAttemptsChronologically } from "@/lib/serializers";
-import { buildRoadDetailRows, DETAIL_PAGE_SIZE } from "@/lib/road-detail";
+import { buildRoadDetailRows, splitDetailRowsIntoPages } from "@/lib/road-detail";
 import type { Branch } from "@/components/branching-paths";
 import { MAX_RESULT_WINDOW, type ExperienceQuery } from "@/lib/validation";
 
@@ -159,8 +159,10 @@ async function treePageByAttempt(roadIds: string[]): Promise<Map<string, number>
         triedAt: s.triedAt ? s.triedAt.toISOString().slice(0, 10) : null,
         previousAttemptId: s.previousAttemptId,
       }));
-    const rows = buildRoadDetailRows(branches);
-    rows.forEach((r, i) => out.set(r.branch.id, Math.floor(i / DETAIL_PAGE_SIZE) + 1));
+    const pages = splitDetailRowsIntoPages(buildRoadDetailRows(branches));
+    pages.forEach((pageRows, pi) => {
+      for (const r of pageRows) out.set(r.branch.id, pi + 1);
+    });
   }
   return out;
 }

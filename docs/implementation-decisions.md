@@ -442,8 +442,9 @@ AI に適用。将来は Upstash 等の共有ストアに差し替え。
 
 - 1 ブロック = ツリー上の 1 方法（1 行）。幹ノードは数えず、どのページにも文脈として出す。
 - `src/lib/road-detail.ts#paginateDetailRows(allRows, page)` が
-  `buildRoadDetailRows` の**表示順のまま** `DETAIL_PAGE_SIZE=10` 件ずつに区切るだけ。
+  `buildRoadDetailRows` の**表示順のまま** `DETAIL_PAGE_SIZE=10` 件を目安に区切る。
   親子関係・並び・`state_after`＝現在・できた％・気持ち・次に試すことは一切変えない。
+  （後述「枝分かれ（親子）をページ境界で分断しない」で、10 は絶対境界ではなく目安に変更。）
 - チェーン（`previous_attempt_id`）がページ境界をまたぐと、次ページ先頭に
   「← 「方法X」からの続き」（親ラベル）と、前ページ末尾に「↓ この先は次のページに続きます」を出す。
   **表示上の補助だけで、新しい枝も親子関係の書き換えもしない。**
@@ -454,6 +455,31 @@ AI に適用。将来は Upstash 等の共有ストアに差し替え。
 - `BranchingPaths` に `page` / `pageHref` prop を追加（`pageHref` が無ければ分割しない）。
 - テスト：`road-detail.test.ts`（10/11/20/21・クランプ・境界チェーン・値の保持）、
   `branching-paths.spec.ts`（12 方法の道で 1↔2 ページ遷移と続き表示）。
+
+### 追記：枝分かれ（親子）をページ境界で分断しない
+
+指示「道の見える化 ページング修正指示書 v1」。10 件で機械的に区切ると「方法J」と「方法J-2」の
+ような枝分かれがページをまたぐ問題があったため、**ページ境界より枝のまとまりを優先**する方式へ変更。
+データの並び順・sort・親子関係・DB・API・検索・結果 5 分類は不変。フロントの分割ロジックのみ。
+
+- `buildRoadDetailRows` は root（`depth === 0`）ごとに、その部分木を表示順で連続させて返す。
+  この「root の部分木」を **1 グループ**として扱う（親＋`previous_attempt_id` でつながる子孫は不可分）。
+- `src/lib/road-detail.ts#splitDetailRowsIntoPages(all, pageSize=10)` を新設。グループ単位で
+  ページへ詰める。優先順位は ① 親子・枝分かれの連続 → ② グループのまとまり → ③ 1 ページ ≒ 10 行。
+  - ページに行があるうちは、次グループを足すと 10 を超えても、`pageSize` 未満なら詰める
+    （→ 11・12 行などを許容）。ページが `pageSize` に達したら次グループは次ページ先頭へ。
+  - 1 グループが `pageSize × 1.5`（＝ 15）を超える大きさになる場合は、そのグループ全体を
+    次ページ先頭へ送る（ページが異常に長くならないように）。単独でも 10 を超えるグループは
+    分割せずそのグループだけで 1 ページにする。
+- `paginateDetailRows` は `splitDetailRowsIntoPages` の結果からページを 1 枚取り出すだけ。
+  `pageCount` は実際に生成されたページ数。グループは分割しないので `continuesFromLabel` は
+  通常付かない（保険として判定コードは残置）。
+- `src/lib/queries.ts#treePageByAttempt`（方法カードの `treePage`）も同じ
+  `splitDetailRowsIntoPages` を使い、リンク先ページと表示ページが一致するようにした。
+- テスト追加：`road-detail.test.ts`（10 件目に親＋子 2＝同ページ／9 件目に親＝同ページ／
+  次の独立グループは次ページ・先頭が子にならない／巨大な枝はグループごと次ページ）、
+  `branching-paths.spec.ts`（12 方法・11 件目が 10 件目の子＝方法J と方法J-2 は同ページ、
+  2 ページ目は方法K だけ・「続き」表示なし）。
 
 ### 追記：枝の接続点をカード左枠線の中央に「半円」で表示する
 
@@ -530,3 +556,58 @@ AI に適用。将来は Upstash 等の共有ストアに差し替え。
 - 理由: 別プロジェクトのコンテナが 5432 を使用しており衝突した
 - 影響範囲: `docker-compose.yml`、`.env.example` の `DATABASE_URL`
 - 将来への影響: なし（本番は環境変数で上書き）
+
+### 2026-09-03 ページ幅の整理
+- 変更前: `/experiences` は `max-w-6xl`、`/`・`/experiences/paths` は `max-w-5xl`、`/me` 系は
+  `max-w-3xl`〜`max-w-5xl` とページごとにばらついていた
+- 変更後:
+  - ダッシュボード的に横に広く使うページ（`/`、`/experiences`、`/experiences/paths`、`/me` と
+    その配下のフォーム）は外側 `max-w-6xl`（`layout.tsx` の `<main>` と同じ）にそろえた。
+  - **経験詳細 `/experiences/[id]` は 1 本の縦ツリーを読むページなので `max-w-3xl`**（戻る/見出し/
+    ツリー/注意書き/CTA が全部同じ幅の 1 カラム）。`BranchingPaths` 非 dense は内側の
+    `mx-auto max-w-xl` をやめてカード幅いっぱいに左寄せ（ツリーが広いカードの中央で浮くのを解消。
+    ユーザー指摘）。dense（`/experiences/paths` の一覧）は従来どおり `mx-auto max-w-lg`。
+  - `/terms`（長文の規約 = `max-w-3xl`）、`/login`・`error`・`not-found`（カード = `max-w-md`）は対象外
+- 理由: ページ間で横幅が変わって見える／ツリーが中央で浮くのを解消
+- 影響範囲: 各 `src/app/**/page.tsx` の最上位コンテナ、`branching-paths.tsx` の内側ラッパの className
+- 将来への影響: 一覧・作成系は `max-w-6xl`、読み物系は `max-w-3xl` を目安にする
+
+### 2026-09-03 「この人がたどった道」の表示バランス調整（レイアウトのみ）
+- 指示書「道の見える化 画面レイアウト調整 v1 → v2」。10 件ページング・データ・API・親子関係・
+  「現在」「できた％」「気持ち」などの仕様は一切変更せず、`branching-paths.tsx` の余白・情報階層と
+  `experiences/[id]/page.tsx` のレイアウト・文言だけ整える。
+- **中央幅を拡大**：`/experiences/[id]` を `max-w-3xl` → `max-w-4xl`（≒900px）。内側の写真・注意書きの
+  `max-w-3xl` ラッパも外して 4xl でそろえた。
+- **「以前できていた」「やりたいこと」を上部の横並びカードへ**：`BranchingPaths` に
+  `trunkLayout: "inline" | "none"`（既定 inline）を追加。詳細ページは `"none"` を渡して幹ノードを
+  ツリーから外し、ページ側で `grid sm:grid-cols-2`（PC 横並び / スマホ縦）に出す。幹ノードが無いとき
+  幹線は最初の方法カードの中央から始める。dense（`/experiences/paths`）は従来どおり inline。
+- **方法カードを横長＆コンパクトに**：カード padding `p-4`→`px-4 py-3`、行間 `pb-5`→`pb-2.5`（10px）、
+  カード内を「① ラベル＋方法名 ／ ② 結果・できた％・試した時期を 1 行 ／ ③ 詳細 `<dl>`」の 3 段に。
+  方法名は CJK でも 1 文字折り返しにならないよう flex ではなく `<p>` で扱う。詳細 `<dl>` は
+  `space-y-0.5`。幹ノード（NodeBox）も `py-2`→`py-1.5`。
+- 線・接続点は既存のまま（幹線＝各行の `left-0` セグメント、接続点＝カード左枠線の縦中央の「食い込んだ半円」）。
+- 文言：イントロを 1 行に短縮。下部 CTA を「あなたの試した方法も、誰かの次の一歩になります。／
+  自分の困りごとや、試したことを記録してみませんか？」に、注意書きに「うまくいかなかった方法も、
+  次の人にとって大切な情報です」を追加。
+- **v3: 「できていたこと」を常に表示＋アイコン**：上部 2 カードは `r.previouslyAble` の有無に関わらず
+  必ず出す（`previously_able` の実データを表示。空なら**内容を生成せず**「まだ登録されていません」）。
+  ラベルは「できていたこと」/「やりたいこと」。それぞれ絵文字アイコン（👤 / 🎯、`aria-hidden`、
+  `text-sm` ≒16px）を付与。方法カードの状態アイコンは既存 `ResultBadge`（`RESULT_META.icon` の絵文字）
+  で既に表示済み。アイコンだけに頼らず状態名の文字は必ず残す（指示書 9）。
+- **v1 サイド配置: 参考情報＋CTA を PC で右サイドへ**：`/experiences/[id]` を `max-w-4xl`→`max-w-5xl`。
+  `lg` 以上で `grid-cols-[minmax(0,1fr)_17rem]`（メイン ≒73% / サイド 272px、`items-start`）。
+  左＝道の本体（道 Card ＋ 写真）、右＝`<aside>`（① ℹ️ この情報について＝既存の注意書き文言そのまま、
+  ② 🌱 CTA カード＝ボタンはサイド幅いっぱい）。`lg` 未満は 1 カラムで「道 → 参考情報 → CTA」の順に
+  戻る。ページング・データ・API は不変（レイアウトのみ）。道の下に補足カードは残さない。
+
+### 2026-09-03 入力欄に最大文字数を表示
+- 変更前: テキスト入力に文字数の目安が無く、超過は送信後に「N 文字以内で入力してください」で気づくだけ
+- 変更後: 自由記述の入力欄に「最大 N 文字」（hint＝aria-describedby で focus 時に読まれる）と
+  「N / MAX 文字」の残数カウンタ（目視用・`aria-hidden`）を表示。`maxLength` 属性でブラウザ側でも制限。
+- 理由: 上限を事前に伝える（アクセシビリティ方針：フォームは文言で説明する）
+- 影響範囲: `src/components/form.tsx`（`TextField`/`TextAreaField` に `maxLength` 対応）、
+  `road-form.tsx` / `attempt-form.tsx` / `road-edit-form.tsx`。上限値は
+  `src/lib/constants.ts#FIELD_MAX` に集約し zod スキーマ（`validation.ts`）と共有（片方だけずれない）。
+  date/select など長さの概念が無い項目には付けない。
+- 将来への影響: 新しいテキスト項目も `maxLength={FIELD_MAX.*}` を渡すだけで表示が付く

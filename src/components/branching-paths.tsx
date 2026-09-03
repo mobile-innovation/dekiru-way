@@ -72,6 +72,12 @@ interface Props {
    */
   dense?: boolean;
   /**
+   * 幹ノード（以前できていた / できなくなった / やりたいこと）をこのツリー内に出すか。
+   * "none" のときは呼び出し側が別レイアウト（例: 上部に横並びカード）で出す前提で、
+   * ここでは方法カードだけ描く。既定 "inline"。
+   */
+  trunkLayout?: "inline" | "none";
+  /**
    * 経験詳細で方法ブロックが多いときの「表示上の」ページ番号（1 起点）。
    * dense=false かつ pageHref があるときだけ 10 ブロックずつに区切る。DB には保存しない。
    */
@@ -139,7 +145,7 @@ function TreeItem({
   const pad = `${armRem}rem`;
   return (
     <li
-      className={`relative ${last ? "" : tight ? "pb-3" : "pb-5"}`}
+      className={`relative ${last ? "" : tight ? "pb-2" : "pb-2.5"}`}
       style={{ paddingLeft: pad }}
     >
       <Spine from={first ? "mid" : "top"} to={last ? "mid" : "bottom"} />
@@ -178,7 +184,7 @@ function NodeBox({
 }) {
   return (
     <div
-      className={`w-full rounded-[var(--radius-sm)] px-3 py-2 ${
+      className={`w-full rounded-[var(--radius-sm)] px-3 py-1.5 ${
         strong
           ? "bg-[var(--color-primary-soft)] font-bold"
           : "bg-[var(--color-surface-sunken)]"
@@ -216,25 +222,27 @@ function BranchCardInner({
     Boolean(branch.nextAction);
   return (
     <>
-      <span className="block text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
-        {label}
-      </span>
-      <p className={`mt-1 whitespace-pre-wrap font-medium ${dense ? "text-sm" : ""}`}>
-        {branch.method}
+      {/* 1 段目: ラベル＋方法名（1 行に収まらなければ折り返す。CJK なので flex では潰さない） */}
+      <p className={`font-medium ${dense ? "text-sm" : ""}`}>
+        <span className="mr-2 align-baseline text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+          {label}
+        </span>
+        <span className="whitespace-pre-wrap">{branch.method}</span>
       </p>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
+      {/* 2 段目: 結果・状態・試した時期を 1 行に */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         <ResultBadge result={branch.result} size="sm" />
         {typeof branch.achievementPercent === "number" && (
           <span className="rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-ink-muted)]">
             できた度 {branch.achievementPercent}%
           </span>
         )}
+        {branch.triedAt && (
+          <span className="text-[11px] text-[var(--color-ink-muted)]">{branch.triedAt}</span>
+        )}
       </div>
-      {branch.triedAt && (
-        <p className="mt-1 text-[11px] text-[var(--color-ink-muted)]">{branch.triedAt}</p>
-      )}
       {hasDetail && (
-        <dl className="mt-2 space-y-1 border-t border-[var(--color-border)] pt-2 text-xs text-[var(--color-ink-muted)]">
+        <dl className="mt-1.5 space-y-0.5 border-t border-[var(--color-border)] pt-1.5 text-xs text-[var(--color-ink-muted)]">
           {branch.feeling && (
             <div>
               <dt className="inline font-bold">そのときの気持ち：</dt>
@@ -274,16 +282,20 @@ export function BranchingPaths({
   note = DEFAULT_NOTE,
   branchPointLabel = "ここから、いろいろな方法を試しています",
   dense = false,
+  trunkLayout = "inline",
   page = 1,
   pageHref,
 }: Props) {
   if (branches.length === 0) return null;
 
-  const trunkNodes = [
-    trunk.previouslyAble && { label: "以前できていた", text: trunk.previouslyAble },
-    trunk.difficulty && { label: "できなくなった", text: trunk.difficulty },
-    { label: "やりたいこと", text: trunk.goal ?? trunk.difficulty ?? "この困りごと" },
-  ].filter(Boolean) as { label: string; text: string }[];
+  const trunkNodes: { label: string; text: string }[] =
+    trunkLayout === "none"
+      ? []
+      : ([
+          trunk.previouslyAble && { label: "以前できていた", text: trunk.previouslyAble },
+          trunk.difficulty && { label: "できなくなった", text: trunk.difficulty },
+          { label: "やりたいこと", text: trunk.goal ?? trunk.difficulty ?? "この困りごと" },
+        ].filter(Boolean) as { label: string; text: string }[]);
 
   const tight = dense;
   // 一覧（dense）では Road.progress の補完はしない。「現在」は state_after があるときだけ。
@@ -293,7 +305,8 @@ export function BranchingPaths({
   // 経験詳細で方法が多いときだけ「表示上」10 ブロックずつに区切る（親子関係・並びは変えない）。
   const paginated = !dense && pageHref ? paginateDetailRows(allRows, page) : null;
   const rows = paginated ? paginated.rows : allRows;
-  const showBranchPoint = !dense && multi && (!paginated || paginated.page === 1);
+  const showBranchPoint =
+    trunkLayout !== "none" && !dense && multi && (!paginated || paginated.page === 1);
 
   return (
     <section aria-labelledby={heading ? headingId : undefined} className="space-y-3">
@@ -308,7 +321,7 @@ export function BranchingPaths({
         </p>
       )}
 
-      <div className={`mx-auto w-full ${dense ? "max-w-lg" : "max-w-xl"} pl-1`}>
+      <div className={`w-full pl-1 ${dense ? "mx-auto max-w-lg" : ""}`}>
         {/* 幹線は各行が自分の分を描いて 1 本につながる。カードには上辺中央で接続する。 */}
         <Guide>
           {/* 幹: 以前できていた → できなくなった → やりたいこと */}
@@ -335,15 +348,19 @@ export function BranchingPaths({
 
           {/* 枝: 方法カード。previous_attempt_id があるものは親の下へインデント（＝次の方法）。
               経験詳細（dense=false）では中身を全部そのまま表示。リンクにはしない。 */}
+          {/* 幹ノードも branch-point 行も無いとき、幹線は最初の方法カードの中央から始める */}
           {rows.map(({ branch: b, label, depth, currentState, isLastRow }, i) => {
+            const firstRow =
+              trunkNodes.length === 0 &&
+              !showBranchPoint &&
+              !paginated?.continuesFromLabel &&
+              i === 0;
             // 方法カードはどれも「選んだ状態」の見た目（緑の枠線＋淡い緑の下地）でそろえる。
             // どの方法を見ているかのチップ／強調分けはしない（全部が同じ道の一部）。
             const cardTone = dense
               ? "border-[var(--color-border)] bg-[var(--color-surface)]"
               : "border-[var(--color-primary)] bg-[var(--color-primary-soft)]";
-            const baseClass = `w-full rounded-[var(--radius-md)] border ${
-              dense ? "p-3" : "p-4"
-            } ${cardTone}`;
+            const baseClass = `w-full rounded-[var(--radius-md)] border px-4 py-3 ${cardTone}`;
 
             const inner = (
               <BranchCardInner
@@ -365,6 +382,7 @@ export function BranchingPaths({
                 variant="branch"
                 depth={depth}
                 tight={tight}
+                first={firstRow}
                 last={closeLine}
               >
                 {dense ? (
@@ -399,7 +417,7 @@ export function BranchingPaths({
 
       {paginated && paginated.pageCount > 1 && pageHref && (
         <nav
-          className="mx-auto flex w-full max-w-xl items-center justify-between pl-1 text-sm"
+          className="flex w-full items-center justify-between pl-1 text-sm"
           aria-label="道のページ送り"
         >
           {paginated.page > 1 ? (

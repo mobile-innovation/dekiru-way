@@ -15,10 +15,12 @@ interface FieldShellProps {
   hint?: ReactNode;
   error?: string | null;
   required?: boolean;
+  /** コントロールの下・エラーの上に出す補足（例: 残り文字数カウンタ） */
+  footer?: ReactNode;
   children: (props: { id: string; describedBy: string | undefined; invalid: boolean }) => ReactNode;
 }
 
-export function Field({ id, label, hint, error, required, children }: FieldShellProps) {
+export function Field({ id, label, hint, error, required, footer, children }: FieldShellProps) {
   const reactId = useId();
   const fid = id ?? reactId;
   const hintId = hint ? `${fid}-hint` : undefined;
@@ -42,6 +44,7 @@ export function Field({ id, label, hint, error, required, children }: FieldShell
         </p>
       )}
       {children({ id: fid, describedBy, invalid: Boolean(error) })}
+      {footer}
       {error && (
         <p id={errId} className="text-sm font-medium text-[var(--color-danger)]">
           <span aria-hidden="true">⚠ </span>
@@ -49,6 +52,35 @@ export function Field({ id, label, hint, error, required, children }: FieldShell
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * 残り文字数カウンタ。読み上げ用の「最大 N 文字」は hint 側（focus 時に 1 回読まれる）に入れ、
+ * こちらは目視用なので aria-hidden。
+ */
+function CharCount({ value, max }: { value: unknown; max: number }) {
+  const len = typeof value === "string" ? value.length : 0;
+  const tone =
+    len > max
+      ? "text-[var(--color-danger)] font-bold"
+      : len >= max * 0.9
+        ? "text-[var(--color-ink)]"
+        : "text-[var(--color-ink-muted)]";
+  return (
+    <p aria-hidden="true" className={`text-right text-xs tabular-nums ${tone}`}>
+      {len} / {max} 文字
+    </p>
+  );
+}
+
+function withMaxHint(hint: ReactNode, max: number | undefined): ReactNode {
+  if (max === undefined) return hint;
+  return (
+    <>
+      {hint}
+      {hint ? "・" : null}最大 {max} 文字
+    </>
   );
 }
 
@@ -65,8 +97,18 @@ export function TextField({
   id,
   ...rest
 }: { label: string; hint?: ReactNode; error?: string | null } & ComponentProps<"input">) {
+  const max = typeof rest.maxLength === "number" ? rest.maxLength : undefined;
+  // 文字数カウンタは自由記述向け。date/number など長さの概念が無いものには付けない。
+  const countable = max !== undefined && (rest.type === undefined || rest.type === "text" || rest.type === "search");
   return (
-    <Field label={label} hint={hint} error={error} required={required} id={id}>
+    <Field
+      label={label}
+      hint={withMaxHint(hint, countable ? max : undefined)}
+      error={error}
+      required={required}
+      id={id}
+      footer={countable ? <CharCount value={rest.value} max={max!} /> : undefined}
+    >
       {({ id: fid, describedBy, invalid }) => (
         <input
           id={fid}
@@ -89,8 +131,16 @@ export function TextAreaField({
   rows = 4,
   ...rest
 }: { label: string; hint?: ReactNode; error?: string | null } & ComponentProps<"textarea">) {
+  const max = typeof rest.maxLength === "number" ? rest.maxLength : undefined;
   return (
-    <Field label={label} hint={hint} error={error} required={required} id={id}>
+    <Field
+      label={label}
+      hint={withMaxHint(hint, max)}
+      error={error}
+      required={required}
+      id={id}
+      footer={max !== undefined ? <CharCount value={rest.value} max={max} /> : undefined}
+    >
       {({ id: fid, describedBy, invalid }) => (
         <textarea
           id={fid}

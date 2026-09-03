@@ -23,7 +23,7 @@ export default async function PathsOverviewPage({
   const clusters = await getPathClusters({ q, tag, limit: 20 });
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
       <header className="mx-auto max-w-3xl space-y-1">
         <h1 className="text-xl font-bold">道の見える化</h1>
         <p className="text-sm text-[var(--color-ink-muted)]">

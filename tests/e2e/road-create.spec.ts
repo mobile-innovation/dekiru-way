@@ -19,6 +19,14 @@ test("必須が空なら送信せず、画面にエラーを出す", async ({ pa
   await expect(page.getByText(/どちらかは書いてください/)).toBeVisible();
 });
 
+test("入力欄に最大文字数と残り文字数が出る", async ({ page }) => {
+  await login(page);
+  await expect(page.getByText("最大 2000 文字").first()).toBeVisible();
+  await expect(page.getByText("0 / 2000 文字").first()).toBeVisible();
+  await page.getByLabel("何ができなくなりましたか？").fill("あいう");
+  await expect(page.getByText("3 / 2000 文字")).toBeVisible();
+});
+
 test("長い「できなくなったこと」でも道を作成でき、作った道へ遷移する", async ({ page }) => {
   await login(page);
   // 120 文字を超える自由記述（title を派生させていた頃はここで 400 になっていた）

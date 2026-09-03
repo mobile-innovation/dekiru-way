@@ -4,6 +4,7 @@ import {
   EXPERIENCE_KINDS,
   EXPERIENCE_KIND_DEFAULT,
   EXPERIENCE_SORTS,
+  FIELD_MAX,
   VISIBILITY,
 } from "@/lib/constants";
 
@@ -36,23 +37,23 @@ const isoDateOptional = z
   .optional();
 
 const tagNameList = z
-  .array(z.string().transform((s) => s.trim()).pipe(z.string().min(1).max(30)))
+  .array(z.string().transform((s) => s.trim()).pipe(z.string().min(1).max(FIELD_MAX.tagName)))
   .max(10, { message: "タグは 10 個までです" })
   .optional();
 
 // ---- Road ----
 
 export const roadCreateSchema = z.object({
-  title: trimmedOptional(120),
-  previouslyAble: trimmedOptional(2000),
-  difficulty: trimmedOptional(2000),
-  goal: trimmedOptional(2000),
+  title: trimmedOptional(FIELD_MAX.title),
+  previouslyAble: trimmedOptional(FIELD_MAX.text),
+  difficulty: trimmedOptional(FIELD_MAX.text),
+  goal: trimmedOptional(FIELD_MAX.text),
   startedAt: isoDateOptional,
-  situation: trimmedOptional(2000),
-  memo: trimmedOptional(4000),
-  status: trimmedOptional(60),
-  progress: trimmedOptional(2000),
-  nextAction: trimmedOptional(2000),
+  situation: trimmedOptional(FIELD_MAX.text),
+  memo: trimmedOptional(FIELD_MAX.longText),
+  status: trimmedOptional(FIELD_MAX.statusLabel),
+  progress: trimmedOptional(FIELD_MAX.text),
+  nextAction: trimmedOptional(FIELD_MAX.text),
   visibility: z.enum(VISIBILITY).optional(),
   tags: tagNameList,
 });
@@ -62,10 +63,10 @@ export const roadUpdateSchema = roadCreateSchema.partial();
 // ---- Attempt ----
 
 export const attemptCreateSchema = z.object({
-  method: trimmedRequired(2000, "試したこと"),
+  method: trimmedRequired(FIELD_MAX.text, "試したこと"),
   result: z.enum(ATTEMPT_RESULTS, { required_error: "結果を選んでください" }),
   triedAt: isoDateOptional,
-  memo: trimmedOptional(4000),
+  memo: trimmedOptional(FIELD_MAX.longText),
   isPublished: z.boolean().optional(),
   // v6: 本人入力の「できた％」。AI は関与しない。result とは別情報。
   achievementPercent: z.coerce
@@ -75,9 +76,9 @@ export const attemptCreateSchema = z.object({
     .max(100, "0〜100 で入力してください")
     .nullable()
     .optional(),
-  feeling: trimmedOptional(2000),
-  stateAfter: trimmedOptional(2000),
-  nextAction: trimmedOptional(2000),
+  feeling: trimmedOptional(FIELD_MAX.text),
+  stateAfter: trimmedOptional(FIELD_MAX.text),
+  nextAction: trimmedOptional(FIELD_MAX.text),
   // 実際にこの方法の前に試した Attempt (同じ Road 内)。日付/並びから推測して設定しない。
   previousAttemptId: z.string().uuid("不正な指定です").nullable().optional(),
 });
@@ -87,7 +88,7 @@ export const attemptUpdateSchema = attemptCreateSchema.partial();
 // ---- Photo ----
 
 export const photoMetaSchema = z.object({
-  caption: trimmedOptional(200),
+  caption: trimmedOptional(FIELD_MAX.caption),
   sortOrder: z.coerce.number().int().min(0).max(999).optional(),
 });
 

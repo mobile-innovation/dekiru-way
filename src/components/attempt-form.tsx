@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { TextField, TextAreaField, Field } from "@/components/form";
 import { VoiceInputButton } from "@/components/voice-input-button";
 import { api, ClientApiError } from "@/lib/client/api";
-import { ATTEMPT_RESULTS, RESULT_META } from "@/lib/constants";
+import { ATTEMPT_RESULTS, RESULT_META, FIELD_MAX } from "@/lib/constants";
 import type { AttemptDTO } from "@/lib/serializers";
 
 /**
@@ -157,6 +157,7 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
         onChange={(e) => setMethod(e.target.value)}
         error={fieldErrors.method}
         placeholder="例：ボタンエイド（ボタンを通す道具）を使ってみた"
+        maxLength={FIELD_MAX.text}
       />
       <VoiceInputButton onResult={(t) => setMethod((v) => (v ? `${v} ${t}` : t))} />
 
@@ -242,6 +243,7 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
         value={feeling}
         onChange={(e) => setFeeling(e.target.value)}
         placeholder="例：少しだけど自分でできてうれしかった／期待していたので正直がっかりした"
+        maxLength={FIELD_MAX.text}
       />
 
       <TextAreaField
@@ -249,6 +251,7 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
         value={stateAfter}
         onChange={(e) => setStateAfter(e.target.value)}
         placeholder="例：以前より一人でできるようになった／まだ一人では難しい"
+        maxLength={FIELD_MAX.text}
       />
 
       <TextField
@@ -256,6 +259,7 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
         value={nextAction}
         onChange={(e) => setNextAction(e.target.value)}
         placeholder="例：音声タイマーを試す"
+        maxLength={FIELD_MAX.text}
       />
 
       <TextField
@@ -271,6 +275,7 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
         value={memo}
         onChange={(e) => setMemo(e.target.value)}
         placeholder="やってみて感じたこと、次に活かせそうなこと"
+        maxLength={FIELD_MAX.longText}
       />
 
       {prevChoices.length > 0 && (

@@ -30,7 +30,7 @@ export default async function MyRoadPage({ params }: { params: Promise<{ roadId:
   ].filter(Boolean) as { label: string; body: React.ReactNode }[];
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
       <p className="text-sm">
         <Link href="/me">← 自分の道の一覧へ</Link>
       </p>

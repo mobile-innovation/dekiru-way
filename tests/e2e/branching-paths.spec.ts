@@ -277,7 +277,7 @@ test("v6: 「現在」は各方法カードの中にある（その方法を試�
   await expect(page.getByText(/方法[A-Z]-\d/).first()).toBeVisible();
 });
 
-test("方法が 11 件以上あると 10 ブロックごとにページが切り替わる（親子関係は壊さない）", async ({
+test("方法が多いとページが切り替わるが、枝分かれ（親子）はページ境界で分断しない", async ({
   page,
 }) => {
   // --- 12 方法（うち 11 件目は 10 件目の続き）を持つ道を作る ---
@@ -298,13 +298,13 @@ test("方法が 11 件以上あると 10 ブロックごとにページが切り
       triedAt: `2025-01-${String(i).padStart(2, "0")}`,
       stateAfter: `方法 ${i} のあとの状態`,
     };
-    // 11 件目は 10 件目の続き（チェーンがページ境界をまたぐ）
+    // 11 件目は 10 件目（方法J）の続き。10 件目に親が来るケース。
     if (i === 11) body.previousAttemptId = ids[9];
     const r = await page.request.post(`/api/v1/roads/${road.id}/attempts`, { data: body });
     ids.push((await r.json()).id);
   }
 
-  // --- 1 ページ目 ---
+  // --- 1 ページ目: 方法J と その子 方法J-2 は同じページに収まる（10 で切らない） ---
   await page.goto(`/experiences/${ids[0]}`);
   await expect(page.getByRole("heading", { name: "この人がたどった道" })).toBeVisible();
   await expect(page.getByText("1 / 2 ページ")).toBeVisible();
@@ -312,18 +312,20 @@ test("方法が 11 件以上あると 10 ブロックごとにページが切り
   await expect(page.getByRole("link", { name: /前のページ/ })).toHaveCount(0);
   await expect(page.getByText("方法A", { exact: true })).toBeVisible();
   await expect(page.getByText("方法J", { exact: true })).toBeVisible();
+  // 親（方法J）と子（方法J-2）が同じページ。境界をまたがないので続き表示は出ない。
+  await expect(page.getByText(/方法J-\d/)).toBeVisible();
   await expect(page.getByText("方法K", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/からの続き/)).toHaveCount(0);
   await expect(page.getByText("↓ この先は次のページに続きます")).toBeVisible();
 
-  // --- 2 ページ目 ---
+  // --- 2 ページ目: 独立した次の方法グループ（方法K）だけ。先頭が子にならない。 ---
   await page.getByRole("link", { name: /次のページ/ }).click();
   await expect(page).toHaveURL(new RegExp(`/experiences/${ids[0]}\\?p=2$`));
   await expect(page.getByText("2 / 2 ページ")).toBeVisible();
   await expect(page.getByText("方法A", { exact: true })).toHaveCount(0);
   await expect(page.getByText("方法K", { exact: true })).toBeVisible();
-  // ページ境界をまたいだチェーンは「前の方法からの続き」と分かる
-  await expect(page.getByText("← 「方法J」からの続き")).toBeVisible();
-  await expect(page.getByText(/方法J-\d/)).toBeVisible();
+  await expect(page.getByText(/方法J-\d/)).toHaveCount(0);
+  await expect(page.getByText(/からの続き/)).toHaveCount(0);
   // 現在（state_after）はページを変えても各方法に残る
   await expect(page.getByText("現在：", { exact: false }).first()).toBeVisible();
 });

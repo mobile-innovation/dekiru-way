@@ -7,6 +7,19 @@
 export const ATTEMPT_RESULTS = ["success", "partial", "no_change", "failed", "ongoing"] as const;
 export type AttemptResultValue = (typeof ATTEMPT_RESULTS)[number];
 
+/**
+ * テキスト入力の最大文字数。フォームの表示（残り文字数）と zod バリデーションで共有し、
+ * 片方だけずれることを防ぐ。
+ */
+export const FIELD_MAX = {
+  title: 120,
+  statusLabel: 60,
+  tagName: 30,
+  caption: 200,
+  text: 2000,
+  longText: 4000,
+} as const;
+
 export interface ResultMeta {
   value: AttemptResultValue;
   label: string;

@@ -11,7 +11,7 @@ export default async function MyRoadsPage() {
   const roads = await getMyRoads(userId);
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold">自分の道</h1>
         <LinkButton href="/me/roads/new">道を作る</LinkButton>

@@ -91,18 +91,23 @@ export function buildRoadDetailRows(
 }
 
 /**
- * 表示上のページ分割（指示書「表示上の10ブロックごとのページ切り替え」）。
+ * 表示上のページ分割（指示書「10 ブロックごとのページ切り替え」＋「枝分かれをページ境界で分断しない」）。
  *
  * - 1 ブロック = ツリー上の 1 方法（1 行）。幹ノードは数えない（呼び出し側で常に表示）。
- * - `buildRoadDetailRows` が返す**表示順のまま** 10 行ずつに区切るだけ。
- *   親子関係・並び・現在などは一切変えない。DB もページ番号も持たない。
- * - チェーン（previous_attempt_id）がページ境界をまたいだら、次ページ先頭に
- *   「前の方法からの続き」であることを示すため親ラベルを返す。
+ * - `buildRoadDetailRows` は root（depth 0）ごとに、その部分木を表示順で連続させて返す。
+ *   ここではその「root の部分木」を **1 グループ** として、グループ単位でページへ詰める。
+ *   親（root）とその枝分かれ（previous_attempt_id でつながる子孫）が別ページに分かれることはない。
+ * - 1 ページ ≒ `pageSize`（10）行を目安にするが、境界よりも枝のまとまりを優先する:
+ *   ページに行があるうちは、次のグループを足すと目安を超えても、目安未満なら詰める（→ 11, 12 行等を許容）。
+ *   ページが目安に達したら、次のグループは次ページの先頭にする。
+ *   1 グループが極端に大きい（`pageSize` の 1.5 倍超になる）場合は、そのグループを次ページの先頭へ送る。
+ *   それでも 1 グループが単独で目安を超えるときは、そのグループだけで 1 ページになる（分割はしない）。
+ * - グループは決して分割しないので、通常 `continuesFromLabel` は付かない（保険として判定は残す）。
  */
 export const DETAIL_PAGE_SIZE = 10;
 
 export interface PaginatedDetailRows {
-  /** このページに表示する行（最大 DETAIL_PAGE_SIZE 件） */
+  /** このページに表示する行（枝のまとまりを優先するため pageSize を超えることがある） */
   rows: RoadDetailRow[];
   /** 1 起点の現在ページ（範囲内にクランプ済み） */
   page: number;
@@ -113,22 +118,57 @@ export interface PaginatedDetailRows {
   continuesToNextPage: boolean;
 }
 
+/**
+ * 表示順の行リストを、枝のまとまり（root の部分木）を崩さずにページ配列へ分割する。
+ * ページ番号の算出（`treePageByAttempt`）と表示（`paginateDetailRows`）で同じロジックを使う。
+ */
+export function splitDetailRowsIntoPages(
+  all: RoadDetailRow[],
+  pageSize = DETAIL_PAGE_SIZE,
+): RoadDetailRow[][] {
+  if (all.length === 0) return [[]];
+  const softCap = Math.round(pageSize * 1.5);
+
+  // root（depth 0）で新しいグループを開始。部分木は表示順で連続している前提。
+  const groups: RoadDetailRow[][] = [];
+  for (const row of all) {
+    if (row.depth === 0 || groups.length === 0) groups.push([row]);
+    else groups[groups.length - 1].push(row);
+  }
+
+  const pages: RoadDetailRow[][] = [];
+  let current: RoadDetailRow[] = [];
+  for (const group of groups) {
+    const wouldOverflow =
+      current.length > 0 &&
+      (current.length >= pageSize || current.length + group.length > softCap);
+    if (wouldOverflow) {
+      pages.push(current);
+      current = [];
+    }
+    current.push(...group);
+  }
+  if (current.length > 0) pages.push(current);
+  return pages.length > 0 ? pages : [[]];
+}
+
 export function paginateDetailRows(
   all: RoadDetailRow[],
   requestedPage: number,
   pageSize = DETAIL_PAGE_SIZE,
 ): PaginatedDetailRows {
-  const pageCount = Math.max(1, Math.ceil(all.length / pageSize));
+  const pages = splitDetailRowsIntoPages(all, pageSize);
+  const pageCount = pages.length;
   const page = Math.min(Math.max(1, Math.floor(requestedPage) || 1), pageCount);
-  const start = (page - 1) * pageSize;
-  const rows = all.slice(start, start + pageSize);
+  const rows = pages[page - 1];
 
   let continuesFromLabel: string | null = null;
   const first = rows[0];
-  if (first && start > 0 && first.branch.previousAttemptId) {
-    const parentIdx = all.findIndex((r) => r.branch.id === first.branch.previousAttemptId);
-    if (parentIdx !== -1 && parentIdx < start) {
-      continuesFromLabel = all[parentIdx].label;
+  if (first && page > 1 && first.branch.previousAttemptId) {
+    const parentInPage = rows.some((r) => r.branch.id === first.branch.previousAttemptId);
+    if (!parentInPage) {
+      const parent = all.find((r) => r.branch.id === first.branch.previousAttemptId);
+      if (parent) continuesFromLabel = parent.label;
     }
   }
 
@@ -137,6 +177,6 @@ export function paginateDetailRows(
     page,
     pageCount,
     continuesFromLabel,
-    continuesToNextPage: start + pageSize < all.length,
+    continuesToNextPage: page < pageCount,
   };
 }

@@ -18,7 +18,7 @@ export default async function EditRoadPage({
   if (!road) notFound();
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5">
+    <div className="mx-auto w-full max-w-6xl space-y-5">
       <p className="text-sm">
         <Link href={`/me/roads/${roadId}`}>← 道へ戻る</Link>
       </p>

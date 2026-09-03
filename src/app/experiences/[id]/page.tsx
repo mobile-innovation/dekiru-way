@@ -60,9 +60,9 @@ export default async function ExperienceDetailPage({
   ];
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-8">
+    <div className="mx-auto w-full max-w-5xl space-y-8">
       {/* ① 戻る / ② タイトル */}
-      <div className="mx-auto w-full max-w-3xl space-y-4">
+      <div className="space-y-4">
         <p className="text-sm">
           <Link href="/experiences">← 経験を探すへ戻る</Link>
         </p>
@@ -85,75 +85,114 @@ export default async function ExperienceDetailPage({
         </header>
       </div>
 
-      {/* ③ この人がたどった道（枝分かれ） */}
-      <Card as="section">
-        <h2 className="text-base font-bold">この人がたどった道</h2>
-        <p className="mb-8 mt-1 text-sm text-[var(--color-ink-muted)]">
-          この人が、できなくなったあと、いろいろな方法を試しながら、いまの状態まで来た道です。
-          うまくいかなかった方法も、道の一部として残しています。
+      {/* PC: 左＝道の本体 / 右＝参考情報＋CTA。スマホ: 道 → 参考情報 → CTA の 1 カラム。 */}
+      <div className="space-y-6 lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start lg:gap-6 lg:space-y-0">
+        <div className="space-y-8">
+          {/* ③ この人がたどった道（枝分かれ） */}
+          <Card as="section">
+            <h2 className="text-base font-bold">この人がたどった道</h2>
+        <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
+          この人が試してきた方法を、時系列で見られます。うまくいかなかった方法も、道の一部です。
         </p>
-        <BranchingPaths
-          heading={null}
-          note={null}
-          trunk={{
-            previouslyAble: r.previouslyAble,
-            difficulty: r.difficulty,
-            goal: r.goal,
-          }}
-          branches={branches}
-          present={{ progress: r.progress }}
-          page={page}
-          pageHref={(p) => (p <= 1 ? `/experiences/${id}` : `/experiences/${id}?p=${p}`)}
-        />
+
+        {/* できていたこと / やりたいこと（PC は横並び、スマホは縦。「できていた → やりたい → 道」の起点） */}
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-[var(--radius-sm)] bg-[var(--color-surface-sunken)] px-3 py-2">
+            <span className="flex items-center gap-1 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+              <span aria-hidden="true" className="text-sm">
+                👤
+              </span>
+              <span>できていたこと</span>
+            </span>
+            <span className="mt-0.5 block whitespace-pre-wrap">
+              {r.previouslyAble ?? (
+                <span className="text-[var(--color-ink-muted)]">まだ登録されていません</span>
+              )}
+            </span>
+          </div>
+          <div className="rounded-[var(--radius-sm)] bg-[var(--color-primary-soft)] px-3 py-2 font-bold">
+            <span className="flex items-center gap-1 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+              <span aria-hidden="true" className="text-sm">
+                🎯
+              </span>
+              <span>やりたいこと</span>
+            </span>
+            <span className="mt-0.5 block whitespace-pre-wrap">
+              {r.goal ?? r.difficulty ?? "この困りごと"}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <BranchingPaths
+            heading={null}
+            note={null}
+            trunkLayout="none"
+            trunk={{
+              previouslyAble: r.previouslyAble,
+              difficulty: r.difficulty,
+              goal: r.goal,
+            }}
+            branches={branches}
+            present={{ progress: r.progress }}
+            page={page}
+            pageHref={(p) => (p <= 1 ? `/experiences/${id}` : `/experiences/${id}?p=${p}`)}
+          />
+        </div>
       </Card>
 
-      {exp.photos.length > 0 && (
-        <section
-          aria-labelledby="photos-heading"
-          className="mx-auto w-full max-w-3xl space-y-2"
-        >
-          <h2 id="photos-heading" className="text-base font-bold">
-            写真
-          </h2>
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {exp.photos.map((p) => (
-              <li key={p.id}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={p.storageUrl}
-                  alt={p.caption ?? "試したときの写真"}
-                  className="aspect-square w-full rounded-[var(--radius-md)] object-cover"
-                  loading="lazy"
-                />
-                {p.caption && (
-                  <p className="mt-1 text-xs text-[var(--color-ink-muted)]">{p.caption}</p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+          {exp.photos.length > 0 && (
+            <section aria-labelledby="photos-heading" className="space-y-2">
+              <h2 id="photos-heading" className="text-base font-bold">
+                写真
+              </h2>
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {exp.photos.map((p) => (
+                  <li key={p.id}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={p.storageUrl}
+                      alt={p.caption ?? "試したときの写真"}
+                      className="aspect-square w-full rounded-[var(--radius-md)] object-cover"
+                      loading="lazy"
+                    />
+                    {p.caption && (
+                      <p className="mt-1 text-xs text-[var(--color-ink-muted)]">{p.caption}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
 
-      {/* ⑤ 注意書き / ⑥ これなら試せそう */}
-      <div className="mx-auto w-full max-w-3xl space-y-6">
-        <Callout tone="warn">
-          {DISCLAIMER}
-          {" "}
-          枝分かれの中で「できるようになった」が正解というわけではありません。何が試され、どうなったかが道です。
-        </Callout>
+        {/* PC は右サイド、スマホは道の下: 参考情報 → 自分の道を作る */}
+        <aside className="space-y-4">
+          <Callout tone="warn">
+            <span className="mb-1 block font-bold">
+              <span aria-hidden="true">ℹ️ </span>この情報について
+            </span>
+            {DISCLAIMER}
+            {" "}
+            枝分かれの中で「できるようになった」が正解というわけではありません。
+            うまくいかなかった方法も、次の人にとって大切な情報です。
+          </Callout>
 
-        <Card as="section">
-          <p className="font-semibold">これなら試せそう、と思ったら</p>
-          <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-            自分の道を作って、試したことと結果を残していけます。うまくいかなくても、それも経験です。
-          </p>
-          <Link
-            href="/me/roads/new"
-            className="mt-3 inline-block rounded-[var(--radius-pill)] bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--color-primary-ink)] no-underline"
-          >
-            自分の道を作る
-          </Link>
-        </Card>
+          <Card as="section">
+            <p className="font-semibold">
+              <span aria-hidden="true">🌱 </span>あなたの試した方法も、誰かの次の一歩になります。
+            </p>
+            <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
+              自分の困りごとや、試したことを記録してみませんか？うまくいかなくても、それも経験です。
+            </p>
+            <Link
+              href="/me/roads/new"
+              className="mt-3 block rounded-[var(--radius-pill)] bg-[var(--color-primary)] px-5 py-2.5 text-center text-sm font-semibold text-[var(--color-primary-ink)] no-underline"
+            >
+              自分の道を作る
+            </Link>
+          </Card>
+        </aside>
       </div>
     </div>
   );

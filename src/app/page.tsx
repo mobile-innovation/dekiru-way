@@ -24,7 +24,7 @@ export default async function TopPage() {
   const clusters = await getPathClusters({ limit: 3 });
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-10">
+    <div className="mx-auto w-full max-w-6xl space-y-10">
       <section aria-labelledby="hero-heading" className="card p-6 sm:p-8">
         <h1 id="hero-heading" className="sr-only">
           できる道 — 何ができなくて困っていますか？

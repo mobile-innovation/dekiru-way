@@ -4,6 +4,7 @@ import { useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TextField, TextAreaField } from "@/components/form";
 import { VoiceInputButton } from "@/components/voice-input-button";
+import { FIELD_MAX } from "@/lib/constants";
 import { api, ClientApiError } from "@/lib/client/api";
 import type { RoadDTO } from "@/lib/serializers";
 
@@ -166,6 +167,7 @@ export function RoadForm() {
             error={fieldErrors.difficulty}
             placeholder="例：シャツのボタンが自分でとめられない"
             id={difficultyId}
+            maxLength={FIELD_MAX.text}
           />
           <VoiceInputButton onResult={appendVoice("difficulty")} />
         </div>
@@ -177,6 +179,7 @@ export function RoadForm() {
             onChange={bind("goal")}
             error={fieldErrors.goal}
             placeholder="例：朝、自分で着替えを済ませたい"
+            maxLength={FIELD_MAX.text}
           />
           <VoiceInputButton onResult={appendVoice("goal")} />
         </div>
@@ -194,6 +197,7 @@ export function RoadForm() {
           value={v.situation}
           onChange={bind("situation")}
           placeholder="例：急いでいる朝。指先に力が入りにくいとき。"
+          maxLength={FIELD_MAX.text}
         />
 
         <TextAreaField
@@ -201,6 +205,7 @@ export function RoadForm() {
           hint="気づいたこと・気持ちなど。あとから追加・修正できます。"
           value={v.memo}
           onChange={bind("memo")}
+          maxLength={FIELD_MAX.longText}
         />
       </fieldset>
 
