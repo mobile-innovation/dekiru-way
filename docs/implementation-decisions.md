@@ -888,6 +888,23 @@ AI に適用。将来は Upstash 等の共有ストアに差し替え。
 - 影響範囲: `attempt-form.tsx` / `attempts/new/page.tsx` / `attempts/[attemptId]/edit/page.tsx` /
   `icons.tsx`。編集画面も同じフォームなので同じ見た目になる。
 
+### 2026-09-03 「道を編集」画面も意味のまとまりで整理（機能・文言・項目は不変）
+- 指示書「道を編集 レイアウト整理 v1」。入力項目・必須/任意・文字数・保存・バリデーション・
+  遷移は不変。`<label>` 文言も全て据え置き。単一利用コンポーネント（`RoadEditForm`・編集画面専用）。
+- **ページ枠**: `max-w-6xl space-y-5` → `max-w-5xl space-y-8`、戻る＋見出しを block に、h1 に `IconSprout`。
+- **`road-edit-form.tsx`**: 縦一列を 4 つの緑枠カード（`attempt-form.tsx` と同じ `Section`）に整理:
+  ① 道の基本（`IconSprout`）＝タイトル ／ ② この道について（`IconRoute`）＝以前できていた／
+  できなくなった／やりたいこと ／ ③ 今の状態（`IconMapPin`・新規）＝いつ頃から／困っている場面／
+  状態／いまの進捗 ／ ④ 次の一歩・記録（`IconLightbulb`）＝次に試すこと／メモ／タグ。
+  中の `TextField` / `TextAreaField` は移動しただけ。イラスト無し。
+- `icons.tsx` に `IconMapPin` 追加。影響範囲: `road-edit-form.tsx` /
+  `me/roads/[roadId]/edit/page.tsx` / `icons.tsx`。
+- **付記（DB 掃除）**: 開発 DB に、作成/編集フォームの誤送信で出来たゴミ道 2 件（difficulty が
+  「何ができなくなりましたか？」「できなくなったこと」＝フォームのラベル文字列そのもの、実 Google
+  ユーザー所有）が残り、`updatedAt desc` で `/experiences` の先頭に来て
+  `branching-paths.spec.ts:110`（先頭カードの試したこと ≥ 2 件）を落としていた。実データではない
+  ため当該 2 件のみ削除。E2E 70 / Vitest 92 green（コード起因の失敗ではない）。
+
 ### 2026-09-03 検索の道カード（RoadCard）の枠線も `--color-primary` に統一
 - `road-card.tsx`: `.card`（`--color-border` の枠）から手組み `<article>` に
   （`rounded-[var(--radius-lg)]` ＋ `bg-[var(--color-surface)]` 白 ＋ `shadow-[var(--shadow-card)]`

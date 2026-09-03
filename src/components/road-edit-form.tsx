@@ -1,11 +1,34 @@
 "use client";
 
+import type { ComponentProps, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { TextField, TextAreaField } from "@/components/form";
+import { IconLightbulb, IconMapPin, IconRoute, IconSprout } from "@/components/icons";
 import { FIELD_MAX } from "@/lib/constants";
 import { api, ClientApiError } from "@/lib/client/api";
 import type { RoadDTO } from "@/lib/serializers";
+
+/** 意味のまとまりごとのカード（他の記録画面と同じ緑枠カード）。 */
+function Section({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: (p: ComponentProps<"svg">) => ReactNode;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-4 rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-5 shadow-[var(--shadow-card)]">
+      <h2 className="flex items-center gap-2 text-base font-bold">
+        <Icon aria-hidden="true" className="h-5 w-5 shrink-0 text-[var(--color-primary)]" />
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
 
 export function RoadEditForm({ road }: { road: RoadDTO }) {
   const router = useRouter();
@@ -72,7 +95,7 @@ export function RoadEditForm({ road }: { road: RoadDTO }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-6">
       {error && (
         <p
           role="alert"
@@ -81,31 +104,56 @@ export function RoadEditForm({ road }: { road: RoadDTO }) {
           {error}
         </p>
       )}
-      <TextField
-        label="タイトル（一覧での見出し）"
-        {...bind("title")}
-        error={fieldErrors.title}
-        maxLength={FIELD_MAX.title}
-      />
-      <TextAreaField label="以前できていたこと" {...bind("previouslyAble")} maxLength={FIELD_MAX.text} />
-      <TextAreaField
-        label="できなくなったこと"
-        {...bind("difficulty")}
-        error={fieldErrors.difficulty}
-        maxLength={FIELD_MAX.text}
-      />
-      <TextAreaField label="やりたいこと・目標" {...bind("goal")} maxLength={FIELD_MAX.text} />
-      <TextField label="いつ頃から難しくなったか" type="date" {...bind("startedAt")} error={fieldErrors.startedAt} />
-      <TextAreaField label="困っている場面" {...bind("situation")} maxLength={FIELD_MAX.text} />
-      <TextField
-        label="状態（例：継続中／一区切り）"
-        {...bind("status")}
-        maxLength={FIELD_MAX.statusLabel}
-      />
-      <TextAreaField label="いまの進捗" {...bind("progress")} maxLength={FIELD_MAX.text} />
-      <TextAreaField label="次に試すこと" {...bind("nextAction")} maxLength={FIELD_MAX.text} />
-      <TextAreaField label="メモ" {...bind("memo")} maxLength={FIELD_MAX.longText} />
-      <TextField label="タグ（カンマ区切り）" {...bind("tags")} />
+
+      {/* ① 道の基本 */}
+      <Section icon={IconSprout} title="道の基本">
+        <TextField
+          label="タイトル（一覧での見出し）"
+          {...bind("title")}
+          error={fieldErrors.title}
+          maxLength={FIELD_MAX.title}
+        />
+      </Section>
+
+      {/* ② この道について */}
+      <Section icon={IconRoute} title="この道について">
+        <TextAreaField
+          label="以前できていたこと"
+          {...bind("previouslyAble")}
+          maxLength={FIELD_MAX.text}
+        />
+        <TextAreaField
+          label="できなくなったこと"
+          {...bind("difficulty")}
+          error={fieldErrors.difficulty}
+          maxLength={FIELD_MAX.text}
+        />
+        <TextAreaField label="やりたいこと・目標" {...bind("goal")} maxLength={FIELD_MAX.text} />
+      </Section>
+
+      {/* ③ 今の状態 */}
+      <Section icon={IconMapPin} title="今の状態">
+        <TextField
+          label="いつ頃から難しくなったか"
+          type="date"
+          {...bind("startedAt")}
+          error={fieldErrors.startedAt}
+        />
+        <TextAreaField label="困っている場面" {...bind("situation")} maxLength={FIELD_MAX.text} />
+        <TextField
+          label="状態（例：継続中／一区切り）"
+          {...bind("status")}
+          maxLength={FIELD_MAX.statusLabel}
+        />
+        <TextAreaField label="いまの進捗" {...bind("progress")} maxLength={FIELD_MAX.text} />
+      </Section>
+
+      {/* ④ 次の一歩・記録 */}
+      <Section icon={IconLightbulb} title="次の一歩・記録">
+        <TextAreaField label="次に試すこと" {...bind("nextAction")} maxLength={FIELD_MAX.text} />
+        <TextAreaField label="メモ" {...bind("memo")} maxLength={FIELD_MAX.longText} />
+        <TextField label="タグ（カンマ区切り）" {...bind("tags")} />
+      </Section>
 
       <div className="flex items-center justify-between">
         <button
