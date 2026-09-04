@@ -6,6 +6,7 @@ import { roadCreateSchema } from "@/lib/validation";
 import { serializeRoad } from "@/lib/serializers";
 import { syncRoadTags } from "@/lib/tags";
 import { toDbDate } from "@/lib/dates";
+import { generateRoadTitle } from "@/lib/ai/local";
 
 const roadInclude = {
   roadTags: { include: { tag: true } },
@@ -40,6 +41,15 @@ export const POST = handle(async (req) => {
     },
   });
   await syncRoadTags(road.id, tags);
+
+  // タイトル未入力なら「できなくなったこと」からローカル AI で見出しを補う。
+  // 生成は補助レイヤー: 失敗・タイムアウト・未設定なら title は null のまま (指示書 ローカルAI v1)。
+  if (!road.title && road.difficulty) {
+    const generated = await generateRoadTitle(road.difficulty);
+    if (generated) {
+      await prisma.road.update({ where: { id: road.id }, data: { title: generated } });
+    }
+  }
 
   const full = await prisma.road.findUniqueOrThrow({
     where: { id: road.id },

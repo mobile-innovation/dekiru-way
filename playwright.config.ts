@@ -39,6 +39,8 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       E2E_TEST_LOGIN: "true",
+      // E2E はローカル LLM に依存しない（CI・本番未設定と同じ挙動＝タイトル自動生成オフ）
+      LOCAL_AI_MODEL: "",
     },
   },
 });

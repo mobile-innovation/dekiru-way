@@ -74,7 +74,7 @@ export function RoadCard({ road }: { road: RoadCardDTO }) {
             {road.tags.map((t) => (
               <li
                 key={t}
-                className="rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] px-2.5 py-0.5 text-xs text-[var(--color-ink-muted)]"
+                className="rounded-[var(--radius-pill)] bg-[#e4f2ed] px-2.5 py-0.5 text-xs text-[#26756a]"
               >
                 #{t}
               </li>
