@@ -129,6 +129,25 @@
     box-shadow: var(--shadow-card);
   }
 
+  /*
+   * 道の共通パーツ (指示書「共通アイコン・細部装飾 統一」§6)。
+   * カード内のミニ時系列は「ガイド線 2px + 接続点 10px」で全画面そろえる。
+   * 位置(top/bottom/left)と ring 色は使う側で指定する。
+   * 経験詳細・道の見える化の樹形 (branching-paths) は「本線」= primary 実線 3px で別仕様。
+   */
+  .road-guide {
+    width: 2px;
+    border-radius: var(--radius-pill);
+    background: var(--color-primary);
+    opacity: 0.25;
+  }
+  .road-dot {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-primary);
+  }
+
   /* 表示時の控えめな立ち上がり (指示書 v1 §19)。
      テキストのコントラストを一瞬でも下げないよう、透明度は動かさず transform だけにする。
      reduced-motion では @layer base の全 *::* ルールで実質無効化される。 */

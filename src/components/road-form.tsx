@@ -4,6 +4,7 @@ import { useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TextField, TextAreaField } from "@/components/form";
 import { VoiceInputButton } from "@/components/voice-input-button";
+import { IconCircleAlert } from "@/components/icons";
 import { FIELD_MAX } from "@/lib/constants";
 import { api, ClientApiError } from "@/lib/client/api";
 import type { RoadDTO } from "@/lib/serializers";
@@ -138,9 +139,13 @@ export function RoadForm() {
           className="rounded-[var(--radius-md)] bg-[var(--color-danger-soft)] p-3 text-sm text-[var(--color-danger)]"
           role="alert"
         >
-          <p ref={alertRef} tabIndex={-1} className="font-medium outline-none">
-            <span aria-hidden="true">⚠ </span>
-            {error}
+          <p
+            ref={alertRef}
+            tabIndex={-1}
+            className="flex items-start gap-1.5 font-medium outline-none"
+          >
+            <IconCircleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
           </p>
           <p className="mt-1 text-[var(--color-ink-muted)]">
             入力した内容は残っています。直してから、もう一度「この道を作る」を押せます。
@@ -155,9 +160,9 @@ export function RoadForm() {
         </div>
       )}
 
-      {/* 入力フォームのまとまり＝「作る場所」なので淡いグリーン（トップ / 経験を探す と統一）。
-          中の各入力欄は form.tsx の CONTROL で白のまま＝緑の面に白い入力欄が浮く。 */}
-      <fieldset className="space-y-5 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-primary-tint)] p-5 shadow-[var(--shadow-card)] sm:p-6">
+      {/* 入力フォームのまとまり＝「作る場所」。枠線は他のカード（方法カード / 自分の道 / セクション）と
+          同じ `--color-primary` の緑。下地は淡いグリーンのまま＝緑の面に白い入力欄が浮く。 */}
+      <fieldset className="space-y-5 rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-primary-tint)] p-5 shadow-[var(--shadow-card)] sm:p-6">
         <legend className="px-1 text-base font-bold">これから試していく「道」を作ります</legend>
 
         <div className="space-y-2">

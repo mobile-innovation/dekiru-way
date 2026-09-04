@@ -111,7 +111,9 @@ AI に適用。将来は Upstash 等の共有ストアに差し替え。
 
 ## 5. AI（指示書 12）
 
-- 3 エンドポイント: `experience-search` / `summarize-experiences` / `suggest-next-step`。
+- 2 エンドポイント: `experience-search` / `summarize-experiences`。
+  （`suggest-next-step` = 自分の道の「次に試す材料」提案は MVP で撤去。検索できる実体験に比べて
+  一般論になりがちで価値が読めないため。復活させる場合は git 履歴から戻す。）
 - システムプロンプトで **診断・治療方針・医療上の正解・「必ず成功する」等の断定を禁止**。
 - `ANTHROPIC_API_KEY` 未設定時は決め打ちのスタブ（キーワード抽出等）を返す。UI からは
   「押したときだけ」呼び、常に非ブロッキング。免責文（`DISCLAIMER`）を必ず添える。
@@ -166,7 +168,7 @@ AI に適用。将来は Upstash 等の共有ストアに差し替え。
 | 運用フック (§17) | `bot-guard`: `blockClient` / `unblockClient` / `listBlocked` / `listRecentClients`、`access-log`: `recentAccess` | 管理画面は未実装だが、IP 制限・一時ブロック・異常確認を後から載せられる関数を用意 |
 | 利用規約 (§12) | `src/app/terms/page.tsx` (`/terms`、フッターから導線) | 機械的大量取得の禁止、外部 AI の学習・FT・データセット化目的の収集の禁止を明示。できる道内部 AI は運営者が定めた目的の範囲内として区別。「正式な法的文書化の際は専門家確認」と注記 |
 | CORS (§11) | — | フロントは同一オリジン (Next フルスタック)。公開 API に CORS ヘッダを一切付けない = ブラウザからのクロスオリジン読み取り不可。`Access-Control-Allow-Origin: *` は採用しない |
-| AI API と公開 API の分離 (§14) | ルーティング上の分離 | `/api/v1/ai/*` は認証必須 (suggest-next-step) もしくはレート厳格 + スタブ。`GET /api/v1/experiences` の大量取得で学習データを作れる前提の設計にしない |
+| AI API と公開 API の分離 (§14) | ルーティング上の分離 | `/api/v1/ai/*` はレート厳格 + スタブ。`GET /api/v1/experiences` の大量取得で学習データを作れる前提の設計にしない |
 
 ### 閾値 (暫定・負荷試験で調整前提)
 

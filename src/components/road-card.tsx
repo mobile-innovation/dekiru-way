@@ -32,22 +32,19 @@ export function RoadCard({ road }: { road: RoadCardDTO }) {
             aria-hidden="true"
             className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-primary)]"
           />
-          {difficulty}
+          <span className="underline underline-offset-2">{difficulty}</span>
         </p>
 
         <p className="mt-3 text-xs font-bold uppercase tracking-wide text-[var(--color-ink-muted)]">
           試したこと（{road.attemptCount}）
         </p>
         <ol className="relative mt-2 space-y-2.5 pl-4">
-          <span
-            aria-hidden="true"
-            className="absolute bottom-2 left-[5px] top-2 w-[2px] bg-[var(--color-primary)] opacity-20"
-          />
+          <span aria-hidden="true" className="road-guide absolute bottom-2 left-1 top-2" />
           {shown.map((a) => (
             <li key={a.id} className="relative">
               <span
                 aria-hidden="true"
-                className="absolute -left-4 top-1.5 h-2.5 w-2.5 rounded-full bg-[var(--color-primary)] ring-2 ring-[var(--color-surface)]"
+                className="road-dot absolute -left-4 top-1.5 ring-2 ring-[var(--color-surface)]"
               />
               <div className="flex items-start gap-2">
                 <span className="line-clamp-1 min-w-0 flex-1 text-sm text-[var(--color-ink)]">

@@ -44,6 +44,10 @@
   --color-danger: #b3261e;
   --color-danger-soft: #fbe4e2;
 
+  /* 中立・オフ状態 (非公開スイッチなど。色に意味を持たせず「いまオフ」を示すグレー) */
+  --color-neutral: #5a5a5a;
+  --color-neutral-soft: #eeeeee;
+
   /* 角丸 */
   --radius-sm: 0.5rem;
   --radius-md: 0.875rem;

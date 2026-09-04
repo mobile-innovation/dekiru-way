@@ -90,23 +90,4 @@ export async function summarizeExperiences(
   );
 }
 
-export interface NextStepSuggestion {
-  ideas: string[];
-  disclaimer: string;
-}
-
-export async function suggestNextStep(input: {
-  difficulty: string | null;
-  goal: string | null;
-  triedSoFar: { method: string; result: string }[];
-}): Promise<NextStepSuggestion> {
-  return callJson<NextStepSuggestion>(
-    `困りごと: ${input.difficulty ?? "(未記入)"}\nやりたいこと: ${input.goal ?? "(未記入)"}\n` +
-      `これまで試したこと:\n${input.triedSoFar.map((t) => `- ${t.method} → ${t.result}`).join("\n") || "- まだなし"}\n\n` +
-      `「次に試してみる材料」になりそうな案を2〜4個、命令形でなく提案の形で返してください。断定しないこと。\n` +
-      `JSON形式: {"ideas": string[]}`,
-    { ideas: [], disclaimer: DISCLAIMER },
-  );
-}
-
 export { DISCLAIMER };

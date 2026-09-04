@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 import { resultMeta } from "@/lib/constants";
+import { IconSearch, resultIcon } from "@/components/icons";
 
 /* ------------------------------------------------------------------ */
 /* カード                                                              */
@@ -65,7 +66,9 @@ export function LinkButton({
 
 export function ResultBadge({ result, size = "md" }: { result: string; size?: "sm" | "md" }) {
   const m = resultMeta(result);
+  const Icon = resultIcon(result);
   const pad = size === "sm" ? "px-2.5 py-0.5 text-xs" : "px-3 py-1 text-sm";
+  const iconSize = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] font-semibold ${pad}`}
@@ -74,7 +77,7 @@ export function ResultBadge({ result, size = "md" }: { result: string; size?: "s
         color: `var(--color-result-${m.tokenKey})`,
       }}
     >
-      <span aria-hidden="true">{m.icon}</span>
+      <Icon aria-hidden="true" className={`${iconSize} shrink-0`} />
       <span>{m.label}</span>
     </span>
   );
@@ -111,19 +114,20 @@ export function Callout({
 /* ------------------------------------------------------------------ */
 
 export function EmptyState({
-  icon = "🔎",
+  icon: Icon = IconSearch,
   title,
   children,
 }: {
-  icon?: string;
+  icon?: (p: ComponentProps<"svg">) => ReactNode;
   title: string;
   children?: ReactNode;
 }) {
   return (
     <div className="card p-8 text-center">
-      <p className="text-3xl" aria-hidden="true">
-        {icon}
-      </p>
+      <Icon
+        aria-hidden="true"
+        className="mx-auto h-8 w-8 text-[var(--color-primary)]"
+      />
       <p className="mt-2 text-lg font-bold">{title}</p>
       {children && <div className="mt-1 text-sm text-[var(--color-ink-muted)]">{children}</div>}
     </div>
@@ -136,12 +140,14 @@ export function EmptyState({
 
 export function StepFlow({ steps }: { steps: { label: string; body: ReactNode }[] }) {
   return (
-    <ol className="relative space-y-4 border-l-2 border-[color-mix(in_srgb,var(--color-primary)_28%,white)] pl-5">
+    <ol className="relative space-y-4 pl-5">
+      {/* 道の共通ガイド線 (指示書 §6)。線 2px / 接続点 10px を全画面で統一。 */}
+      <span aria-hidden="true" className="road-guide absolute bottom-2 left-[4px] top-2" />
       {steps.map((s, i) => (
         <li key={i} className="relative">
           <span
             aria-hidden="true"
-            className="absolute -left-[27px] top-1 grid h-4 w-4 place-items-center rounded-full bg-[var(--color-primary)]"
+            className="road-dot absolute -left-5 top-1.5 ring-2 ring-[var(--color-surface)]"
           />
           <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-ink-muted)]">
             {s.label}

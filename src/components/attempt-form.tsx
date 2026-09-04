@@ -12,6 +12,7 @@ import {
   IconHeart,
   IconLightbulb,
   IconNotebookPen,
+  resultIcon,
 } from "@/components/icons";
 import { api, ClientApiError } from "@/lib/client/api";
 import { ATTEMPT_RESULTS, RESULT_META, FIELD_MAX } from "@/lib/constants";
@@ -207,6 +208,7 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
             >
               {ATTEMPT_RESULTS.map((r) => {
                 const m = RESULT_META[r];
+                const RIcon = resultIcon(r);
                 const selected = result === r;
                 return (
                   <button
@@ -227,9 +229,11 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
                       selected ? "" : "border-[var(--color-border)] bg-[var(--color-surface)]"
                     }`}
                   >
-                    <span aria-hidden="true" className="text-lg">
-                      {m.icon}
-                    </span>
+                    <RIcon
+                      aria-hidden="true"
+                      className="mt-0.5 h-5 w-5 shrink-0"
+                      style={{ color: `var(--color-result-${m.tokenKey})` }}
+                    />
                     <span>
                       <span className="block font-bold">{m.label}</span>
                       <span className="block text-xs text-[var(--color-ink-muted)]">

@@ -2,6 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Callout, Card } from "@/components/ui";
+import {
+  IconHistory,
+  IconImage,
+  IconInfo,
+  IconRoute,
+  IconSprout,
+  IconTarget,
+} from "@/components/icons";
 import { BranchingPaths, type Branch } from "@/components/branching-paths";
 import { RateLimitedNotice } from "@/components/rate-limited-notice";
 import { getExperience } from "@/lib/queries";
@@ -90,7 +98,10 @@ export default async function ExperienceDetailPage({
         <div className="space-y-8">
           {/* ③ この人がたどった道（枝分かれ） */}
           <Card as="section">
-            <h2 className="text-base font-bold">この人がたどった道</h2>
+            <h2 className="flex items-center gap-2 text-base font-bold">
+              <IconRoute aria-hidden="true" className="h-5 w-5 shrink-0 text-[var(--color-primary)]" />
+              この人がたどった道
+            </h2>
         <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
           この人が試してきた方法を、時系列で見られます。うまくいかなかった方法も、道の一部です。
         </p>
@@ -99,9 +110,7 @@ export default async function ExperienceDetailPage({
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="rounded-[var(--radius-sm)] bg-[var(--color-surface-sunken)] px-3 py-2">
             <span className="flex items-center gap-1 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
-              <span aria-hidden="true" className="text-sm">
-                👤
-              </span>
+              <IconHistory aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
               <span>できていたこと</span>
             </span>
             <span className="mt-0.5 block whitespace-pre-wrap">
@@ -112,9 +121,7 @@ export default async function ExperienceDetailPage({
           </div>
           <div className="rounded-[var(--radius-sm)] bg-[var(--color-primary-soft)] px-3 py-2 font-bold">
             <span className="flex items-center gap-1 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
-              <span aria-hidden="true" className="text-sm">
-                🎯
-              </span>
+              <IconTarget aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
               <span>やりたいこと</span>
             </span>
             <span className="mt-0.5 block whitespace-pre-wrap">
@@ -143,7 +150,14 @@ export default async function ExperienceDetailPage({
 
           {exp.photos.length > 0 && (
             <section aria-labelledby="photos-heading" className="space-y-2">
-              <h2 id="photos-heading" className="text-base font-bold">
+              <h2
+                id="photos-heading"
+                className="flex items-center gap-2 text-base font-bold"
+              >
+                <IconImage
+                  aria-hidden="true"
+                  className="h-5 w-5 shrink-0 text-[var(--color-primary)]"
+                />
                 写真
               </h2>
               <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -169,8 +183,9 @@ export default async function ExperienceDetailPage({
         {/* PC は右サイド、スマホは道の下: 参考情報 → 自分の道を作る */}
         <aside className="space-y-4">
           <Callout tone="warn">
-            <span className="mb-1 block font-bold">
-              <span aria-hidden="true">ℹ️ </span>この情報について
+            <span className="mb-1 flex items-center gap-1.5 font-bold">
+              <IconInfo aria-hidden="true" className="h-4 w-4 shrink-0" />
+              この情報について
             </span>
             {DISCLAIMER}
             {" "}
@@ -179,8 +194,12 @@ export default async function ExperienceDetailPage({
           </Callout>
 
           <Card as="section">
-            <p className="font-semibold">
-              <span aria-hidden="true">🌱 </span>あなたの試した方法も、誰かの次の一歩になります。
+            <p className="flex items-start gap-1.5 font-semibold">
+              <IconSprout
+                aria-hidden="true"
+                className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-primary)]"
+              />
+              あなたの試した方法も、誰かの次の一歩になります。
             </p>
             <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
               自分の困りごとや、試したことを記録してみませんか？うまくいかなくても、それも経験です。

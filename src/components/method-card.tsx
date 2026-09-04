@@ -24,7 +24,7 @@ export function MethodCard({ method: m }: { method: MethodCardDTO }) {
         <p className="mt-1 text-xs text-[var(--color-ink-muted)]">この道の困りごと：{context}</p>
 
         <p className="mt-2 whitespace-pre-wrap font-semibold text-[var(--color-ink)]">
-          {m.method}
+          <span className="underline underline-offset-2">{m.method}</span>
         </p>
 
         <div className="mt-2 flex flex-wrap items-center gap-2">

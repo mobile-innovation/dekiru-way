@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Card, EmptyState } from "@/components/ui";
+import { IconRoute } from "@/components/icons";
 import { BranchingPaths } from "@/components/branching-paths";
 import { RateLimitedNotice } from "@/components/rate-limited-notice";
 import { getPathClusters } from "@/lib/queries";
@@ -33,7 +34,7 @@ export default async function PathsOverviewPage({
       </header>
 
       {clusters.length === 0 ? (
-        <EmptyState icon="🛤️" title="表示できる道がまだありません">
+        <EmptyState icon={IconRoute} title="表示できる道がまだありません">
           <p>
             <Link href="/experiences">経験を探す</Link> か、
             <Link href="/me/roads/new"> 自分の道を作る </Link>

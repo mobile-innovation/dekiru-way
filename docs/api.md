@@ -159,7 +159,6 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
 | --- | --- | --- | --- | --- |
 | POST | `/ai/experience-search` | 不要 | `{ situation: string }` | `{ keywords: string[], rephrased: string, disclaimer: string }` |
 | POST | `/ai/summarize-experiences` | 不要 | `{ experienceIds: uuid[] }`（公開 Attempt のみ対象） | `{ triedMethods: string[], patterns: string[], disclaimer, count }` |
-| POST | `/ai/suggest-next-step` | 必要 | `{ roadId: uuid }`（本人の道） | `{ ideas: string[], disclaimer: string }` |
 
 `ANTHROPIC_API_KEY` 未設定時はスタブ応答。
 

@@ -193,7 +193,7 @@ export default async function TopPage() {
                   <ol className="relative mt-3 flex-1 space-y-3 pl-4">
                     <span
                       aria-hidden="true"
-                      className="absolute bottom-2 left-[5px] top-2 w-[2px] bg-[var(--color-primary)] opacity-25"
+                      className="road-guide absolute bottom-2 left-1 top-2"
                     />
                     {c.steps.slice(0, 3).map((s) => {
                       const m = resultMeta(s.result);
@@ -202,7 +202,7 @@ export default async function TopPage() {
                         <li key={s.experienceId} className="relative">
                           <span
                             aria-hidden="true"
-                            className="absolute -left-4 top-1.5 h-2.5 w-2.5 rounded-full bg-[var(--color-primary)] ring-2 ring-[var(--color-primary-soft)]"
+                            className="road-dot absolute -left-4 top-1.5 ring-2 ring-[var(--color-primary-soft)]"
                           />
                           <p className="line-clamp-1 text-sm text-[var(--color-ink)]">{s.method}</p>
                           <p className="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-ink)]">

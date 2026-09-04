@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, type ComponentProps, type ReactNode } from "react";
+import { IconCircleAlert } from "@/components/icons";
 
 /**
  * フォーム部品。
@@ -46,9 +47,12 @@ export function Field({ id, label, hint, error, required, footer, children }: Fi
       {children({ id: fid, describedBy, invalid: Boolean(error) })}
       {footer}
       {error && (
-        <p id={errId} className="text-sm font-medium text-[var(--color-danger)]">
-          <span aria-hidden="true">⚠ </span>
-          {error}
+        <p
+          id={errId}
+          className="flex items-start gap-1.5 text-sm font-medium text-[var(--color-danger)]"
+        >
+          <IconCircleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{error}</span>
         </p>
       )}
     </div>

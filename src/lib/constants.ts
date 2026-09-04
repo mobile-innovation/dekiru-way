@@ -1,7 +1,7 @@
 /**
  * 結果 5 分類のメタデータ (指示書 4)。
- * 色だけで状態を伝えないため、必ず label / icon / description をセットで使う (指示書 8/9)。
- * icon は絵文字 (追加ライブラリ不要・スクリーンリーダーは aria-hidden で無視させる)。
+ * 色だけで状態を伝えないため、必ず label / description をセットで使う (指示書 8/9)。
+ * アイコンは `resultIcon()` (src/components/icons.tsx) のラインアイコンに一本化 (指示書 §5)。
  */
 
 export const ATTEMPT_RESULTS = ["success", "partial", "no_change", "failed", "ongoing"] as const;
@@ -25,7 +25,6 @@ export interface ResultMeta {
   label: string;
   short: string;
   description: string;
-  icon: string;
   /** CSS 変数名のサフィックス (globals: --color-result-*) */
   tokenKey: string;
 }
@@ -36,7 +35,6 @@ export const RESULT_META: Record<AttemptResultValue, ResultMeta> = {
     label: "できるようになった",
     short: "できた",
     description: "試した結果、できるようになった",
-    icon: "🌱",
     tokenKey: "success",
   },
   partial: {
@@ -44,7 +42,6 @@ export const RESULT_META: Record<AttemptResultValue, ResultMeta> = {
     label: "少しできた",
     short: "少し",
     description: "完全ではないが、前より少しできるようになった",
-    icon: "🌤️",
     tokenKey: "partial",
   },
   no_change: {
@@ -52,7 +49,6 @@ export const RESULT_META: Record<AttemptResultValue, ResultMeta> = {
     label: "変化はなかった",
     short: "変化なし",
     description: "試したが、特に変化はなかった",
-    icon: "➖",
     tokenKey: "no_change",
   },
   failed: {
@@ -60,7 +56,6 @@ export const RESULT_META: Record<AttemptResultValue, ResultMeta> = {
     label: "うまくいかなかった",
     short: "うまくいかず",
     description: "試したが、うまくいかなかった（これも大切な経験）",
-    icon: "🍂",
     tokenKey: "failed",
   },
   ongoing: {
@@ -68,7 +63,6 @@ export const RESULT_META: Record<AttemptResultValue, ResultMeta> = {
     label: "まだ試している",
     short: "継続中",
     description: "いま試している途中",
-    icon: "🚶",
     tokenKey: "ongoing",
   },
 };

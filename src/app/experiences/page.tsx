@@ -113,7 +113,7 @@ export default async function ExperiencesPage({
           </div>
 
           {windowExceeded ? (
-            <EmptyState icon="🔎" title="もう少し絞り込んでください">
+            <EmptyState title="もう少し絞り込んでください">
               <p>
                 道は一度にすべては表示していません。困っている場面や結果で絞ると見つけやすくなります。
               </p>
@@ -164,7 +164,7 @@ export default async function ExperiencesPage({
           </div>
 
           {methodMatch.windowExceeded ? (
-            <EmptyState icon="🔎" title="もう少し絞り込んでください">
+            <EmptyState title="もう少し絞り込んでください">
               <p>記録は一度にすべては表示していません。結果やタグで絞ると見つけやすくなります。</p>
             </EmptyState>
           ) : (

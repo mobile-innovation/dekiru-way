@@ -158,7 +158,7 @@ export function ExperienceSearchForm({
               <option value="">すべて</option>
               {ATTEMPT_RESULTS.map((r) => (
                 <option key={r} value={r}>
-                  {RESULT_META[r].icon} {RESULT_META[r].label}
+                  {RESULT_META[r].label}
                 </option>
               ))}
             </select>

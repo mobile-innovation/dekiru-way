@@ -133,7 +133,3 @@ export const aiExperienceSearchSchema = z.object({
 export const aiSummarizeSchema = z.object({
   experienceIds: z.array(z.string().uuid()).min(1).max(20),
 });
-
-export const aiNextStepSchema = z.object({
-  roadId: z.string().uuid(),
-});

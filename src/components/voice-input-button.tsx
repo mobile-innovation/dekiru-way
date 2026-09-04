@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { IconMic } from "@/components/icons";
 
 /* Web Speech API は TS 標準 lib に型が無いため最小限だけ宣言する */
 interface SpeechRecognitionResultLike {
@@ -105,7 +106,10 @@ export function VoiceInputButton({
         aria-pressed={listening}
         className="tap-target inline-flex items-center gap-2 rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm font-semibold"
       >
-        <span aria-hidden="true">{listening ? "🔴" : "🎤"}</span>
+        <IconMic
+          aria-hidden="true"
+          className={`h-4 w-4 shrink-0 ${listening ? "text-[var(--color-primary)]" : ""}`}
+        />
         {listening ? "聞き取り中…（押して停止）" : label}
       </button>
       <span aria-live="polite" className="sr-only">
