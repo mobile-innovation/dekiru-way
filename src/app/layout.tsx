@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { SiteChrome } from "@/components/site-chrome";
 
 export const metadata: Metadata = {
   title: {
@@ -26,11 +27,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a href="#main" className="skip-link">
           本文へスキップ
         </a>
-        <SiteHeader />
+        <SiteChrome>
+          <SiteHeader />
+        </SiteChrome>
         <main id="main" className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6 sm:px-6">
           {children}
         </main>
-        <SiteFooter />
+        <SiteChrome>
+          <SiteFooter />
+        </SiteChrome>
       </body>
     </html>
   );

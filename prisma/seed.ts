@@ -12,6 +12,7 @@ try {
 }
 
 import { PrismaClient, type AttemptResult, type Visibility } from "@prisma/client";
+import { hashPassword } from "../src/lib/admin/password";
 
 const prisma = new PrismaClient();
 
@@ -298,6 +299,20 @@ async function main() {
     users.set(sub, u.id);
   }
 
+  // 開発用の管理者。ADMIN_EMAIL / ADMIN_PASSWORD が無ければ既定値。
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@example.com";
+  const adminPassword = process.env.ADMIN_PASSWORD || "dekiru-admin";
+  await prisma.adminUser.upsert({
+    where: { email: adminEmail },
+    create: {
+      email: adminEmail,
+      passwordHash: hashPassword(adminPassword),
+      displayName: "開発用管理者",
+    },
+    update: { passwordHash: hashPassword(adminPassword), isActive: true },
+  });
+  console.log(`admin: ${adminEmail} / ${adminPassword}`);
+
   for (const r of ROADS) {
     const road = await prisma.road.create({
       data: {
@@ -334,6 +349,8 @@ async function main() {
           memo: a.memo ?? null,
           triedAt: a.triedAt ? new Date(`${a.triedAt}T00:00:00.000Z`) : null,
           isPublished: a.isPublished ?? false,
+          // 公開シードは審査済みとして入れる (バックフィルと同じ扱い)
+          moderationStatus: a.isPublished ? "approved" : "pending",
           achievementPercent: a.achievementPercent ?? null,
           feeling: a.feeling ?? null,
           stateAfter: a.stateAfter ?? null,

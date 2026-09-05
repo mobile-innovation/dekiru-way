@@ -28,13 +28,17 @@ function client(): Anthropic {
   return _client;
 }
 
-async function callJson<T>(userPrompt: string, fallback: T): Promise<T> {
+export async function callJson<T>(
+  userPrompt: string,
+  fallback: T,
+  system: string = SYSTEM_PROMPT,
+): Promise<T> {
   if (!env.ai.configured) return fallback;
   try {
     const res = await client().messages.create({
       model: env.ai.model,
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      system,
       messages: [{ role: "user", content: userPrompt }],
     });
     const text = res.content

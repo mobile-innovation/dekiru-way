@@ -4,6 +4,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { TextField, TextAreaField } from "@/components/form";
+import { Callout } from "@/components/ui";
 import { IconLightbulb, IconMapPin, IconRoute, IconSprout } from "@/components/icons";
 import { FIELD_MAX } from "@/lib/constants";
 import { api, ClientApiError } from "@/lib/client/api";
@@ -32,6 +33,12 @@ function Section({
 
 export function RoadEditForm({ road }: { road: RoadDTO }) {
   const router = useRouter();
+  // タイトルと「できなくなったこと」は、一度設定すると変更できない (道の同一性を保つため)。
+  const titleLocked = Boolean(road.title);
+  const difficultyLocked = Boolean(road.difficulty);
+  // 確定済みなら「変更できません」、まだ空なら「保存後は変更できません」と先に知らせる。
+  const lockHint = (locked: boolean) =>
+    locked ? "一度設定したため、変更できません" : "保存すると、あとから変更できません";
   const [v, setV] = useState({
     title: road.title ?? "",
     previouslyAble: road.previouslyAble ?? "",
@@ -62,9 +69,10 @@ export function RoadEditForm({ road }: { road: RoadDTO }) {
     setFieldErrors({});
     try {
       await api.patch(`/api/v1/roads/${road.id}`, {
-        title: v.title || null,
+        // 確定済みの項目は送らない (サーバー側でも変更を拒否する)
+        ...(titleLocked ? {} : { title: v.title || null }),
         previouslyAble: v.previouslyAble || null,
-        difficulty: v.difficulty || null,
+        ...(difficultyLocked ? {} : { difficulty: v.difficulty || null }),
         goal: v.goal || null,
         startedAt: v.startedAt || null,
         situation: v.situation || null,
@@ -105,11 +113,22 @@ export function RoadEditForm({ road }: { road: RoadDTO }) {
         </p>
       )}
 
+      <Callout tone="info" title="変更できない項目があります">
+        <p>
+          <strong>「タイトル」</strong>と<strong>「できなくなったこと」</strong>は、
+          あとから見た経験がずれないよう、<strong>一度保存すると変更できません</strong>。
+          {(titleLocked || difficultyLocked) && "（設定済みの項目は編集できません。）"}
+          それ以外の項目はいつでも直せます。
+        </p>
+      </Callout>
+
       {/* ① 道の基本 */}
       <Section icon={IconSprout} title="道の基本">
         <TextField
           label="タイトル（一覧での見出し）"
           {...bind("title")}
+          readOnly={titleLocked}
+          hint={lockHint(titleLocked)}
           error={fieldErrors.title}
           maxLength={FIELD_MAX.title}
         />
@@ -125,6 +144,8 @@ export function RoadEditForm({ road }: { road: RoadDTO }) {
         <TextAreaField
           label="できなくなったこと"
           {...bind("difficulty")}
+          readOnly={difficultyLocked}
+          hint={lockHint(difficultyLocked)}
           error={fieldErrors.difficulty}
           maxLength={FIELD_MAX.text}
         />

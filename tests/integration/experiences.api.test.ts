@@ -28,10 +28,21 @@ beforeAll(async () => {
       title: MARK,
       difficulty: `${MARK} ドアが開けにくい`,
       goal: "自分で開けたい",
+      moderationStatus: "approved",
       attempts: {
         create: [
-          { method: `${MARK} 公開した失敗`, result: "failed", isPublished: true },
-          { method: `${MARK} 公開した成功`, result: "success", isPublished: true },
+          {
+            method: `${MARK} 公開した失敗`,
+            result: "failed",
+            isPublished: true,
+            moderationStatus: "approved",
+          },
+          {
+            method: `${MARK} 公開した成功`,
+            result: "success",
+            isPublished: true,
+            moderationStatus: "approved",
+          },
           { method: `${MARK} 非公開のメモ`, result: "partial", isPublished: false },
         ],
       },

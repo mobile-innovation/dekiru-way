@@ -35,7 +35,7 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
 | GET | `/roads` | 自分の道一覧 `{ items: Road[] }`（新しい更新順） |
 | POST | `/roads` | 道を作成。201。 |
 | GET | `/roads/{roadId}` | 道の詳細（attempts / photos / tags 込み）。他人は 403、無ければ 404。 |
-| PATCH | `/roads/{roadId}` | 部分更新。空ボディは 400。 |
+| PATCH | `/roads/{roadId}` | 部分更新。空ボディは 400。`title` と `difficulty` は一度値が入ると変更不可（別の値を送ると `409`。同値・省略は許可）。記述項目を変えると道の内容が再 AI 審査される。 |
 | DELETE | `/roads/{roadId}` | 削除（attempts / photos は cascade、ストレージ実体も削除）。204。 |
 
 ### Road 作成 / 更新ボディ
@@ -56,6 +56,15 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
 }
 ```
 更新はすべて optional。`tags` を省略するとタグは変更されない。
+`title` / `difficulty` は「まだ空なら初回だけ設定可、値が入ったら以後は変更不可」（道の同一性を保つため）。
+
+#### 道の内容 AI モデレーション
+
+道を作成/編集すると、その記述（`title` / `difficulty` / `goal` / `situation` / `previouslyAble` /
+`progress` / `nextAction` / `memo` / `status`）が AI 審査される（`AI_MODERATION_ENABLED=false` なら即承認）。
+レスポンスの Road には `moderationStatus`（`pending|approved|rejected`）と `aiReason` が含まれる。
+`ng` / `unknown`（キー未設定含む）なら `pending` になり、**その道で「経験として公開」された記録も
+公開検索 (`/experiences*`, `/tags*`) には出ない**（投稿と道の両方が `approved` である必要がある）。
 
 ---
 
@@ -89,6 +98,26 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
 `failed` も他の結果と同じ経路で保存される。
 `achievementPercent` が範囲外 / `previousAttemptId` が別 Road・自己・循環 のときは `400`。
 公開 Attempt では v6 の項目も経験（`/experiences`）の公開情報として返る。非公開 Attempt では一切返さない。
+
+#### 公開時の AI モデレーション
+
+`isPublished` を `true` にして作成/更新すると、その場で AI 審査が走る（`AI_MODERATION_ENABLED=false` なら即承認）。
+レスポンスの Attempt には次が含まれる:
+
+```jsonc
+{
+  "moderationStatus": "pending|approved|rejected",
+  "publishState": "private|reviewing|published|rejected", // 本人向けの表示状態
+  "aiVerdict": "ok|ng|unknown|null",
+  "aiReason": "string|null"
+}
+```
+
+- `ok` → `approved`（そのまま公開）
+- `ng` / `unknown`（`ANTHROPIC_API_KEY` 未設定時も含む）→ `pending`（公開検索に出ない。運営レビュー待ち）
+- 公開中の Attempt の本文（`method`/`memo`/`feeling`/`stateAfter`/`nextAction`）を変更した場合も再審査され、
+  `ng`/`unknown` なら `pending` に戻る。
+- 公開検索（`/experiences*`・`/tags*`）に出るのは `isPublished=true` かつ `moderationStatus=approved` のものだけ。
 
 ---
 
@@ -164,11 +193,29 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
 
 ---
 
+## 管理（`/api/admin/*`・運営者のみ）
+
+アプリの Google ログインとは別系統。メール + パスワードで `admin_session` cookie を発行する。
+すべて `unauthorized`(401) を返しうる。詳細は README「管理画面」と `docs/implementation-decisions.md` §7-novies。
+
+| メソッド | パス | 説明 |
+| --- | --- | --- |
+| POST | `/api/admin/login` | `{ email, password }` → cookie 発行。IP 単位のレート制限あり。 |
+| POST | `/api/admin/logout` | cookie 破棄。204。 |
+| POST | `/api/admin/moderation/{attemptId}` | `{ action: "approve"｜"reject", note? }`。保留投稿の許可 / 却下。 |
+| PATCH | `/api/admin/posts/{attemptId}` | `{ moderationStatus, note? }`。公開の取り下げ / 再公開など手動遷移。 |
+| POST | `/api/admin/posts/{attemptId}/recheck` | 投稿の AI 審査だけ再実行（`moderationStatus` は変えない）。 |
+| POST | `/api/admin/roads/{roadId}/moderate` | `{ action: "approve"｜"reject", note? }`。保留中の道の許可 / 却下。 |
+| PATCH | `/api/admin/roads/{roadId}` | `{ moderationStatus, note? }`。道の公開状態の手動遷移。 |
+| POST | `/api/admin/roads/{roadId}/recheck` | 道の AI 審査だけ再実行。 |
+
+---
+
 ## その他
 
 | パス | 説明 |
 | --- | --- |
-| `GET /robots.txt` | 一般クローラーは `/api/` `/me/` `/login` 不可、既知 AI クローラーは全体不可 |
+| `GET /robots.txt` | 一般クローラーは `/api/` `/me/` `/login` `/admin/` 不可、既知 AI クローラーは全体不可 |
 
 ## 開発専用
 

@@ -20,7 +20,8 @@
 | テスト | Vitest（unit / integration）、Playwright + axe-core（E2E / a11y） |
 
 設計判断の詳細は [`docs/implementation-decisions.md`](docs/implementation-decisions.md)、
-API 仕様は [`docs/api.md`](docs/api.md)。
+API 仕様は [`docs/api.md`](docs/api.md)、
+管理画面の日常運用は [`docs/admin-manual.md`](docs/admin-manual.md)（運営者向け・実装の話は無し）。
 
 ---
 
@@ -65,6 +66,7 @@ npm run dev
 | `npm run db:migrate` | `prisma migrate dev` |
 | `npm run db:seed` | シード投入（`failed` を含む公開経験サンプル） |
 | `npm run db:reset` | DB リセット＋再マイグレーション |
+| `npm run admin:create -- <email> <password> [表示名]` | 管理画面にログインできる運営者を作成／パスワード再設定 |
 | `npm test` | Vitest（unit + integration、DB 必須） |
 | `npm run test:e2e` | Playwright（mobile + desktop、a11y 含む） |
 | `npm run typecheck` | `tsc --noEmit` |
@@ -80,8 +82,10 @@ npm run dev
 | `AUTH_SECRET` | ○ | Auth.js のセッション署名鍵（`openssl rand -base64 32`） |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | △ | Google OAuth クレデンシャル。未設定でも公開検索は動く。ログイン画面で未設定の旨を表示 |
 | `STORAGE_ENDPOINT` / `STORAGE_REGION` / `STORAGE_BUCKET` / `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` / `STORAGE_PUBLIC_BASE_URL` / `STORAGE_FORCE_PATH_STYLE` | ○ | S3 互換ストレージ。ローカル既定は MinIO |
-| `ANTHROPIC_API_KEY` | ✕ | 設定すると AI 補助が実 API 呼び出しに。未設定ならスタブ |
+| `ANTHROPIC_API_KEY` | ✕ | 設定すると AI 補助が実 API 呼び出しに。未設定ならスタブ。**投稿・道のモデレーションもこのキーを使う**（未設定だと公開投稿・登録した道はすべて「不明」＝運営レビュー待ちになる。`AI_MODERATION_ENABLED=false` で審査自体を無効化＝即承認） |
 | `ANTHROPIC_MODEL` | ✕ | 既定 `claude-sonnet-5` |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | ✕ | 初期管理者のブートストラップ用（`npm run db:seed` と `npm run admin:create` のみ参照。実行時の認証には使わない）。dev の既定は `admin@example.com` / `dekiru-admin` |
+| `ADMIN_SESSION_TTL_HOURS` | ✕ | 管理セッションの有効時間（既定 8）。署名鍵は `AUTH_SECRET` を流用するので管理画面利用時は `AUTH_SECRET` が必須 |
 | `BLOCKED_IPS` | ✕ | 手動ブロックする IP のカンマ区切り（管理画面の代替） |
 | `ACCESS_LOG_SALT` | ✕ | アクセスログのクライアント識別子を匿名化するソルト |
 | `E2E_TEST_LOGIN` | ✕ | `true` で開発/E2E 用モックログイン（`/api/test/login`）を有効化。**本番では絶対に設定しない** |
@@ -107,13 +111,57 @@ npm run dev
 
 ---
 
+## 管理画面（内容モデレーション）
+
+**投稿**（`Attempt` の「経験として公開」）と **道**（`Road` の登録・編集）は、どちらも公開の
+タイミングで **AI 審査**を通す。
+
+- AI 判定が **OK** → そのまま公開
+- **NG / 不明**（`ANTHROPIC_API_KEY` 未設定時も含む）→ 保留（`moderationStatus = pending`）。
+  公開検索には出さず、本人の画面では「確認中」表示。運営が管理画面で **許可 / 却下**する
+- 公開中の投稿・承認済みの道を本人が書き換えた場合も再審査され、NG/不明なら自動で保留に戻る
+- **公開検索に出るのは「投稿が承認済み かつ その道も承認済み」のときだけ**
+
+管理画面（`/admin`、Google ログインとは別のメール＋パスワード）。開くと最初に
+「確認が必要」（件数＋意味＋操作）→「現在の状況」→「最近の動き」→「管理メニュー」の順で並び、
+何を確認すればいいかが一目で分かるようにしている。画面上の表示名は「投稿」ではなく「経験」を使う
+（API/DB/コード上の呼び名は変更していない）:
+
+| 画面 | 内容 |
+| --- | --- |
+| `/admin` | ダッシュボード。確認が必要な件数・現在の状況・最近の動き・管理メニュー |
+| `/admin/moderation`（経験を確認） | 経験の確認待ちキュー。AI の理由・カテゴリを見て公開する / しない |
+| `/admin/roads`（道を確認） | 道の審査キュー（状態フィルタ・検索） |
+| `/admin/roads/{id}` | 道の全項目＋AI 判定＋この道の経験一覧＋操作ログ |
+| `/admin/posts`（公開されている経験） | 全経験の一覧（状態フィルタ・検索）、公開停止・再公開・AI 再チェック |
+| `/admin/posts/{id}` | 経験の全項目＋写真＋AI 判定＋操作ログ |
+| `/admin/audit` | 全操作ログ（誰が・いつ・何をしたか） |
+
+「利用者」「通報・対応」は未実装のためリンクにせず、管理メニューに「準備中」とだけ表示する
+（ダミー画面は作らない）。
+
+```bash
+npm run admin:create -- you@example.com "your-password" "表示名"   # 運営者を作成
+# dev は npm run db:seed でも admin@example.com / dekiru-admin が作られる
+```
+
+実装: スキーマ `ModerationStatus`（`Attempt` / `Road` 共通）/ `admin_users` / `admin_audit_logs`、
+公開ゲートは `src/lib/search.ts#PUBLIC_ATTEMPT_WHERE`（投稿＋親 Road の承認を要求）に一元化、
+AI 審査は `src/lib/ai/moderation.ts`（`moderateAttemptContent` / `moderateRoadContent`）+
+`src/lib/moderation.ts`、管理認証は `src/lib/admin/*`（`AUTH_SECRET` 署名の独立セッション cookie）、
+ダッシュボード集計・最近の動きは `src/lib/admin/queries.ts`。
+`/admin/*` では一般利用者向けヘッダー・フッターを出さない（`src/components/site-chrome.tsx`）。
+admin 主要画面は axe-core (wcag2a/wcag2aa) で違反 0 件を確認済み。
+
+---
+
 ## テスト
 
 ```bash
 docker compose up -d              # DB / MinIO
 npx prisma migrate deploy && npm run db:seed
-npm test                          # Vitest: 89 件（lib ロジック + 道ツリー/ページ分割 + 検索の出し分け/ページ送り + 認可 + bot-guard の結合）
-npm run test:e2e                  # Playwright: 70 件（重要シナリオ / 道の作成・文字数表示 / 権限 / 枝分かれ道・10件ページ分割 / 検索カードの出し分け・種類指定・ページ送り / できた％・気持ち / スクレイピング対策 / axe）
+npm test                          # Vitest: 136 件（lib ロジック + 道ツリー/ページ分割 + 検索の出し分け/ページ送り + 認可 + bot-guard + 投稿/道モデレーション/管理認証 の結合）
+npm run test:e2e                  # Playwright: 72 件（重要シナリオ / 道の作成・文字数表示 / 権限 / 枝分かれ道・10件ページ分割 / 検索カードの出し分け・種類指定・ページ送り / できた％・気持ち / スクレイピング対策 / 管理画面モデレーション / axe）
 ```
 
 E2E は `E2E_TEST_LOGIN=true` でモックログインを使う（Google OAuth 不要）。
@@ -144,6 +192,8 @@ DB / MinIO（docker）は事前に起動しておくこと。
 
 - **本番ホスティング未確定**（標準 PostgreSQL + Prisma なので移行容易）。
 - レート制限はメモリ内（単一プロセス前提）。水平スケール時は共有ストアへ。
+- 投稿モデレーションの AI 審査は公開操作に同期実行（Claude 呼び出し 1〜3 秒）。将来は非同期キューへ。
+- 管理画面は投稿モデレーション中心（利用者管理・IP ブロック UI・通報導線は未実装。`bot-guard` の運用フック関数は用意済み）。
 - MinIO バケットは匿名 read 可（公開写真を直接配信）。非公開運用なら署名 URL 化が必要。
 - `road.visibility = public`（本人の道ページの公開）はフラグのみ保持。他人向けの道ページ URL は未実装。
 - 検索は部分一致（`ILIKE`）。類似検索・AI 検索・全文検索は未実装（拡張点は `src/lib/search.ts` に集約）。
@@ -157,12 +207,12 @@ DB / MinIO（docker）は事前に起動しておくこと。
 ```
 prisma/                 スキーマ・マイグレーション・シード
 src/
-  app/                  画面 + API Route Handlers (/api/v1/*)
-  components/            UI・フォーム・各画面のクライアント部品
-  lib/                  db / auth / authz / api / search / storage / ai / validation ...
+  app/                  画面 + API Route Handlers (/api/v1/*、/admin、/api/admin/*)
+  components/            UI・フォーム・各画面のクライアント部品（admin/ に管理画面部品）
+  lib/                  db / auth / authz / api / search / storage / ai / validation / moderation / admin ...
   styles/tokens.css     デザイントークン
 tests/
   unit/  integration/  e2e/
-docs/                   api.md / implementation-decisions.md
+docs/                   api.md / implementation-decisions.md / admin-manual.md
 docker-compose.yml      PostgreSQL + MinIO
 ```

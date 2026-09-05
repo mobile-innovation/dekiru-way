@@ -29,7 +29,8 @@ export default async function MyRoadsPage() {
       ) : (
         <ul className="grid gap-4 lg:grid-cols-2">
           {roads.map((road) => {
-            const published = road.attempts.filter((a) => a.isPublished).length;
+            const published = road.attempts.filter((a) => a.publishState === "published").length;
+            const reviewing = road.attempts.filter((a) => a.publishState === "reviewing").length;
             return (
               <li key={road.id} className="h-full">
                 {/* 枠線は検索の方法カード（MethodCard）と同じ `--color-primary`。背景は白のまま。
@@ -57,7 +58,10 @@ export default async function MyRoadsPage() {
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--color-primary-hover)]">
                       <span>試したこと {road.attempts.length} 件</span>
                       <span aria-hidden="true">・</span>
-                      <span>公開中 {published} 件</span>
+                      <span>
+                        公開中 {published} 件
+                        {reviewing > 0 && `（確認中 ${reviewing} 件）`}
+                      </span>
                       <span aria-hidden="true">・</span>
                       {road.visibility === "public" ? (
                         <span className="font-semibold text-[var(--color-accent)]">道は公開</span>

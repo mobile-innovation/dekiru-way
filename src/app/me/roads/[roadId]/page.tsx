@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePageUserId } from "@/lib/session";
 import { getMyRoad } from "@/lib/queries";
-import { LinkButton, ResultBadge, StepFlow } from "@/components/ui";
+import { Callout, LinkButton, ResultBadge, StepFlow } from "@/components/ui";
 import { IconNotebookPen, IconPencil, IconPlus, IconSprout } from "@/components/icons";
 import {
   AttemptPublishToggle,
@@ -75,6 +75,23 @@ export default async function MyRoadPage({ params }: { params: Promise<{ roadId:
 
       {/* 本文セクション。ヘッダーのボタン行との間は詰め（mt-4）、セクション間は space-y-6。 */}
       <div className="mt-4 space-y-6">
+        {road.moderationStatus !== "approved" && (
+          <Callout
+            tone="warn"
+            title={
+              road.moderationStatus === "rejected"
+                ? "この道は公開が見送られました"
+                : "この道の内容を確認しています"
+            }
+          >
+            <p>
+              {road.moderationStatus === "rejected"
+                ? "運営がこの道の内容の公開を見送りました。「道を編集」で内容を直すと、もう一度確認されます。"
+                : "運営がこの道の内容を確認しています。確認できるまで、この道で「経験として公開」した記録は、みんなの検索結果には出ません。"}
+            </p>
+          </Callout>
+        )}
+
         {overview.length > 0 && (
           <section className={`${CARD} bg-[var(--color-surface)] p-5`}>
             <h2 className="mb-4 flex items-center gap-2 text-base font-bold">
@@ -96,6 +113,24 @@ export default async function MyRoadPage({ params }: { params: Promise<{ roadId:
             />
             試したこと（{road.attempts.length}）
           </h2>
+
+          <Callout tone="info" title="「経験として公開」するときの確認について">
+            <p>
+              公開ボタンを押すと、内容を AI が確認します。次のような内容が含まれていると、
+              運営が確認するまで <strong>「確認中」</strong> になり、その間は公開されません。
+            </p>
+            <ul className="mt-2 list-disc space-y-0.5 pl-5">
+              <li>名前・住所・電話番号・勤務先など、個人が分かる情報</li>
+              <li>「必ず治る」「絶対に効く」などの医療的な断定</li>
+              <li>特定の人・団体への攻撃や誹謗中傷</li>
+              <li>宣伝・勧誘、他サービスへの誘導</li>
+              <li>差別的・暴力的な表現</li>
+            </ul>
+            <p className="mt-2">
+              問題がなければそのまま公開されます。確認が済むと公開され、見送られた場合は
+              内容を直して出し直せます。
+            </p>
+          </Callout>
 
           {road.attempts.length === 0 ? (
             <div className={`${CARD} bg-[var(--color-primary-tint)] p-6 text-center`}>
@@ -174,7 +209,11 @@ export default async function MyRoadPage({ params }: { params: Promise<{ roadId:
                       </ul>
                     )}
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                      <AttemptPublishToggle attemptId={a.id} initial={a.isPublished} />
+                      <AttemptPublishToggle
+                        attemptId={a.id}
+                        initial={a.isPublished}
+                        initialState={a.publishState}
+                      />
                       <div className="flex items-center gap-4">
                         <Link
                           href={`/me/roads/${road.id}/attempts/${a.id}/edit`}

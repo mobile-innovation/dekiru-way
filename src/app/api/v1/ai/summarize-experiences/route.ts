@@ -3,6 +3,7 @@ import { handle, ok, parseJson } from "@/lib/api";
 import { enforceRateLimit, RATE_PRESETS, clientKey } from "@/lib/ratelimit";
 import { aiSummarizeSchema } from "@/lib/validation";
 import { summarizeExperiences } from "@/lib/ai/client";
+import { PUBLIC_ATTEMPT_WHERE } from "@/lib/search";
 
 /**
  * POST /api/v1/ai/summarize-experiences — 複数の公開経験を整理する補助 (指示書 12)。
@@ -13,7 +14,7 @@ export const POST = handle(async (req) => {
   const { experienceIds } = await parseJson(req, aiSummarizeSchema);
 
   const rows = await prisma.attempt.findMany({
-    where: { id: { in: experienceIds }, isPublished: true },
+    where: { id: { in: experienceIds }, ...PUBLIC_ATTEMPT_WHERE },
     select: { method: true, result: true, memo: true },
   });
 

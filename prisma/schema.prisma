@@ -36,6 +36,16 @@ enum AttemptResult {
   ongoing
 }
 
+/// 公開しようとした Attempt (投稿) のモデレーション状態。
+///   pending  = AI が NG / 不明と判定。運営レビュー待ち。公開検索には出さない
+///   approved = 公開可 (AI が OK、または運営が許可)
+///   rejected = 運営が却下。公開しない
+enum ModerationStatus {
+  pending
+  approved
+  rejected
+}
+
 model User {
   id          String   @id @default(uuid()) @db.Uuid
   /// Google OpenID Connect の sub。認証プロバイダをまたいだ一意キー。
@@ -73,17 +83,29 @@ model Road {
   /// 次に試すこと
   nextAction    String?    @map("next_action")
   visibility    Visibility @default(private)
+  /// 道の内容モデレーション。承認済みでないと、この道の経験は公開面に出さない。
+  /// 新規行は pending。既存の道はマイグレーションで approved にバックフィルする。
+  moderationStatus   ModerationStatus @default(pending) @map("moderation_status")
+  aiVerdict          String?          @map("ai_verdict")
+  aiReason           String?          @map("ai_reason")
+  aiCategories       String[]         @map("ai_categories")
+  aiCheckedAt        DateTime?        @map("ai_checked_at")
+  moderatedByAdminId String?          @map("moderated_by_admin_id") @db.Uuid
+  moderatedAt        DateTime?        @map("moderated_at")
+  moderationNote     String?          @map("moderation_note")
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   attempts Attempt[]
   roadTags RoadTag[]
+  moderatedByAdmin AdminUser? @relation("AdminModeratedRoads", fields: [moderatedByAdminId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([visibility])
   @@index([createdAt])
   @@index([updatedAt])
+  @@index([moderationStatus])
   @@map("roads")
 }
 
@@ -112,6 +134,23 @@ model Attempt {
   previousAttemptId  String? @map("previous_attempt_id") @db.Uuid
   /// この Attempt を「経験」として公開するか。初期値 false。
   isPublished Boolean       @default(false) @map("is_published")
+  /// 公開ゲート。`isPublished && moderationStatus == approved` のときだけ公開面に出す。
+  /// 新規行は pending。既存の公開投稿はマイグレーションで approved にバックフィルする。
+  moderationStatus   ModerationStatus @default(pending) @map("moderation_status")
+  /// 最新の AI 判定 ("ok" | "ng" | "unknown")。
+  aiVerdict          String?          @map("ai_verdict")
+  /// AI が挙げた理由 (日本語 1〜2 文)。
+  aiReason           String?          @map("ai_reason")
+  /// AI が付けたカテゴリフラグ (personal_info / medical_assertion / defamation / spam / inappropriate / other)。
+  aiCategories       String[]         @map("ai_categories")
+  /// AI が最後にチェックした時刻。
+  aiCheckedAt        DateTime?        @map("ai_checked_at")
+  /// 最後に手動でモデレーション判断した管理者。
+  moderatedByAdminId String?          @map("moderated_by_admin_id") @db.Uuid
+  /// 手動判断の時刻。
+  moderatedAt        DateTime?        @map("moderated_at")
+  /// 運営メモ (任意)。
+  moderationNote     String?          @map("moderation_note")
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
@@ -119,12 +158,15 @@ model Attempt {
   photos          AttemptPhoto[]
   previousAttempt Attempt?       @relation("AttemptChain", fields: [previousAttemptId], references: [id], onDelete: SetNull)
   nextAttempts    Attempt[]      @relation("AttemptChain")
+  moderatedByAdmin AdminUser?    @relation(fields: [moderatedByAdminId], references: [id], onDelete: SetNull)
 
   @@index([roadId])
   @@index([result])
   @@index([isPublished])
   @@index([triedAt])
   @@index([previousAttemptId])
+  @@index([moderationStatus])
+  @@index([isPublished, moderationStatus])
   @@map("attempts")
 }
 
@@ -152,6 +194,47 @@ model Tag {
 
   @@index([name])
   @@map("tags")
+}
+
+/// 管理画面 (モデレーション) にログインできる運営者。
+/// アプリ利用者 (User / Google ログイン) とは完全に別系統。
+model AdminUser {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  /// "scrypt$<N>$<saltBase64>$<hashBase64>" 形式。
+  passwordHash String    @map("password_hash")
+  displayName  String?   @map("display_name")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  auditLogs         AdminAuditLog[]
+  moderatedAttempts Attempt[]
+  moderatedRoads    Road[]          @relation("AdminModeratedRoads")
+
+  @@map("admin_users")
+}
+
+/// 管理画面での操作記録 (監査ログ)。
+model AdminAuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  adminId   String   @map("admin_id") @db.Uuid
+  /// login / approve / reject / unpublish / republish / recheck など。
+  action    String
+  /// 対象の投稿 (Attempt) id。操作によっては無い。
+  attemptId String?  @map("attempt_id") @db.Uuid
+  /// 対象の道 (Road) id。操作によっては無い。
+  roadId    String?  @map("road_id") @db.Uuid
+  detail    Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([attemptId])
+  @@index([roadId])
+  @@map("admin_audit_logs")
 }
 
 /// Road と Tag の中間テーブル。複合主キー (road_id, tag_id)。

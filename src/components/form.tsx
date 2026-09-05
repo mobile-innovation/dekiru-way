@@ -92,6 +92,8 @@ const CONTROL =
   "w-full rounded-[var(--radius-md)] border bg-[var(--color-surface)] px-3.5 py-2.5 text-base shadow-[0_1px_2px_rgba(46,42,38,0.04)]";
 const CONTROL_OK = "border-[var(--color-border)]";
 const CONTROL_ERR = "border-[var(--color-danger)]";
+// 読み取り専用（確定して変更できない項目）は、編集できないと分かる見た目にする。
+const CONTROL_LOCKED = "bg-[var(--color-surface-sunken)] text-[var(--color-ink-muted)] cursor-not-allowed";
 
 export function TextField({
   label,
@@ -118,7 +120,9 @@ export function TextField({
           id={fid}
           aria-describedby={describedBy}
           aria-invalid={invalid || undefined}
-          className={`${CONTROL} ${invalid ? CONTROL_ERR : CONTROL_OK}`}
+          className={`${CONTROL} ${invalid ? CONTROL_ERR : CONTROL_OK} ${
+            rest.readOnly || rest.disabled ? CONTROL_LOCKED : ""
+          }`}
           {...rest}
         />
       )}
@@ -151,7 +155,9 @@ export function TextAreaField({
           rows={rows}
           aria-describedby={describedBy}
           aria-invalid={invalid || undefined}
-          className={`${CONTROL} ${invalid ? CONTROL_ERR : CONTROL_OK}`}
+          className={`${CONTROL} ${invalid ? CONTROL_ERR : CONTROL_OK} ${
+            rest.readOnly || rest.disabled ? CONTROL_LOCKED : ""
+          }`}
           {...rest}
         />
       )}

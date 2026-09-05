@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { ok, ApiError, assertUuid } from "@/lib/api";
 import { handlePublicRead } from "@/lib/public-api";
-import { experienceInclude } from "@/lib/search";
+import { experienceInclude, PUBLIC_ATTEMPT_WHERE } from "@/lib/search";
 import { serializeExperience } from "@/lib/serializers";
 
 /**
@@ -15,7 +15,7 @@ export const GET = handlePublicRead(async (_req, ctx) => {
   assertUuid(id, "経験");
 
   const row = await prisma.attempt.findFirst({
-    where: { id, isPublished: true },
+    where: { id, ...PUBLIC_ATTEMPT_WHERE },
     include: experienceInclude,
   });
   if (!row) {
@@ -23,7 +23,7 @@ export const GET = handlePublicRead(async (_req, ctx) => {
   }
 
   const siblings = await prisma.attempt.findMany({
-    where: { roadId: row.roadId, isPublished: true },
+    where: { roadId: row.roadId, ...PUBLIC_ATTEMPT_WHERE },
     include: experienceInclude,
   });
 

@@ -5,6 +5,7 @@ import {
   buildRoadLevelSearchWhere,
   buildMethodSearchWhere,
   experienceInclude,
+  PUBLIC_ATTEMPT_WHERE,
 } from "@/lib/search";
 import { serializeExperience, serializeRoad, sortAttemptsChronologically } from "@/lib/serializers";
 import { buildRoadDetailRows, splitDetailRowsIntoPages } from "@/lib/road-detail";
@@ -68,7 +69,7 @@ export async function searchRoads(q: ExperienceQuery) {
       where,
       include: {
         roadTags: { include: { tag: true } },
-        attempts: { where: { isPublished: true } },
+        attempts: { where: PUBLIC_ATTEMPT_WHERE },
       },
       orderBy: { updatedAt: "desc" },
       skip,
@@ -139,7 +140,7 @@ async function treePageByAttempt(roadIds: string[]): Promise<Map<string, number>
   const out = new Map<string, number>();
   if (roadIds.length === 0) return out;
   const siblings = await prisma.attempt.findMany({
-    where: { roadId: { in: roadIds }, isPublished: true },
+    where: { roadId: { in: roadIds }, ...PUBLIC_ATTEMPT_WHERE },
     select: { id: true, roadId: true, method: true, result: true, triedAt: true, createdAt: true, previousAttemptId: true },
   });
   const byRoad = new Map<string, typeof siblings>();
@@ -252,12 +253,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export async function getExperience(id: string) {
   if (!UUID_RE.test(id)) return null;
   const row = await prisma.attempt.findFirst({
-    where: { id, isPublished: true },
+    where: { id, ...PUBLIC_ATTEMPT_WHERE },
     include: experienceInclude,
   });
   if (!row) return null;
   const siblings = await prisma.attempt.findMany({
-    where: { roadId: row.roadId, isPublished: true },
+    where: { roadId: row.roadId, ...PUBLIC_ATTEMPT_WHERE },
     include: experienceInclude,
   });
   return serializeExperience(row, { siblings });
@@ -322,12 +323,12 @@ export async function getMyRoad(userId: string, roadId: string) {
 
 export async function getPopularTags(limit = 20) {
   const tags = await prisma.tag.findMany({
-    where: { roadTags: { some: { road: { attempts: { some: { isPublished: true } } } } } },
+    where: { roadTags: { some: { road: { attempts: { some: PUBLIC_ATTEMPT_WHERE } } } } },
     select: {
       id: true,
       name: true,
       _count: {
-        select: { roadTags: { where: { road: { attempts: { some: { isPublished: true } } } } } },
+        select: { roadTags: { where: { road: { attempts: { some: PUBLIC_ATTEMPT_WHERE } } } } },
       },
     },
   });

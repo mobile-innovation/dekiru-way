@@ -41,6 +41,8 @@ export default defineConfig({
       E2E_TEST_LOGIN: "true",
       // E2E はローカル LLM に依存しない（CI・本番未設定と同じ挙動＝タイトル自動生成オフ）
       LOCAL_AI_MODEL: "",
+      // 公開のたびに Claude を呼ばない（課金・遅延・不安定さを避ける）。公開は即 approved。
+      AI_MODERATION_ENABLED: "false",
     },
   },
 });

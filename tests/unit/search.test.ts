@@ -2,9 +2,13 @@ import { describe, it, expect } from "vitest";
 import { buildExperienceWhere, buildExperienceOrderBy } from "@/lib/search";
 
 describe("buildExperienceWhere", () => {
-  it("公開 Attempt に限定する", () => {
+  it("公開かつ Attempt も親 Road も承認済みに限定する", () => {
     const where = buildExperienceWhere({});
-    expect(where.AND).toContainEqual({ isPublished: true });
+    expect(where.AND).toContainEqual({
+      isPublished: true,
+      moderationStatus: "approved",
+      road: { is: { moderationStatus: "approved" } },
+    });
   });
 
   it("result 指定を AND 条件に足す", () => {

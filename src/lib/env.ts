@@ -25,6 +25,18 @@ export const env = {
     get secret() {
       return optional("AUTH_SECRET");
     },
+    /** 管理画面セッション署名にも AUTH_SECRET を流用する。 */
+    get adminSessionTtlHours() {
+      const n = Number(optional("ADMIN_SESSION_TTL_HOURS", "8"));
+      return Number.isFinite(n) && n > 0 ? n : 8;
+    },
+    /** 初期管理者ブートストラップ用 (create-admin スクリプト / dev seed のみ参照)。 */
+    get adminEmail() {
+      return optional("ADMIN_EMAIL");
+    },
+    get adminPassword() {
+      return optional("ADMIN_PASSWORD");
+    },
     get googleId() {
       return optional("AUTH_GOOGLE_ID");
     },
@@ -73,6 +85,14 @@ export const env = {
     },
     get configured() {
       return Boolean(process.env.ANTHROPIC_API_KEY);
+    },
+    /**
+     * 公開投稿の AI モデレーションを有効にするか。既定 true。
+     * `AI_MODERATION_ENABLED=false` で無効化すると、公開時は AI を呼ばず即 approved にする
+     * (E2E / ローカルで AI 課金・遅延を避ける運用スイッチ)。
+     */
+    get moderationEnabled() {
+      return process.env.AI_MODERATION_ENABLED !== "false";
     },
   },
 

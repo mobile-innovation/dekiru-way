@@ -7,6 +7,7 @@ import { serializeRoad } from "@/lib/serializers";
 import { syncRoadTags } from "@/lib/tags";
 import { toDbDate } from "@/lib/dates";
 import { generateRoadTitle } from "@/lib/ai/local";
+import { applyRoadModeration } from "@/lib/moderation";
 
 const roadInclude = {
   roadTags: { include: { tag: true } },
@@ -50,6 +51,9 @@ export const POST = handle(async (req) => {
       await prisma.road.update({ where: { id: road.id }, data: { title: generated } });
     }
   }
+
+  // 道の内容を AI 審査する。NG/不明なら pending になり、この道の経験は公開面に出ない。
+  await applyRoadModeration(road.id);
 
   const full = await prisma.road.findUniqueOrThrow({
     where: { id: road.id },

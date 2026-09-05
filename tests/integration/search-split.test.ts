@@ -39,9 +39,15 @@ beforeAll(async () => {
       title: MARK,
       difficulty: `${ROAD_WORD} で困っている`,
       goal: "自分でできるようになりたい",
+      moderationStatus: "approved",
       attempts: {
         create: [
-          { method: `${METHOD_WORD} を使ってみた`, result: "partial", isPublished: true },
+          {
+            method: `${METHOD_WORD} を使ってみた`,
+            result: "partial",
+            isPublished: true,
+            moderationStatus: "approved",
+          },
           { method: `${METHOD_WORD} を非公開で試した`, result: "failed", isPublished: false },
         ],
       },
@@ -57,11 +63,13 @@ beforeAll(async () => {
       title: `${MARK}-deep`,
       difficulty: `${MARK} 長い道`,
       goal: "区切りたい",
+      moderationStatus: "approved",
       attempts: {
         create: Array.from({ length: 12 }, (_, i) => ({
           method: i === 11 ? `${DEEP_WORD} を試した（12件目）` : `${MARK} 方法 ${i + 1}`,
           result: "ongoing" as const,
           isPublished: true,
+          moderationStatus: "approved" as const,
           triedAt: new Date(`2025-01-${String(i + 1).padStart(2, "0")}T00:00:00Z`),
         })),
       },
@@ -77,11 +85,13 @@ beforeAll(async () => {
       title: `${MARK}-many-methods`,
       difficulty: `${MARK} たくさんの方法がある道`,
       goal: "いろいろ試したい",
+      moderationStatus: "approved",
       attempts: {
         create: Array.from({ length: 25 }, (_, i) => ({
           method: `${PAGE_WORD} その${i + 1}`,
           result: "ongoing" as const,
           isPublished: true,
+          moderationStatus: "approved" as const,
         })),
       },
     },

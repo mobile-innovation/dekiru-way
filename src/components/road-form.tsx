@@ -168,7 +168,7 @@ export function RoadForm() {
         <div className="space-y-2">
           <TextAreaField
             label="何ができなくなりましたか？"
-            hint="いつもの言葉で。病名や年齢は要りません。"
+            hint="いつもの言葉で。病名や年齢は要りません。あとから変更できません。"
             value={v.difficulty}
             onChange={bind("difficulty")}
             error={fieldErrors.difficulty}

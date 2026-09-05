@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, ModerationStatus } from "@prisma/client";
 import type { ExperienceQuery } from "@/lib/validation";
 
 /**
@@ -7,15 +7,33 @@ import type { ExperienceQuery } from "@/lib/validation";
  *   roads.difficulty / roads.situation / roads.goal / roads.previously_able
  *   attempts.method / attempts.memo
  *   tags.name
- * 「経験」= 公開された Attempt (attempts.is_published = true) のみ。
+ * 「経験」= 公開され (is_published = true)、かつ Attempt も 親 Road も
+ * モデレーション承認済み (moderation_status = approved) のものだけ。
  *
  * MVP はキーワード (部分一致) + タグ + 結果。
  * 将来は pg_trgm / ベクトル類似検索へ差し替えられるよう、
  * where 生成をこの関数に閉じ込めておく。
  */
 
+/** 公開面に出してよい Road の条件 (道の内容が承認済み)。 */
+export const PUBLIC_ROAD_WHERE = {
+  moderationStatus: ModerationStatus.approved,
+} satisfies Prisma.RoadWhereInput;
+
+/**
+ * 公開面 (検索・経験詳細・タグ・道の見える化) に出してよい Attempt の条件。
+ * 本人ビュー (/me/*, 自分の道) には使わない。
+ * この 1 箇所を直せば公開ゲートが全経路で変わる。
+ * 「投稿が公開かつ承認済み」かつ「その道も承認済み」の両方を満たすこと。
+ */
+export const PUBLIC_ATTEMPT_WHERE = {
+  isPublished: true,
+  moderationStatus: ModerationStatus.approved,
+  road: { is: PUBLIC_ROAD_WHERE },
+} satisfies Prisma.AttemptWhereInput;
+
 export function buildExperienceWhere(q: Pick<ExperienceQuery, "q" | "result" | "tag">): Prisma.AttemptWhereInput {
-  const and: Prisma.AttemptWhereInput[] = [{ isPublished: true }];
+  const and: Prisma.AttemptWhereInput[] = [{ ...PUBLIC_ATTEMPT_WHERE }];
 
   if (q.result) {
     and.push({ result: q.result });
@@ -75,10 +93,13 @@ export const experienceInclude = {
 export function buildRoadLevelSearchWhere(
   q: Pick<ExperienceQuery, "q" | "result" | "tag">,
 ): Prisma.RoadWhereInput {
-  const publishedAttempt: Prisma.AttemptWhereInput = { isPublished: true };
+  const publishedAttempt: Prisma.AttemptWhereInput = { ...PUBLIC_ATTEMPT_WHERE };
   if (q.result) publishedAttempt.result = q.result;
 
-  const and: Prisma.RoadWhereInput[] = [{ attempts: { some: publishedAttempt } }];
+  const and: Prisma.RoadWhereInput[] = [
+    { ...PUBLIC_ROAD_WHERE },
+    { attempts: { some: publishedAttempt } },
+  ];
 
   if (q.tag) {
     and.push({
@@ -111,7 +132,7 @@ export function buildRoadLevelSearchWhere(
 export function buildMethodSearchWhere(
   q: Pick<ExperienceQuery, "q" | "result" | "tag">,
 ): Prisma.AttemptWhereInput {
-  const and: Prisma.AttemptWhereInput[] = [{ isPublished: true }];
+  const and: Prisma.AttemptWhereInput[] = [{ ...PUBLIC_ATTEMPT_WHERE }];
 
   if (q.result) and.push({ result: q.result });
   if (q.tag) {

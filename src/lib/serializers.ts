@@ -1,4 +1,5 @@
 import type { Attempt, AttemptPhoto, Road, RoadTag, Tag } from "@prisma/client";
+import { publishStateOf } from "@/lib/publish-state";
 
 /**
  * Prisma モデル → API DTO 変換。
@@ -33,6 +34,11 @@ export function serializeAttempt(a: AttemptWithPhotos) {
     triedAt: dateOnly(a.triedAt),
     memo: a.memo,
     isPublished: a.isPublished,
+    // モデレーション (本人ビュー用)。公開申請の状態と、AI が挙げた理由。
+    moderationStatus: a.moderationStatus,
+    publishState: publishStateOf(a),
+    aiVerdict: a.aiVerdict,
+    aiReason: a.aiReason,
     // v6: できた％ / 気持ち / その後 / 次に試すこと / 前の Attempt
     achievementPercent: a.achievementPercent,
     feeling: a.feeling,
@@ -76,6 +82,9 @@ export function serializeRoad(road: RoadFull) {
     progress: road.progress,
     nextAction: road.nextAction,
     visibility: road.visibility,
+    // 道の内容モデレーション (本人ビュー用)。approved でない間は、この道の経験は公開面に出ない。
+    moderationStatus: road.moderationStatus,
+    aiReason: road.aiReason,
     tags: roadTagNames(road),
     attempts,
     attemptCount: road.attempts ? attempts.length : undefined,

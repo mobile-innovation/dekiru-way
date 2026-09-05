@@ -7,6 +7,7 @@ import { serializeAttempt } from "@/lib/serializers";
 import { toDbDate } from "@/lib/dates";
 import { deleteByUrl } from "@/lib/storage";
 import { assertValidPreviousAttempt } from "@/lib/attempts";
+import { applyModerationOnPublish } from "@/lib/moderation";
 
 // GET /api/v1/attempts/{attemptId} — 本人のみ (編集用ビュー)。公開閲覧は /experiences 経由。
 export const GET = handle(async (_req, ctx) => {
@@ -35,6 +36,18 @@ export const PATCH = handle(async (req, ctx) => {
     await assertValidPreviousAttempt(input.previousAttemptId, roadId, attemptId);
   }
 
+  const before = await prisma.attempt.findUniqueOrThrow({
+    where: { id: attemptId },
+    select: {
+      isPublished: true,
+      method: true,
+      memo: true,
+      feeling: true,
+      stateAfter: true,
+      nextAction: true,
+    },
+  });
+
   const attempt = await prisma.attempt.update({
     where: { id: attemptId },
     data: {
@@ -55,6 +68,25 @@ export const PATCH = handle(async (req, ctx) => {
     },
     include: { photos: true },
   });
+
+  // AI 審査が必要か:
+  //  - 非公開→公開に切り替えた
+  //  - もともと公開中で、本文フィールド (method/memo/feeling/stateAfter/nextAction) を書き換えた
+  // → いずれも applyModerationOnPublish で再審査 (OK なら公開維持 / NG・不明は運営レビューへ戻る)。
+  const CONTENT_FIELDS = ["method", "memo", "feeling", "stateAfter", "nextAction"] as const;
+  const becamePublished = input.isPublished === true && !before.isPublished;
+  const contentChanged = CONTENT_FIELDS.some(
+    (f) => input[f] !== undefined && input[f] !== before[f],
+  );
+  if (attempt.isPublished && (becamePublished || contentChanged)) {
+    await applyModerationOnPublish(attemptId);
+    const fresh = await prisma.attempt.findUniqueOrThrow({
+      where: { id: attemptId },
+      include: { photos: true },
+    });
+    return ok(serializeAttempt(fresh));
+  }
+
   return ok(serializeAttempt(attempt));
 });
 

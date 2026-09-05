@@ -27,6 +27,9 @@
   /* アクセント (やさしいコーラル。強調・リンク下線など) */
   --color-accent: #d1552f;
   --color-accent-soft: #fbe9e0;
+  /* --color-accent を淡い面の上で小さい文字に使うと AA (4.5:1) を割るため、
+     バッジ・リンクなど小さい文字の強調には代わりにこちらを使う。 */
+  --color-accent-strong: #a83f22;
 
   /* 結果 5 分類 (指示書 4)。必ずアイコン/ラベルと併用する。 */
   --color-result-success: #2e7d32;

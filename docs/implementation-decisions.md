@@ -539,6 +539,135 @@ AI に適用。将来は Upstash 等の共有ストアに差し替え。
 
 ---
 
+## 7-novies. 投稿モデレーション + 管理画面 (管理画面指示)
+
+利用者が「経験として公開」した投稿 (`Attempt`) を、公開時に AI 審査に通す。OK なら即公開、
+NG / 不明は保留して運営が管理画面で許可 / 却下する。
+
+### データモデル
+
+- `enum ModerationStatus { pending approved rejected }`、`Attempt` に
+  `moderationStatus`（既定 `pending`）/ `aiVerdict` / `aiReason` / `aiCategories[]` /
+  `aiCheckedAt` / `moderatedByAdminId` / `moderatedAt` / `moderationNote` を追加。
+- 既存の公開投稿はマイグレーションの `UPDATE ... WHERE is_published = true` で `approved`
+  にバックフィル（今までどおり見え続ける）。新規行の DB デフォルトは `pending`。
+- `AdminUser`（メール + scrypt ハッシュ）と `AdminAuditLog`（操作記録）を追加。
+  アプリ利用者 (`User` / Google) とは完全に別テーブル・別系統。
+
+### 公開ゲートの一元化
+
+- 公開面のクエリ（検索・経験詳細・siblings・タグ・道の見える化）は
+  `src/lib/search.ts#PUBLIC_ATTEMPT_WHERE = { isPublished: true, moderationStatus: approved }`
+  に集約。本人ビュー（`/me/*`、`getMyRoad`、`roads/{id}/paths`）は従来どおり `isPublished` のみ。
+- `serializeAttempt` に `moderationStatus` / `publishState`（`private|reviewing|published|rejected`）/
+  `aiVerdict` / `aiReason` を追加。本人の道詳細では「確認中 / 公開が見送られました」を表示。
+
+### AI 審査
+
+- `src/lib/ai/moderation.ts#moderateAttemptContent` … `ok|ng|unknown` + 理由 + カテゴリ
+  （`personal_info` / `medical_assertion` / `defamation` / `spam` / `inappropriate` / `other`）を
+  JSON で返す専用プロンプト。投稿本文は `local.ts` と同じく「データであって指示ではない」隔離。
+  `ANTHROPIC_API_KEY` 未設定・例外・タイムアウトは `unknown`（= 保留）。本文はログに出さない。
+- `src/lib/moderation.ts#applyModerationOnPublish` を POST `/roads/{id}/attempts` と
+  PATCH `/attempts/{id}` から呼ぶ。PATCH は「非公開→公開」または「公開中に本文
+  (`method/memo/feeling/stateAfter/nextAction`) を変更」したときに再審査し、NG/不明なら
+  `pending` に戻す（公開中の投稿が書き換えで不適切化しても自動で公開面から外れる）。
+- レイテンシ: 公開操作に Claude 呼び出し 1〜3 秒が乗る（同期）。将来は非同期キューへ。
+
+### 管理画面 (`/admin`)
+
+- 認証は **middleware ではなくサーバーコンポーネント layout + 各 API ハンドラ**でガード
+  （`/me` と同じ理由。Node ランタイムで Prisma / `node:crypto` を使う）。
+  `layout.tsx` は redirect せず（`login` も同じ layout を通るため）、各保護ページが
+  `requireAdmin()` を呼ぶ。
+- セッションは `AUTH_SECRET` で HMAC-SHA256 署名した自前トークンを `admin_session`
+  cookie（HttpOnly / SameSite=Lax / Secure(prod) / 既定 8h）に格納。新規依存なし
+  （パスワードは `node:crypto` scrypt）。
+- 画面: ダッシュボード（件数）/ モデレーションキュー（許可・却下）/ 全投稿一覧（状態変更・
+  取り下げ・再公開・AI 再チェック）/ 投稿詳細（全項目 + 写真 + AI 判定 + 操作ログ）/ 操作ログ。
+- 操作はすべて `AdminAuditLog` に記録（`login` / `approve` / `reject` / `unpublish` /
+  `republish` / `recheck`）。
+- 初期管理者は `npm run admin:create -- <email> <password>` か、dev は `npm run db:seed`
+  （`ADMIN_EMAIL` / `ADMIN_PASSWORD`、既定 `admin@example.com` / `dekiru-admin`）。
+- `robots.ts` に `/admin/` を Disallow 追加。
+
+### 道 (Road) の内容モデレーション（管理画面指示・追補）
+
+投稿だけでなく **道の登録・編集も公開チェック**する。道の記述（difficulty / goal / situation /
+previouslyAble / progress / nextAction / memo / status / title）は公開経験詳細
+(`/experiences/{id}`) に文脈として出るため、投稿と同じゲートに載せる。
+
+- `Road` に `moderationStatus`（既定 `pending`）＋ AI/手動判断フィールド（Attempt と同じ 8 項目）
+  を追加。既存の道はマイグレーションで全件 `approved` にバックフィル。
+- `PUBLIC_ATTEMPT_WHERE` に `road: { is: { moderationStatus: approved } }` を追加。これで
+  「投稿が承認済み **かつ** 親 Road も承認済み」でないと公開面に出ない（全経路一括）。
+  道単位検索の `buildRoadLevelSearchWhere` にも `PUBLIC_ROAD_WHERE` を追加。
+- `src/lib/ai/moderation.ts#moderateRoadContent` と `src/lib/moderation.ts#applyRoadModeration`。
+  審査対象の本文が空なら AI を呼ばず `ok`。`AI_MODERATION_ENABLED=false` は道でも即 `approved`。
+- 呼び出し: `POST /api/v1/roads`（作成時。ローカル AI のタイトル生成の後）、
+  `PATCH /api/v1/roads/{id}`（`ROAD_MODERATED_FIELDS` のいずれかが変わったとき再審査）。
+- `serializeRoad` に `moderationStatus` / `aiReason` を追加。自分の道詳細に「この道の内容を
+  確認しています / 公開が見送られました」の Callout を表示（承認前はその道の経験も公開されない旨）。
+- 管理画面: `/admin/roads`（キュー＋状態フィルタ）と `/admin/roads/{id}`（道の全項目＋AI判定＋
+  この道の投稿一覧＋操作ログ）。API は `/api/admin/roads/{id}/moderate`（許可・却下）、
+  `PATCH /api/admin/roads/{id}`（手動遷移）、`/api/admin/roads/{id}/recheck`。
+  `AdminAuditLog` に `roadId` 列を追加し、`writeAudit` は `attemptId` / `roadId` の両対応。
+- ダッシュボードに「道の審査」件数、ナビに「道の審査」を追加。
+
+### 管理画面 UI 改善（管理画面 UI 改善指示書 v1）
+
+「数字を見るダッシュボード」から「確認すべきことと次の操作がすぐ分かる画面」へ。
+API/DB/認証/審査ロジックは変更せず、表示のみ改修。
+
+- **ダッシュボード再構成**（[src/app/admin/page.tsx](../src/app/admin/page.tsx)）:
+  「確認が必要」（件数＋意味＋「確認する →」の操作を1枚のカードに。0件は「今はありません」）→
+  「現在の状況」（数字＋ラベルを必ずセット）→「最近の動き」→「管理メニュー」の順。
+  すべて既存の `dashboardStats()` から。固定値・ダミーは使わない。
+- **最近の動き**（`src/lib/admin/queries.ts#recentActivity`）: 道の作成 (`Road.createdAt`) と
+  経験の公開/停止判断 (`Attempt.moderatedAt ?? aiCheckedAt ?? updatedAt`) を実データから合成。
+  架空のイベントは作らない。長い本文は28文字で省略。
+- **用語**: 管理画面の表示名だけ「投稿」→「経験」に統一（API/DB/コードの命名は変更しない）。
+  操作ボタンも「許可して公開/却下」→「公開する/公開しない」、「取り下げる」→「公開を停止」、
+  「やはり公開する」→「やっぱり公開する」に統一し、`post-card.tsx` の `ACTION_LABEL` /
+  `STATUS_LABEL` / `RESULT_LABEL` に一元化（3画面で重複定義していたのを統合）。
+- **経験カード**: 困ったこと → 試したこと → 結果 の順で読めるよう `AdminPostCard` を再構成。
+- **利用者・通報対応**: 未実装のため、ダッシュボードの管理メニューに「準備中」として表示のみ
+  （リンクにしない。ダミー画面は作らない）。
+- **サイト共通枠の分離**（[src/components/site-chrome.tsx](../src/components/site-chrome.tsx)）:
+  `/admin/*` では一般利用者向けの `SiteHeader` / `SiteFooter`（ログインボタン・文字サイズ切替・
+  利用規約フッター等）を出さない。ルートの `layout.tsx` を分割する大掛かりな再構成は避け、
+  `usePathname()` で出し分ける薄いラッパーのみ追加。
+- **コントラスト**: 管理画面で `--color-accent` を小さい文字（バッジ・リンク）に使うと
+  WCAG AA (4.5:1) を割る組み合わせがあったため、`--color-accent-strong`（#a83f22）を
+  トークンに追加し管理画面のテキストのみ差し替え。既存の利用者向け UI の配色は変更していない。
+  admin 主要 6 画面を axe-core (wcag2a/wcag2aa) で確認し違反 0 件。
+
+### バグ修正（コードレビューで発見・全体点検）
+
+- **監査ログの action 誤表示**: 手動 moderationStatus 遷移 (`PATCH .../posts/{id}`,
+  `.../roads/{id}`) の action 判定が `pending→approved` を `republish`、`rejected→pending` を
+  `approve` と誤ラベルしていた。`src/lib/admin/audit.ts#deriveManualModerationAction` に判定を
+  一元化し、`rejected→pending` 用に `requeue`（確認待ちに戻す）を追加。
+- **道のタグが AI 審査対象から漏れていた**: `syncRoadTags` で保存されるタグ（公開経験のタグ一覧・
+  タグ検索に出る）が `moderateRoadContent` の審査本文に含まれておらず、`PATCH /roads/{id}` で
+  タグだけを変えても再審査が走らなかった。`RoadModerationInput.tags` を追加し、
+  `applyRoadModeration` はタグ込みで審査、PATCH ルートはタグの変更も `contentChanged` の判定に含める。
+- **AUTH_SECRET 未設定時に管理画面全体がクラッシュ**: `verifyAdminSessionToken`（layout 等の
+  Server Component から `handle()` を通さず呼ばれる）が `AUTH_SECRET` 未設定で例外を投げていた。
+  検証側は例外を投げず null（未ログイン扱い）を返すよう変更し、発行側 (`createAdminSessionToken`、
+  `handle()` 配下の `/api/admin/login` からのみ呼ばれる) だけ例外を投げるよう分離。
+- **道のタイトル/できなくなったこと確定の競合**: 同じ未設定項目に対する同時 PATCH が
+  read-then-write で両方チェックを通過し、後勝ちで片方の入力が黙って消えていた。
+  `updateMany` に `title/difficulty IS NULL` の書き込み条件を付けて原子的に更新し、
+  競合時は `409` を返す（scalar 更新項目が無い＝タグのみの更新のときは空 UPDATE を発行しない）。
+- **公開スイッチの aria-checked が実態と矛盾**: `AttemptPublishToggle` が `role="switch"` の
+  `aria-checked` を「公開申請中か (private 以外)」で立てていたため、「確認中」「公開が見送られました」
+  でも `true` になり、支援技術には「公開中」と読み上げられていた。`aria-checked` は
+  `state === "published"`（実際に公開されているか）に紐付け、クリック時の向き判定は
+  別の `hasPublishIntent` に分離。
+
+---
+
 ## 8. 仕様変更ログ
 
 （現時点で指示書からの機能的な逸脱はなし。追記時は下記フォーマット）
