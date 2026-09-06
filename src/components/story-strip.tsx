@@ -1,0 +1,91 @@
+import Image from "next/image";
+
+/**
+ * トップページの「できる道って、こんな場所です」ストーリー。
+ * 8 枚の連続した体験を ①→⑧ の順に並べる (指示書「幅比率・横並び枚数調整」)。
+ *
+ * - スライダーにしない。矢印・ドット・自動再生を持たない。固定グリッド。
+ * - スクロールするだけで ①→⑧ が自然に読める。HTML の並び順は ①〜⑧ 固定。
+ * - 画面が広いほど 1 行の枚数を増やす: スマホ 1 / タブレット〜PC 2 / 広い PC 3。
+ *   ただし画像に文字が焼き込まれているので、日本語が読める大きさを最優先する
+ *   (4 列は本文が小さくなりすぎるため採用しない — 指示書 §2 / §5 / §17)。
+ * - 本文 (max-w-5xl) より少し広い枠 (xl 以上で max-w-6xl) を使い、広い画面を活かす。
+ * - 画像は加工・差し替え・順番変更・大きなトリミングをしない。縦横比を保つ。
+ */
+
+const SLIDES = [
+  {
+    src: "/comic1.png",
+    title: "やりたいことがある…",
+    desc: "やってみたいけれど、うまくできるか不安な最初の状態。",
+  },
+  {
+    src: "/comic2.png",
+    title: "調べてみるけど…",
+    desc: "情報が多くて、自分に合う方法がなかなか見つからない。",
+  },
+  {
+    src: "/comic3.png",
+    title: "やってみたけど、うまくいかなかった…",
+    desc: "実際に試したけれど、自分には合わなかった。",
+  },
+  {
+    src: "/comic4.png",
+    title: "他の人の経験を見つけた！",
+    desc: "同じように悩んだ人の経験から、別の方法を知る。",
+  },
+  {
+    src: "/comic5.png",
+    title: "少しずつ、できるように！",
+    desc: "いろいろ試すうちに、少しずつできることが増える。",
+  },
+  {
+    src: "/comic6.png",
+    title: "試してみたことを記録する",
+    desc: "試した方法と結果を記録しておく。",
+  },
+  {
+    src: "/comic7.png",
+    title: "できる道で、もっと前に進もう！",
+    desc: "試行錯誤が、自分の「道」として積み重なっていく。",
+  },
+  {
+    src: "/comic8.png",
+    title: "あなたの次の一歩へ！",
+    desc: "自分の経験が、次の誰かの一歩にもつながる。",
+  },
+] as const;
+
+export function StoryStrip() {
+  return (
+    <section
+      aria-labelledby="story-heading"
+      className="mx-auto my-10 w-full max-w-5xl space-y-4 xl:max-w-6xl"
+    >
+      <div className="space-y-1.5">
+        <h2 id="story-heading" className="text-lg font-bold">
+          できる道って、こんな場所です
+        </h2>
+        <p className="text-sm text-[var(--color-ink-muted)]">
+          「できない」から始まったことも、試して、見つけて、残すことで次の一歩につながります。
+        </p>
+      </div>
+
+      {/* スマホ 1 列 / md 2 列 / xl 3 列。読み順どおりに流し込まれる (① ② ③ / ④ ⑤ ⑥ / ⑦ ⑧)。 */}
+      <ol className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {SLIDES.map((s, i) => (
+          <li key={s.src}>
+            <Image
+              src={s.src}
+              alt={`${i + 1}枚目：${s.title} ${s.desc}`}
+              width={1254}
+              height={1254}
+              sizes="(min-width: 80rem) 24rem, (min-width: 48rem) 45vw, 92vw"
+              className="h-auto w-full rounded-[var(--radius-lg)] border border-[var(--color-border)]"
+            />
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
