@@ -133,3 +133,43 @@ export const aiExperienceSearchSchema = z.object({
 export const aiSummarizeSchema = z.object({
   experienceIds: z.array(z.string().uuid()).min(1).max(20),
 });
+
+// ---- SNS 簡易登録 (/try) ----
+
+/**
+ * ログイン不要の簡易登録用。1 画面・最小入力 (困っていたこと / 試したこと / 結果)。
+ * 入力は「データ」として扱い、制御文字を除去し行内の連続空白を 1 つに畳んでから保存する。
+ * HTML/スクリプトは保存後も常にテキストとして描画される (React が自動エスケープ) ため無害化される。
+ */
+// タブ (U+0009) と改行 (U+000A) を除く制御文字 (C0 / DEL / C1)。
+// タブは空白として INLINE_SPACES 側で 1 つのスペースに畳む。
+const CONTROL_CHARS = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g;
+// 改行を除く行内の連続空白
+const INLINE_SPACES = /[^\S\n]+/g;
+
+const quickField = (label: string) =>
+  z
+    .string({ required_error: `${label}を入力してください` })
+    .transform((s) => s.replace(CONTROL_CHARS, "").replace(INLINE_SPACES, " ").trim())
+    .refine((s) => s.length > 0, { message: `${label}を入力してください` })
+    .refine((s) => s.length <= FIELD_MAX.quickText, {
+      message: `${label}は ${FIELD_MAX.quickText} 文字以内で入力してください`,
+    });
+
+export const quickExperienceSchema = z.object({
+  difficulty: quickField("困っていたこと"),
+  method: quickField("試したこと"),
+  result: z.enum(ATTEMPT_RESULTS, { required_error: "試した結果を選んでください" }),
+});
+export type QuickExperienceInput = z.infer<typeof quickExperienceSchema>;
+
+/** URL パラメータ (?problem=...) の下ごしらえ。生の値は信用せず、長さと制御文字を落とす。 */
+export function sanitizeProblemParam(raw: string | string[] | undefined): string {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof v !== "string") return "";
+  return v
+    .replace(CONTROL_CHARS, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, FIELD_MAX.quickText);
+}

@@ -666,6 +666,29 @@ API/DB/認証/審査ロジックは変更せず、表示のみ改修。
   `state === "published"`（実際に公開されているか）に紐付け、クリック時の向き判定は
   別の `hasPublishIntent` に分離。
 
+### SNS 向け簡易登録ページ `/try`（簡易登録指示書）
+
+SNS からの流入者が、ログインなしで「試したこと」1 件だけを最小入力で登録できるページ。
+`/experiences/new` のようなフルフォームではなく、困っていたこと / 試したこと / 試した結果
+（既存の 5 分類）の 3 項目だけ。`?problem=` で困っていたことを先に埋められる（編集可）。
+
+- **新しいデータモデルは作らない**。経験 = 公開された Attempt という既存仕様のまま、
+  `Road` + `Attempt` を作る（`src/lib/quick-submit.ts`）。
+- **匿名の受け皿**: `Road.userId` は NOT NULL。Google ログインしないシステム利用者を 1 行だけ
+  持ち（`googleSub = "system:anonymous-submissions"`）、簡易登録の道はすべてこの利用者が所有する。
+  公開経験のシリアライザは利用者情報を含めないため、公開面には一切出ない。スキーマ変更なし。
+- **自動公開しない**: `Attempt` は `isPublished=true` だが `moderationStatus` は必ず `pending`。
+  AI 判定は参考情報として記録するだけで pending は覆さない。`Road` は `difficulty` だけを持ち、
+  その内容は経験の確認時に必ず一緒に表示されるため `approved` で作る（公開の唯一のゲートは
+  Attempt 承認）。運営は既存の `/admin/moderation` キューでそのまま確認でき、運営メモに
+  「SNSからの簡易登録（未ログイン）」が入る。
+- **入力の扱い**: `quickExperienceSchema` で trim・制御文字除去・行内連続空白の畳み込み・
+  各 400 文字上限。`?problem=` は生値を信用せず `sanitizeProblemParam` で同様に下ごしらえ。
+  保存値は常にテキストとして描画される（React の自動エスケープ）ため HTML/スクリプトは無害化される。
+- **濫用対策**: 未ログインのため `POST /api/v1/quick-experiences` は 6/分・IP 単位の
+  レート制限（通常の書き込み 60/分より厳しい）。既知 Bot UA は middleware で拒否済み。
+  `robots.txt` は `/try` を一般クローラー不可、ページ自体も `robots: noindex`。
+
 ---
 
 ## 8. 仕様変更ログ

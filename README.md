@@ -108,6 +108,8 @@ npm run dev
 5. `/me/roads/{id}/attempts/new` で `failed` を保存 → もう 1 件 `success` を保存
 6. `/me/roads/{id}` に両方が時系列で並び、`failed` も残っていることを確認
 7. 各記録の「経験として公開」トグル、道の公開設定、編集、削除
+8. 未ログインで `/try?problem=ボタンがとめにくい`（SNS 向け簡易登録）→ 困っていたことが入った状態で
+   試したこと・結果を入力して登録 → 「確認待ち」で保存され、`/admin/moderation` に並ぶ（承認前は公開面に出ない）
 
 ---
 
@@ -160,8 +162,8 @@ admin 主要画面は axe-core (wcag2a/wcag2aa) で違反 0 件を確認済み�
 ```bash
 docker compose up -d              # DB / MinIO
 npx prisma migrate deploy && npm run db:seed
-npm test                          # Vitest: 136 件（lib ロジック + 道ツリー/ページ分割 + 検索の出し分け/ページ送り + 認可 + bot-guard + 投稿/道モデレーション/管理認証 の結合）
-npm run test:e2e                  # Playwright: 72 件（重要シナリオ / 道の作成・文字数表示 / 権限 / 枝分かれ道・10件ページ分割 / 検索カードの出し分け・種類指定・ページ送り / できた％・気持ち / スクレイピング対策 / 管理画面モデレーション / axe）
+npm test                          # Vitest: 154 件（lib ロジック + 道ツリー/ページ分割 + 検索の出し分け/ページ送り + 認可 + bot-guard + 投稿/道モデレーション/管理認証/SNS簡易登録 の結合）
+npm run test:e2e                  # Playwright: 76 件（重要シナリオ / 道の作成・文字数表示 / 権限 / 枝分かれ道・10件ページ分割 / 検索カードの出し分け・種類指定・ページ送り / できた％・気持ち / スクレイピング対策 / 管理画面モデレーション / SNS簡易登録 / axe）
 ```
 
 E2E は `E2E_TEST_LOGIN=true` でモックログインを使う（Google OAuth 不要）。

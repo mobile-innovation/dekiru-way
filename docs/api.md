@@ -165,6 +165,29 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
 
 ---
 
+## 簡易登録（SNS 向け・ログイン不要）
+
+SNS からの流入者が、1 件の「試したこと」だけを最小入力で登録するための口。
+画面は `/try`（`?problem=` で「困っていたこと」を先に埋められる）。
+
+| メソッド | パス | 説明 |
+| --- | --- | --- |
+| POST | `/api/v1/quick-experiences` | `{ difficulty, method, result }`。ログイン不要。`201 { ok: true }`。 |
+
+- `difficulty`（困っていたこと）/ `method`（試したこと）: 必須。前後 trim・制御文字除去・
+  行内の連続空白は 1 つに畳む。各 400 文字以内。
+- `result`（試した結果）: `success｜partial｜no_change｜failed｜ongoing` のいずれか。
+- 氏名・連絡先などの個人情報は受け取らない（フィールド自体が無い）。
+- 未ログインのため、通常の書き込み（60/分）より厳しい **6/分・IP 単位** のレート制限。
+- 保存のされ方: 受け皿となる 1 つのシステム利用者（Google ログイン不可・公開面に出ない）が
+  所有する `Road`（`difficulty` のみ・`approved`）＋ `Attempt`（`method`/`result`・
+  `isPublished=true` だが **`moderationStatus=pending` 固定**）。AI 判定は参考情報として
+  記録するだけで、pending は覆さない。
+- 公開されるには管理者の承認が要る。`/admin/moderation` のキューに通常の経験と同じ形で並び、
+  運営メモに「SNSからの簡易登録（未ログイン）」が付く。
+
+---
+
 ## Paths（本人）
 
 | メソッド | パス | 説明 |
@@ -215,7 +238,7 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
 
 | パス | 説明 |
 | --- | --- |
-| `GET /robots.txt` | 一般クローラーは `/api/` `/me/` `/login` `/admin/` 不可、既知 AI クローラーは全体不可 |
+| `GET /robots.txt` | 一般クローラーは `/api/` `/me/` `/login` `/admin/` `/try` 不可、既知 AI クローラーは全体不可 |
 
 ## 開発専用
 

@@ -18,6 +18,9 @@ export const FIELD_MAX = {
   caption: 200,
   text: 2000,
   longText: 4000,
+  // SNS からの簡易登録 (/try)。ログイン不要・匿名なので、乱用の的を小さくするため
+  // 通常のフォーム (text: 2000) より短く抑える。ひとことでも成立する項目向け。
+  quickText: 400,
 } as const;
 
 export interface ResultMeta {

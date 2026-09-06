@@ -77,6 +77,7 @@ export interface AdminPostCardData {
   aiReason: string | null;
   aiCategories: string[];
   aiCheckedAt: Date | null;
+  moderationNote: string | null;
   createdAt: Date;
   road: { id: string; title: string | null; difficulty: string | null; goal: string | null };
 }
@@ -97,6 +98,12 @@ export function AdminPostCard({ post }: { post: AdminPostCardData }) {
           内容を見る
         </Link>
       </div>
+
+      {post.moderationNote && (
+        <p className="mt-2 inline-block rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] px-2 py-0.5 text-xs font-semibold text-[var(--color-ink-muted)]">
+          {post.moderationNote}
+        </p>
+      )}
 
       {post.road.title && (
         <p className="mt-2 text-xs text-[var(--color-ink-muted)]">道「{post.road.title}」より</p>
