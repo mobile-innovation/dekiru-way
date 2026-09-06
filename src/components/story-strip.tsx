@@ -9,7 +9,8 @@ import Image from "next/image";
  * - 画面が広いほど 1 行の枚数を増やす: スマホ 1 / タブレット〜PC 2 / 広い PC 3。
  *   ただし画像に文字が焼き込まれているので、日本語が読める大きさを最優先する
  *   (4 列は本文が小さくなりすぎるため採用しない — 指示書 §2 / §5 / §17)。
- * - 本文 (max-w-5xl) より少し広い枠 (xl 以上で max-w-6xl) を使い、広い画面を活かす。
+ * - 幅はこのコンポーネントでは決めず、ページ側の共通コンテナに従う
+ *   (「試した結果の見かた」「いろいろな方法」と左右端を揃えるため)。
  * - 画像は加工・差し替え・順番変更・大きなトリミングをしない。縦横比を保つ。
  */
 
@@ -58,10 +59,7 @@ const SLIDES = [
 
 export function StoryStrip() {
   return (
-    <section
-      aria-labelledby="story-heading"
-      className="mx-auto my-10 w-full max-w-5xl space-y-4 xl:max-w-6xl"
-    >
+    <section aria-labelledby="story-heading" className="space-y-4">
       <div className="space-y-1.5">
         <h2 id="story-heading" className="text-lg font-bold">
           できる道って、こんな場所です

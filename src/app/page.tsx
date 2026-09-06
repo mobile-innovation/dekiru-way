@@ -48,8 +48,9 @@ export default async function TopPage() {
           className="pointer-events-none absolute inset-0 bg-white/55 sm:bg-gradient-to-r sm:from-white/85 sm:via-white/35 sm:to-transparent"
         />
 
-        <div className="relative flex h-[420px] flex-col justify-center px-5 sm:px-10 lg:h-[500px] lg:px-14">
-          <div className="w-full sm:max-w-sm md:max-w-md">
+        <div className="relative flex min-h-[30rem] flex-col justify-center px-5 py-8 sm:min-h-[34rem] sm:px-10 sm:py-10 lg:min-h-[36rem] lg:px-14">
+          {/* 検索フォーム + 具体例チップを 1 つの検索エリアとしてまとめる (指示書「例えばこんなことをヘッド内へ」)。 */}
+          <div className="w-full sm:max-w-md md:max-w-lg">
             <h1
               id="hero-heading"
               className="text-2xl font-bold text-[var(--color-ink)] sm:text-3xl"
@@ -59,53 +60,56 @@ export default async function TopPage() {
             <p className="mt-1.5 text-base font-semibold text-[var(--color-ink)] sm:text-lg">
               「できない」を終点にしない。
             </p>
-            <div className="mt-5 sm:mt-6">
+            <div className="mt-4 sm:mt-6">
               <SearchBox size="hero" />
+            </div>
+
+            {/* ── 検索の具体例。検索フォームの直下に置いて検索のきっかけにする ── */}
+            <div className="mt-4 sm:mt-5">
+              <p className="text-xs font-bold text-[var(--color-ink-muted)]">例えばこんなこと</p>
+              <ul className="mt-2.5 flex flex-wrap gap-2">
+                {SEARCH_EXAMPLES.map((ex) => (
+                  <li key={ex}>
+                    <Link
+                      href={`/experiences?q=${encodeURIComponent(ex)}`}
+                      className="inline-flex items-center rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm no-underline transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]"
+                    >
+                      {ex}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── ①-b 検索例。ヒーローの検索をすぐ試せる導線 (旧「検索カード」から分離) ── */}
-      <div className="mx-auto w-full max-w-5xl pt-8">
-        <p className="text-xs font-bold uppercase tracking-wide text-[var(--color-ink-muted)]">
-          例えばこんなこと
-        </p>
-        <ul className="mt-2.5 flex flex-wrap gap-2">
-          {SEARCH_EXAMPLES.map((ex) => (
-            <li key={ex}>
-              <Link
-                href={`/experiences?q=${encodeURIComponent(ex)}`}
-                className="inline-flex items-center rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-sm no-underline transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]"
-              >
-                {ex}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {/* ── 中央コンテンツのまとまり。8枚ストーリーを基準に、その下の
+        「試した結果の見かた」「いろいろな方法が試されています」「自分の道を作る」まで
+        同じ左右幅・左右位置に揃える (指示書「幅統一」)。
+        本文 (max-w-5xl) より少し広く、xl 以上で max-w-6xl。個別に max-width を持たせず
+        この 1 つの共通コンテナで幅を決める。 */}
+      <div className="mx-auto w-full max-w-5xl space-y-10 pt-10 xl:max-w-6xl">
+        {/* ── ② 8枚のストーリー。スライダーではなく ①→⑧ を並べて見せる。
+          画面が広いほど列を増やす (1→2→3列) が、画像内の日本語が読める大きさを最優先する。 */}
+        <StoryStrip />
 
-      {/* ── ② 8枚のストーリー。スライダーではなく ①→⑧ を並べて見せる
-        (指示書「幅比率・横並び枚数調整」)。画面が広いほど列を増やす (1→2→3列) が、
-        画像内の日本語が読める大きさを最優先する。旧「できる道とは」大型説明画像 (6.png) は
-        このストーリーに置き換えて削除済み。max-w-5xl のページ本文より少し広い枠を使う。 */}
-      <StoryStrip />
-
-      <div className="mx-auto w-full max-w-5xl space-y-10 pt-10">
-        {/* ── ⑤ 試した結果の見かた (指示書 v2 §15。データ上の意味を持つので画像化せず HTML) ── */}
-        <Card as="section" aria-labelledby="results-heading">
+        {/* ── ⑤ 試した結果の見かた。8枚ストーリー直後で存在感が弱くならないよう、
+          card padding を CTA と揃えて少し広げ、結果チップも少し読みやすくする (指示書「最終微調整」§2)。
+          新しいカード・説明・イラストは足さない。 */}
+        <Card as="section" aria-labelledby="results-heading" className="sm:p-6">
           <h2 id="results-heading" className="flex items-center gap-2 text-lg font-bold">
             <IconEye aria-hidden="true" className="h-5 w-5 text-[var(--color-primary)]" />
             試した結果の見かた
           </h2>
-          <ul className="mt-3 flex flex-wrap gap-2">
+          <ul className="mt-4 flex flex-wrap gap-2">
             {ATTEMPT_RESULTS.map((value) => {
               const m = resultMeta(value);
               const RIcon = resultIcon(value);
               return (
                 <li
                   key={value}
-                  className="inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm font-semibold"
+                  className="inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-sm font-semibold"
                 >
                   <span aria-hidden="true" style={{ color: `var(--color-result-${m.tokenKey})` }}>
                     <RIcon className="h-4 w-4" />
@@ -115,7 +119,7 @@ export default async function TopPage() {
               );
             })}
           </ul>
-          <p className="mt-3 rounded-[var(--radius-md)] bg-[var(--color-accent-soft)] p-3 text-sm">
+          <p className="mt-4 rounded-[var(--radius-md)] bg-[var(--color-accent-soft)] p-3 text-sm">
             <span className="font-bold">「うまくいかなかった」も、道の一部です。</span>
             その方法で変化がなかったという記録が、次の人の遠回りを減らします。
           </p>
@@ -191,57 +195,9 @@ export default async function TopPage() {
           </section>
         )}
 
-        {/* ── ③ できる道で、できること (指示書 v3 / 8枚追加 §9)。
-          8枚のストーリーとは役割が違うので残すが、ストーリーの直後に同じ内容が連続しないよう
-          実データの後・CTA の前に移動した。3/4/5.png はサービスの「価値」を伝えるイラスト。 */}
-        <section aria-labelledby="value-heading" className="space-y-3">
-          <h2 id="value-heading" className="text-lg font-bold">
-            できる道で、できること
-          </h2>
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              {
-                src: "/3.png",
-                pos: "50% 60%",
-                title: "いろいろな経験を見つける",
-                body: "同じことで困った人の工夫や結果を見られます。",
-                alt: "スマホで、他の人の「困ったこと・試したこと・結果」の記録を探しているイラスト。",
-              },
-              {
-                src: "/4.png",
-                pos: "55% 45%",
-                title: "あなたの経験を残す",
-                body: "試したことや結果を記録すると、自分の道になります。",
-                alt: "ノートに、困ったこと・試したこと・結果・今の状態を書き留めているイラスト。",
-              },
-              {
-                src: "/5.png",
-                pos: "50% 45%",
-                title: "誰かの次の一歩へ",
-                body: "あなたの記録が、同じことで困っている人の助けになります。",
-                alt: "一人の経験の記録が、同じように困っている別の人へ渡っていくイラスト。",
-              },
-            ].map((c) => (
-              <li key={c.src}>
-                <div className="card flex h-full flex-col overflow-hidden p-0">
-                  <Image
-                    src={c.src}
-                    alt={c.alt}
-                    width={1536}
-                    height={1024}
-                    sizes="(min-width: 64rem) 20rem, (min-width: 40rem) 45vw, 100vw"
-                    style={{ objectPosition: c.pos }}
-                    className="aspect-[16/9] w-full object-cover"
-                  />
-                  <div className="flex flex-1 flex-col p-4">
-                    <h3 className="font-bold text-[var(--color-ink)]">{c.title}</h3>
-                    <p className="mt-1 text-sm text-[var(--color-ink-muted)]">{c.body}</p>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+        {/* 「できる道で、できること」3カード (旧 3/4/5.png) は削除。8枚のストーリー
+          (④他の人の経験を見つけた！/ ⑤少しずつできるように！/ ⑥試してみたことを記録する 等) と
+          内容が重複するため、同じ説明を繰り返さない (指示書「3カードを削除する」)。 */}
 
         {/* ── ⑦ 自分の道を残す CTA (指示書 v2 §20 / v4)。7.png は右側の装飾ビジュアルのみ。
           7.png に描かれた見出し・ボタンはイラストで、操作対象は下の本物の HTML ボタン。
