@@ -23,7 +23,9 @@ export default async function TryPage({
   const initialProblem = sanitizeProblemParam(sp.problem);
 
   return (
-    <div className="mx-auto w-full max-w-xl space-y-5">
+    // PC でも左右余白が広くなりすぎないよう、フォームの最大幅は max-w-2xl (約 680px) までに留める。
+    // スマホは main の px-4 で従来どおりの余白。
+    <div className="mx-auto w-full max-w-2xl space-y-5">
       <header className="space-y-2">
         <h1 className="text-xl font-bold">あなたが試したことを教えてください</h1>
         <p className="text-sm text-[var(--color-ink-muted)]">
@@ -35,10 +37,7 @@ export default async function TryPage({
       <QuickSubmitForm initialProblem={initialProblem} />
 
       <p className="text-xs text-[var(--color-ink-muted)]">
-        ※登録した内容は運営が確認したうえで、「できる道」で公開されます。氏名や連絡先など、
-        個人が特定できる情報は書かないでください。
-        <br />
-        くわしくは
+        氏名や連絡先など、個人が特定できる情報は書かないでください。くわしくは
         <Link href="/terms" className="underline">
           利用について
         </Link>
