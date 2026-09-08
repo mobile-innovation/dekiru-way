@@ -775,6 +775,23 @@ SNS 的な人気競争にしないことを最優先に置く。
 - 将来への影響:
 ```
 
+### 2026-09-09 アカウント設定・アカウント削除（アカウント設定指示書）
+- 追加: ヘッダー右上の「ログアウト」ボタンを **ユーザーメニュー**（`src/components/user-menu.tsx`）に
+  変更。中身は「アカウント設定」「ログアウト」のみ（「アカウントを削除」はメニューに置かない）。
+  旧 `src/components/auth-buttons.tsx` は削除。
+- 追加: `/me/account`（`src/app/me/account/page.tsx`）。プロフィール編集はしない。
+  「あなたのデータ」= 自分の道 / 試したこと / 公開した経験 の件数（`prisma.count`。カウンター
+  カラムは増やさない）＋「アカウントを削除」。
+- 追加: `DELETE /api/v1/me`。本人（セッションの user.id）のみ。`prisma.$transaction` で
+  `user.delete` → FK cascade で `roads`/`attempts`/`road_tags`/`attempt_likes`/`attempt_reads`/
+  `notifications` を一括削除 → `signOut()` で Cookie 破棄。`tags` と Google アカウントは触らない。
+  匿名受け皿ユーザーは `403`。削除画面（`src/components/delete-account.tsx`）は確認パネルを挟み、
+  消えるもの・取り消せないことを明示する。
+- 理由: プライバシー方針（最小限のユーザー情報／画像なし／本人が公開した経験のみ他者閲覧可）に、
+  本人によるデータ削除を加える。SNS 的プロフィール機能は作らない（§15）。
+- 影響範囲: header / `/me/account` / `/api/v1/me` / icons（`IconUser` `IconChevronDown` 追加）。
+  既存の Road/Attempt 個別削除とは独立。
+
 ### 2026-09-09 道 (Road) の visibility 初期値を public に
 - 変更前: `Road.visibility` の既定は `private`（`@default(private)` ＋ `POST /api/v1/roads` の
   `input.visibility ?? "private"`）

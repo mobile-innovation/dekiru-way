@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { FontSizeControl } from "@/components/font-size-control";
-import { SignOutButton } from "@/components/auth-buttons";
+import { UserMenu } from "@/components/user-menu";
 
 export async function SiteHeader() {
   const session = await auth();
@@ -49,7 +49,7 @@ export async function SiteHeader() {
         <div className="ml-auto flex items-center gap-2">
           <FontSizeControl />
           {signedIn ? (
-            <SignOutButton />
+            <UserMenu />
           ) : (
             <Link
               href="/login"

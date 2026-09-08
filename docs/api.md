@@ -23,8 +23,21 @@
 | POST | `/auth/google` | 不要 | `{ url: "/api/auth/signin/google", googleConfigured }` を返す。実遷移はフロントの `signIn("google")`。 |
 | POST | `/auth/logout` | 任意 | セッション Cookie を破棄。204。 |
 | GET | `/me` | 必要 | `{ id, displayName, avatarUrl, createdAt }`。未ログインは 401。 |
+| DELETE | `/me` | 必要 | 「できる道」アカウントと本人のサービス内データを削除。204。下記参照。 |
 
 OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` など）。
+
+### DELETE /api/v1/me（アカウント削除）
+
+- 削除対象は**認証セッションから取得した本人の `user.id` のみ**。リクエストボディ等で id は受け取らない。
+- `users` を消すと FK の `ON DELETE CASCADE` により `roads` → `attempts` → `road_tags` /
+  `attempt_likes` / `attempt_reads` / `notifications` まで一括削除（本人が公開していた経験も
+  検索・閲覧から消える）。単一 DELETE 文なので原子的（さらに `$transaction` で包む）。
+- `tags`（共有マスタ）は残す。Google アカウントそのものには一切触れない。
+- 削除後に `signOut()` でセッション Cookie を破棄。
+- 匿名簡易登録の受け皿ユーザーは削除不可（`403`）。
+- アカウント設定画面（`/me/account`）の件数表示はカウンターカラムを持たず、
+  `roads` / `attempts`（本人所有 Road 経由）を毎回 `count` して出す。
 
 ---
 
