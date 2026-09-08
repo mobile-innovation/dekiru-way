@@ -119,6 +119,14 @@ describe("公開 API の大量取得対策 (追加指示書 v1)", () => {
     }
   });
 
+  it("画像・写真は廃止済み。レスポンスに photos / storageUrl を含めない", async () => {
+    const res = await call(`q=${encodeURIComponent(MARK)}&limit=5`);
+    const text = await res.text();
+    expect(text).not.toMatch(/photos|storageUrl|storage_url/);
+    const data = JSON.parse(text) as { items: Record<string, unknown>[] };
+    expect(data.items[0]).not.toHaveProperty("photos");
+  });
+
   it("既知の AI クローラー UA からのリクエストは 403", async () => {
     const res = await listExperiences(
       new Request("http://localhost/api/v1/experiences?limit=2", {

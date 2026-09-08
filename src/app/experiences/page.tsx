@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
+import { Fragment } from "react";
 import Link from "next/link";
 import { RoadCard } from "@/components/road-card";
 import { MethodCard } from "@/components/method-card";
+import { AdSlot } from "@/components/ad-slot";
 import { ExperienceSearchForm } from "@/components/experience-search-form";
 import { EmptyState } from "@/components/ui";
 import { RateLimitedNotice } from "@/components/rate-limited-notice";
 import { experienceQuerySchema } from "@/lib/validation";
 import { searchRoads, searchMethods, getPopularTags } from "@/lib/queries";
+import { adContextFromText } from "@/lib/ads";
 import { getOptionalUserId } from "@/lib/authz";
 import { guardPublicPage } from "@/lib/page-guard";
 
@@ -124,10 +127,19 @@ export default async function ExperiencesPage({
             </EmptyState>
           ) : items.length > 0 ? (
             <ul className="grid gap-4 lg:grid-cols-2">
-              {items.map((road) => (
-                <li key={road.entryId}>
-                  <RoadCard road={road} />
-                </li>
+              {items.map((road, i) => (
+                <Fragment key={road.entryId}>
+                  <li>
+                    <RoadCard road={road} />
+                  </li>
+                  {/* 最初の 2 件のあとに広告を 1 枠だけ（3 件以上あるときのみ）。
+                      経験カードとは別枠で、順位には影響しない。ADS_ENABLED=false なら何も出ない。 */}
+                  {i === 1 && items.length > 2 && (
+                    <li className="lg:col-span-2">
+                      <AdSlot slot="search_after_2" context={adContextFromText(q.q)} />
+                    </li>
+                  )}
+                </Fragment>
               ))}
             </ul>
           ) : hasMethodSection ? (

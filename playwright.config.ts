@@ -45,6 +45,8 @@ export default defineConfig({
       AI_MODERATION_ENABLED: "false",
       // OGP の絶対URL基点を実際のテストサーバに合わせる（metadataBase 検証用）。
       SITE_URL: baseURL,
+      // 広告スロットの配置・非配置を E2E で検証するため有効化（プレースホルダのみ表示）。
+      ADS_ENABLED: "true",
     },
   },
 });

@@ -80,12 +80,12 @@ export const EXPERIENCE_SORTS = ["recent", "helpful", "tried"] as const;
 export type ExperienceSort = (typeof EXPERIENCE_SORTS)[number];
 
 /**
- * 「経験を探す」で表示する結果の種類。
- * 既定は "both"（道と方法の両方）。検索語の有無に関わらず種類は切り替えられる。
+ * 「経験を探す」で表示する結果の種類。表示順は 道 → 方法 → 両方。
+ * 既定は "road"（道だけ）。検索語の有無に関わらず種類は切り替えられる。
  */
-export const EXPERIENCE_KINDS = ["road", "both", "method"] as const;
+export const EXPERIENCE_KINDS = ["road", "method", "both"] as const;
 export type ExperienceKind = (typeof EXPERIENCE_KINDS)[number];
-export const EXPERIENCE_KIND_DEFAULT: ExperienceKind = "both";
+export const EXPERIENCE_KIND_DEFAULT: ExperienceKind = "road";
 export const EXPERIENCE_KIND_LABEL: Record<ExperienceKind, string> = {
   road: "道（困りごと・目標）だけ",
   both: "道と方法の両方",

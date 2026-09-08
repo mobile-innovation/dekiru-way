@@ -89,16 +89,16 @@ export default async function AdminDashboardPage() {
         )}
         <div className="grid gap-3 sm:grid-cols-2">
           <ReviewCard
-            href="/admin/moderation"
-            noun="経験"
-            count={s.pending}
-            hint="公開してよい内容か確認してください"
-          />
-          <ReviewCard
             href="/admin/roads"
             noun="道"
             count={s.roadPending}
             hint="道の内容が公開してよいか確認してください"
+          />
+          <ReviewCard
+            href="/admin/moderation"
+            noun="経験"
+            count={s.pending}
+            hint="公開してよい内容か確認してください"
           />
         </div>
       </section>

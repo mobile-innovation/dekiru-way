@@ -200,7 +200,7 @@ test("経験を探す: 検索ワードが無くても「表示する種類」を
   await page.goto("/experiences");
   const kind = page.getByRole("combobox", { name: "表示する種類" });
   await expect(kind).toBeEnabled();
-  await expect(kind).toHaveValue("both"); // 既定は「両方」
+  await expect(kind).toHaveValue("road"); // 既定は「道だけ」
 
   await kind.selectOption("method");
   await page.getByRole("button", { name: "この条件で探す" }).click();

@@ -55,6 +55,30 @@ describe("Road の所有者チェック (指示書 10)", () => {
     expect(res.status).toBe(401);
   });
 
+  it("道の公開範囲は作成時 既定 public。visibility を明示すればそれに従う", async () => {
+    asUser(ownerId);
+    const def = await createRoad(
+      new Request("http://localhost/api/v1/roads", {
+        method: "POST",
+        body: JSON.stringify({ difficulty: `${MARK} vis-default` }),
+        headers: { "content-type": "application/json" },
+      }),
+      ctx,
+    );
+    expect(def.status).toBe(201);
+    expect((await def.json()).visibility).toBe("public");
+
+    const priv = await createRoad(
+      new Request("http://localhost/api/v1/roads", {
+        method: "POST",
+        body: JSON.stringify({ difficulty: `${MARK} vis-private`, visibility: "private" }),
+        headers: { "content-type": "application/json" },
+      }),
+      ctx,
+    );
+    expect((await priv.json()).visibility).toBe("private");
+  });
+
   it("未ログインは他人の Road を取得できない (401)", async () => {
     asUser(null);
     const res = await getRoad(new Request("http://localhost"), ctxFor(ownerRoadId));

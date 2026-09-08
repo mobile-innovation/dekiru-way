@@ -13,6 +13,8 @@ import { BranchingPaths, type Branch } from "@/components/branching-paths";
 import { RateLimitedNotice } from "@/components/rate-limited-notice";
 import { LikeButton } from "@/components/like-button";
 import { MarkRead } from "@/components/mark-read";
+import { AdSlot } from "@/components/ad-slot";
+import { adContextFromText } from "@/lib/ads";
 import { getExperience } from "@/lib/queries";
 import { getOptionalUserId } from "@/lib/authz";
 import { guardPublicPage } from "@/lib/page-guard";
@@ -164,6 +166,10 @@ export default async function ExperienceDetailPage({
           />
         </div>
       </Card>
+
+          {/* 道の内容を読んだあとに広告を 1 枠（広告表示方針 v1 §3）。
+              「次の一歩」(右サイドの CTA) より前・経験情報とは別枠。ADS_ENABLED=false なら何も出ない。 */}
+          <AdSlot slot="road_detail_mid" context={adContextFromText(r.difficulty ?? r.goal)} />
         </div>
 
         {/* PC は右サイド、スマホは道の下: 参考情報 → 自分の道を作る */}

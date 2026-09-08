@@ -44,6 +44,10 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
 
     // --- Attempt: failed ---
     await page.getByRole("link", { name: "試したことを記録" }).click();
+    // 新規記録は「経験として公開」が既定 ON
+    await expect(
+      page.getByRole("checkbox", { name: /この記録を「経験」として公開する/ }),
+    ).toBeChecked();
     await page.getByLabel("何を試しましたか？").fill("片手で結ぼうとした");
     await page.getByRole("radio", { name: /^うまくいかなかった/ }).click();
     await page.getByRole("button", { name: "記録する" }).click();

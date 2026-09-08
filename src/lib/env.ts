@@ -60,6 +60,17 @@ export const env = {
     },
   },
 
+  ads: {
+    /**
+     * 広告表示の ON / OFF。既定 false（広告プロバイダ未接続の MVP は無効）。
+     * `ADS_ENABLED=true` のときだけ、検索一覧と道詳細の 2 枠に広告スロットを描画する。
+     * 無効時は `<AdSlot>` は何も描画しない（レイアウトに影響を残さない）。
+     */
+    get enabled() {
+      return process.env.ADS_ENABLED === "true";
+    },
+  },
+
   ai: {
     get apiKey() {
       return optional("ANTHROPIC_API_KEY");

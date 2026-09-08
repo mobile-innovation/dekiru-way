@@ -90,3 +90,16 @@ test("ユーザーメニュー → アカウント設定で件数を確認 → �
   await page.goto("/me/account");
   await expect(page).toHaveURL(/\/login/);
 });
+
+test("ユーザーメニューの「ログアウト」でログアウトできる", async ({ page }) => {
+  await loginAs(page, `logout-e2e-${Date.now()}`);
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "アカウントのメニュー" })).toBeVisible();
+
+  await page.getByRole("button", { name: "アカウントのメニュー" }).click();
+  await page.getByRole("menu").getByRole("menuitem", { name: "ログアウト" }).click();
+
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("link", { name: "ログイン" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "アカウントのメニュー" })).toHaveCount(0);
+});

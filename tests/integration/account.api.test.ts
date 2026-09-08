@@ -11,6 +11,7 @@ vi.mock("@/auth", () => ({
 import { auth, signOut } from "@/auth";
 import { prisma } from "@/lib/db";
 import { resetBotGuard } from "@/lib/bot-guard";
+import { ANON_SUBMITTER_SUB } from "@/lib/quick-submit";
 import { GET as getMe, DELETE as deleteMe } from "@/app/api/v1/me/route";
 import { GET as listExperiences } from "@/app/api/v1/experiences/route";
 
@@ -62,6 +63,18 @@ describe("DELETE /api/v1/me（アカウント削除）", () => {
     asUser(null);
     const res = await deleteMe(new Request("http://localhost/api/v1/me", { method: "DELETE" }), emptyCtx);
     expect(res.status).toBe(401);
+  });
+
+  it("匿名簡易登録の受け皿ユーザーは削除できない (403)", async () => {
+    const anon = await prisma.user.upsert({
+      where: { googleSub: ANON_SUBMITTER_SUB },
+      update: {},
+      create: { googleSub: ANON_SUBMITTER_SUB, displayName: "匿名（SNS簡易登録）" },
+    });
+    asUser(anon.id);
+    const res = await deleteMe(new Request("http://localhost/api/v1/me", { method: "DELETE" }), emptyCtx);
+    expect(res.status).toBe(403);
+    expect(await prisma.user.findUnique({ where: { id: anon.id } })).not.toBeNull();
   });
 
   it("本人のデータ一式が消え、他ユーザーには影響しない。セッションも破棄される", async () => {
