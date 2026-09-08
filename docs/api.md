@@ -148,7 +148,7 @@ Attempt / Experience のレスポンスに画像フィールドは含まれな�
 
 | メソッド | パス | 説明 |
 | --- | --- | --- |
-| GET | `/experiences` | 検索。クエリ: `q`, `result`, `tag`, `page`(1–100), `limit`(1–50, 既定 20), `sort`(`recent`\|`helpful`\|`tried`)。`(page-1)*limit ≥ 500` は `400`。<br>`{ items: Experience[], page, limit, total, hasMore }` |
+| GET | `/experiences` | 検索。クエリ: `q`, `result`, `tag`, `read`(`read`｜`unread`・ログイン中のみ効く), `page`(1–100), `limit`(1–50, 既定 20), `sort`(`recent`\|`helpful`\|`tried`)。`(page-1)*limit ≥ 500` は `400`。<br>`{ items: Experience[], page, limit, total, hasMore }` |
 | GET | `/experiences/{id}` | `id` = Attempt id（UUID）。`Experience & { siblings: {id,method,result,triedAt,isCurrent}[] }`。非公開・不存在・不正 ID は 404。 |
 | GET | `/experiences/paths` | 道の見える化。クエリ: `q`, `tag`, `limit`(1–20, 既定 6)。<br>`{ items: { key, difficulty, goal, previouslyAble, tags, steps: {experienceId,method,result,triedAt}[] }[] }`（`key` は内部 road_id ではなく先頭経験の id） |
 

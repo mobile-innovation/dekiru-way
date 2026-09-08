@@ -35,7 +35,7 @@ export interface RoadCardDTO {
     achievementPercent: number | null;
   }[];
   attemptCount: number;
-  /** ログイン中ユーザーがこの道の入口経験を既に開いたか (未ログインは false)。 */
+  /** ログイン中ユーザーがこの道の公開経験を 1 つでも開いたか (未ログインは false)。 */
   isRead: boolean;
 }
 
@@ -66,7 +66,7 @@ export async function searchRoads(q: ExperienceQuery, viewerUserId?: string | nu
     };
   }
 
-  const where = buildRoadLevelSearchWhere(q);
+  const where = buildRoadLevelSearchWhere(q, viewerUserId);
   const [total, roads] = await Promise.all([
     prisma.road.count({ where }),
     prisma.road.findMany({
@@ -100,13 +100,16 @@ export async function searchRoads(q: ExperienceQuery, viewerUserId?: string | nu
     };
   });
 
-  // ログイン中なら、各カードの入口経験を既読にしているかを付ける (未ログインは全て false)。
+  // ログイン中なら「その道の公開経験を 1 つでも開いたか」を既読として付ける (未ログインは全て false)。
   if (viewerUserId) {
     const readSet = await readAttemptIdSet(
       viewerUserId,
-      items.map((i) => i.entryId),
+      items.flatMap((i) => i.attempts.map((a) => a.id)),
     );
-    items = items.map((i) => ({ ...i, isRead: readSet.has(i.entryId) }));
+    items = items.map((i) => ({
+      ...i,
+      isRead: i.attempts.some((a) => readSet.has(a.id)),
+    }));
   }
 
   // 並び順は「道」単位で解釈し直す（DB は updatedAt desc で取得）
@@ -201,7 +204,7 @@ export async function searchMethods(q: ExperienceQuery, viewerUserId?: string | 
   const skip = (q.mp - 1) * q.limit;
   if (skip >= MAX_RESULT_WINDOW) return { ...base, windowExceeded: true };
 
-  const where = buildMethodSearchWhere(q);
+  const where = buildMethodSearchWhere(q, viewerUserId);
   const [total, rows] = await Promise.all([
     prisma.attempt.count({ where }),
     prisma.attempt.findMany({
@@ -250,7 +253,7 @@ export async function searchExperiences(q: ExperienceQuery, viewerUserId?: strin
   if (skip >= MAX_RESULT_WINDOW) {
     return { items: [], total: 0, page: q.page, limit: q.limit, hasMore: false, windowExceeded: true };
   }
-  const where = buildExperienceWhere(q);
+  const where = buildExperienceWhere(q, viewerUserId);
   const [total, rows] = await Promise.all([
     prisma.attempt.count({ where }),
     prisma.attempt.findMany({

@@ -12,7 +12,10 @@ import {
   EXPERIENCE_KINDS,
   EXPERIENCE_KIND_DEFAULT,
   EXPERIENCE_KIND_LABEL,
+  EXPERIENCE_READ_OPTIONS,
+  EXPERIENCE_READ_LABEL,
 } from "@/lib/constants";
+import { clearStoredSearch } from "@/components/restore-search";
 
 /**
  * 「経験を探す」の検索ワード＋絞り込みをまとめた 1 つのフォーム。
@@ -38,6 +41,8 @@ export function ExperienceSearchForm({
   defaultTag = "",
   defaultKind = EXPERIENCE_KIND_DEFAULT,
   defaultSort = "recent",
+  defaultRead = "",
+  loggedIn = false,
   tags,
 }: {
   defaultQ?: string;
@@ -45,6 +50,9 @@ export function ExperienceSearchForm({
   defaultTag?: string;
   defaultKind?: string;
   defaultSort?: string;
+  /** "" | "read" | "unread"。ログイン中のみ効く */
+  defaultRead?: string;
+  loggedIn?: boolean;
   tags: { id: string; name: string; roadCount: number }[];
 }) {
   const router = useRouter();
@@ -56,6 +64,7 @@ export function ExperienceSearchForm({
   const [tag, setTag] = useState(defaultTag);
   const [kind, setKind] = useState(defaultKind);
   const [sort, setSort] = useState(defaultSort);
+  const [read, setRead] = useState(defaultRead);
 
   // 「表示する種類」は検索ワードの有無に関わらず切り替えられる。
   // ワード無しでも「方法だけ」で公開された試したことの一覧を見られる。
@@ -68,7 +77,9 @@ export function ExperienceSearchForm({
     if (tag) params.set("tag", tag);
     if (kind && kind !== EXPERIENCE_KIND_DEFAULT) params.set("kind", kind);
     if (sort && sort !== "recent") params.set("sort", sort);
+    if (loggedIn && read) params.set("read", read);
     const qs = params.toString();
+    if (!qs) clearStoredSearch(); // 条件なしで送信＝実質クリア
     router.push(qs ? `/experiences?${qs}` : "/experiences");
   }
 
@@ -78,6 +89,8 @@ export function ExperienceSearchForm({
     setTag("");
     setKind(EXPERIENCE_KIND_DEFAULT);
     setSort("recent");
+    setRead("");
+    clearStoredSearch();
     router.push("/experiences");
   }
 
@@ -196,6 +209,25 @@ export function ExperienceSearchForm({
               ))}
             </select>
           </label>
+
+          {/* 既読 / 未読はログイン中だけ（自分が読んだかの情報なので） */}
+          {loggedIn && (
+            <label className="block text-sm font-bold">
+              既読 / 未読
+              <select
+                name="read"
+                value={read}
+                onChange={(e) => setRead(e.target.value)}
+                className={SELECT_CLASS}
+              >
+                {EXPERIENCE_READ_OPTIONS.map((r) => (
+                  <option key={r || "all"} value={r}>
+                    {EXPERIENCE_READ_LABEL[r]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
       </div>
 

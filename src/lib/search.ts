@@ -32,12 +32,33 @@ export const PUBLIC_ATTEMPT_WHERE = {
   road: { is: PUBLIC_ROAD_WHERE },
 } satisfies Prisma.AttemptWhereInput;
 
-export function buildExperienceWhere(q: Pick<ExperienceQuery, "q" | "result" | "tag">): Prisma.AttemptWhereInput {
+type SearchQ = Pick<ExperienceQuery, "q" | "result" | "tag" | "read">;
+
+/**
+ * 既読 / 未読での Attempt レベルの絞り込み条件（ログイン中 viewer のみ）。
+ * `read` 未指定 or 未ログインなら null（絞り込まない）。
+ */
+export function readFilterWhere(
+  read: ExperienceQuery["read"],
+  viewerUserId: string | null | undefined,
+): Prisma.AttemptWhereInput | null {
+  if (!read || !viewerUserId) return null;
+  const readByViewer: Prisma.AttemptWhereInput = { reads: { some: { userId: viewerUserId } } };
+  return read === "read" ? readByViewer : { NOT: readByViewer };
+}
+
+export function buildExperienceWhere(
+  q: SearchQ,
+  viewerUserId?: string | null,
+): Prisma.AttemptWhereInput {
   const and: Prisma.AttemptWhereInput[] = [{ ...PUBLIC_ATTEMPT_WHERE }];
 
   if (q.result) {
     and.push({ result: q.result });
   }
+
+  const readWhere = readFilterWhere(q.read, viewerUserId);
+  if (readWhere) and.push(readWhere);
 
   if (q.tag) {
     and.push({
@@ -90,7 +111,8 @@ export const experienceInclude = {
  * 検索語が無いときは（ふつうの一覧）「公開 Attempt を 1 つ以上持つ道」全部。
  */
 export function buildRoadLevelSearchWhere(
-  q: Pick<ExperienceQuery, "q" | "result" | "tag">,
+  q: SearchQ,
+  viewerUserId?: string | null,
 ): Prisma.RoadWhereInput {
   const publishedAttempt: Prisma.AttemptWhereInput = { ...PUBLIC_ATTEMPT_WHERE };
   if (q.result) publishedAttempt.result = q.result;
@@ -99,6 +121,19 @@ export function buildRoadLevelSearchWhere(
     { ...PUBLIC_ROAD_WHERE },
     { attempts: { some: publishedAttempt } },
   ];
+
+  // 既読 / 未読の道の絞り込み: 道が「viewer が読んだ公開経験を持つか / 全く持たないか」。
+  if (q.read && viewerUserId) {
+    const readPublished: Prisma.AttemptWhereInput = {
+      ...publishedAttempt,
+      reads: { some: { userId: viewerUserId } },
+    };
+    and.push(
+      q.read === "read"
+        ? { attempts: { some: readPublished } }
+        : { attempts: { none: readPublished } },
+    );
+  }
 
   if (q.tag) {
     and.push({
@@ -129,11 +164,15 @@ export function buildRoadLevelSearchWhere(
  * 検索語が無ければ空条件では返さない前提（呼び出し側で q 有無を判定）。
  */
 export function buildMethodSearchWhere(
-  q: Pick<ExperienceQuery, "q" | "result" | "tag">,
+  q: SearchQ,
+  viewerUserId?: string | null,
 ): Prisma.AttemptWhereInput {
   const and: Prisma.AttemptWhereInput[] = [{ ...PUBLIC_ATTEMPT_WHERE }];
 
   if (q.result) and.push({ result: q.result });
+
+  const readWhere = readFilterWhere(q.read, viewerUserId);
+  if (readWhere) and.push(readWhere);
   if (q.tag) {
     and.push({
       road: { roadTags: { some: { tag: { name: { equals: q.tag, mode: "insensitive" } } } } },

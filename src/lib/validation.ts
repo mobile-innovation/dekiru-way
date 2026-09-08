@@ -3,6 +3,7 @@ import {
   ATTEMPT_RESULTS,
   EXPERIENCE_KINDS,
   EXPERIENCE_KIND_DEFAULT,
+  EXPERIENCE_READ_VALUES,
   EXPERIENCE_SORTS,
   FIELD_MAX,
   VISIBILITY,
@@ -103,6 +104,8 @@ export const experienceQuerySchema = z.object({
   mp: z.coerce.number().int().min(1).max(100).default(1),
   // 表示する結果の種類: 道 / 方法 / 両方（検索語ありのときだけ効く）。既定は道のみ。
   kind: z.enum(EXPERIENCE_KINDS).default(EXPERIENCE_KIND_DEFAULT),
+  // 既読 / 未読での絞り込み（ログイン中のみ効く。未指定 = すべて）。
+  read: z.enum(EXPERIENCE_READ_VALUES).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   sort: z.enum(EXPERIENCE_SORTS).default("recent"),
 });

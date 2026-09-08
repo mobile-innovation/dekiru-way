@@ -181,3 +181,42 @@ describe("検索・詳細 API が閲覧者視点の is_read を返す", () => {
     expect(json.isRead).toBe(true);
   });
 });
+
+describe("検索の read=read / read=unread 絞り込み", () => {
+  async function listIds(viewer: string | null, extra: string): Promise<string[]> {
+    asUser(viewer);
+    const res = await listExperiences(
+      new Request(
+        `http://localhost/api/v1/experiences?q=${encodeURIComponent(MARK)}&limit=50${extra}`,
+      ),
+      { params: Promise.resolve({}) },
+    );
+    const json = (await res.json()) as { items: { id: string }[] };
+    return json.items.map((i) => i.id);
+  }
+
+  it("未読で絞ると読む前は出て、読んだ後は出ない。既読で絞ると逆", async () => {
+    // 読む前
+    expect(await listIds(readerId, "&read=unread")).toContain(publicAttemptId);
+    expect(await listIds(readerId, "&read=read")).not.toContain(publicAttemptId);
+
+    // 読む
+    asUser(readerId);
+    await readPost(readReq(publicAttemptId), ctx(publicAttemptId));
+
+    // 読んだ後
+    expect(await listIds(readerId, "&read=unread")).not.toContain(publicAttemptId);
+    expect(await listIds(readerId, "&read=read")).toContain(publicAttemptId);
+
+    // 別ユーザーには影響しない（owner から見れば未読）
+    expect(await listIds(ownerId, "&read=unread")).toContain(publicAttemptId);
+  });
+
+  it("未ログインのときは read パラメータを無視する", async () => {
+    asUser(readerId);
+    await readPost(readReq(publicAttemptId), ctx(publicAttemptId));
+    // reader は既読にしたが、未ログインでの検索は read で絞られない
+    expect(await listIds(null, "&read=unread")).toContain(publicAttemptId);
+    expect(await listIds(null, "&read=read")).toContain(publicAttemptId);
+  });
+});

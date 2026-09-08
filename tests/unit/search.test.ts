@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildExperienceWhere, buildExperienceOrderBy } from "@/lib/search";
+import {
+  buildExperienceWhere,
+  buildExperienceOrderBy,
+  buildRoadLevelSearchWhere,
+  readFilterWhere,
+} from "@/lib/search";
 
 describe("buildExperienceWhere", () => {
   it("公開かつ Attempt も親 Road も承認済みに限定する", () => {
@@ -31,6 +36,46 @@ describe("buildExperienceWhere", () => {
     const where = buildExperienceWhere({ tag: "手先" });
     const tagClause = (where.AND as any[]).find((c) => c.road?.roadTags);
     expect(tagClause).toBeTruthy();
+  });
+});
+
+describe("readFilterWhere（既読 / 未読の絞り込み）", () => {
+  it("read も viewer も無ければ null（絞り込まない）", () => {
+    expect(readFilterWhere(undefined, "u1")).toBeNull();
+    expect(readFilterWhere("read", null)).toBeNull();
+    expect(readFilterWhere("read", undefined)).toBeNull();
+  });
+  it("read=read は viewer の read が存在する条件", () => {
+    expect(readFilterWhere("read", "u1")).toEqual({ reads: { some: { userId: "u1" } } });
+  });
+  it("read=unread は viewer の read が存在しない条件", () => {
+    expect(readFilterWhere("unread", "u1")).toEqual({
+      NOT: { reads: { some: { userId: "u1" } } },
+    });
+  });
+  it("buildExperienceWhere に viewer 付きで反映される", () => {
+    const where = buildExperienceWhere({ read: "unread" }, "u1");
+    expect(where.AND).toContainEqual({ NOT: { reads: { some: { userId: "u1" } } } });
+    // 未ログインなら反映しない
+    const anon = buildExperienceWhere({ read: "unread" });
+    expect((anon.AND as any[]).some((c) => c.NOT || c.reads)).toBe(false);
+  });
+});
+
+describe("buildRoadLevelSearchWhere（道の既読 / 未読）", () => {
+  it("read=read は「読んだ公開経験を持つ道」", () => {
+    const where = buildRoadLevelSearchWhere({ read: "read" }, "u1");
+    const clause = (where.AND as any[]).find((c) => c.attempts?.some?.reads);
+    expect(clause.attempts.some.reads).toEqual({ some: { userId: "u1" } });
+  });
+  it("read=unread は「読んだ公開経験を 1 つも持たない道」", () => {
+    const where = buildRoadLevelSearchWhere({ read: "unread" }, "u1");
+    const clause = (where.AND as any[]).find((c) => c.attempts?.none?.reads);
+    expect(clause.attempts.none.reads).toEqual({ some: { userId: "u1" } });
+  });
+  it("未ログインなら既読の絞り込みは付かない", () => {
+    const where = buildRoadLevelSearchWhere({ read: "unread" });
+    expect((where.AND as any[]).some((c) => c.attempts?.none || c.attempts?.some?.reads)).toBe(false);
   });
 });
 

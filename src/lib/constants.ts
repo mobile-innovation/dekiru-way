@@ -92,6 +92,19 @@ export const EXPERIENCE_KIND_LABEL: Record<ExperienceKind, string> = {
   method: "方法（試したこと・気づき）だけ",
 };
 
+/**
+ * 既読 / 未読での絞り込み（ログイン中のみ意味がある）。
+ * "" = すべて。URL には既定 "" と異なるときだけ `read` を付ける。
+ */
+export const EXPERIENCE_READ_VALUES = ["read", "unread"] as const;
+export type ExperienceReadFilter = (typeof EXPERIENCE_READ_VALUES)[number];
+export const EXPERIENCE_READ_OPTIONS = ["", "read", "unread"] as const;
+export const EXPERIENCE_READ_LABEL: Record<string, string> = {
+  "": "既読・未読すべて",
+  read: "既読だけ",
+  unread: "未読だけ",
+};
+
 /** トップページの検索例 (指示書 6-①) */
 export const SEARCH_EXAMPLES = [
   "ボタンがとめにくい",

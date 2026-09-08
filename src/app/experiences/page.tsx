@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { Fragment } from "react";
+import { Fragment, Suspense } from "react";
 import Link from "next/link";
 import { RoadCard } from "@/components/road-card";
 import { MethodCard } from "@/components/method-card";
 import { AdSlot } from "@/components/ad-slot";
+import { RestoreSearch } from "@/components/restore-search";
 import { ExperienceSearchForm } from "@/components/experience-search-form";
 import { EmptyState } from "@/components/ui";
 import { RateLimitedNotice } from "@/components/rate-limited-notice";
@@ -34,6 +35,7 @@ export default async function ExperiencesPage({
         q: undefined,
         result: undefined,
         tag: undefined,
+        read: undefined,
         page: 1,
         mp: 1,
         kind: "road" as const,
@@ -78,6 +80,10 @@ export default async function ExperiencesPage({
 
   return (
     <div className="space-y-6">
+      {/* 他ページから素の /experiences に戻ってきたとき、前回の検索状態を復元する */}
+      <Suspense fallback={null}>
+        <RestoreSearch />
+      </Suspense>
       <div className="space-y-1">
         <h1 className="text-xl font-bold">経験を探す</h1>
         <p className="text-sm text-[var(--color-ink-muted)]">
@@ -85,12 +91,16 @@ export default async function ExperiencesPage({
         </p>
       </div>
 
+      {/* URL の検索条件が変わったら（戻る/復元も含む）フォームの初期値を取り直す */}
       <ExperienceSearchForm
+        key={`${q.q ?? ""}|${q.result ?? ""}|${q.tag ?? ""}|${q.kind}|${q.sort}|${q.read ?? ""}`}
         defaultQ={q.q ?? ""}
         defaultResult={q.result ?? ""}
         defaultTag={q.tag ?? ""}
         defaultKind={q.kind}
         defaultSort={q.sort}
+        defaultRead={q.read ?? ""}
+        loggedIn={viewerUserId != null}
         tags={tags}
       />
 

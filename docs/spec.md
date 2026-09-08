@@ -121,6 +121,7 @@
   `attempts.method` / `attempts.memo` / `tags.name`。
 - 検索語が**困りごと・目標・場面・タグ**に当たれば「道カード」、**方法本文・気づき**にだけ当たれば「方法カード」。
 - 「表示する種類」の選択肢は **道 → 方法 → 両方** の順。**既定は「道だけ」**（`kind=road`）。方法カードは `method` / `both` に切り替えたときだけ出る。
+- 検索条件はすべて URL クエリに乗る。他ページから素の `/experiences` に戻ったときは、同じセッション内の前回の検索を自動復元する（`RestoreSearch`／`sessionStorage`）。タブを閉じるか、記憶から 60 分（`RESTORE_MAX_AGE_MS`）経つとリセット。「条件をクリア」で即時に忘れる。
 - ページング上限: `limit ≤ 50`、`page ≤ 100`、かつ `(page-1)*limit < 500`（超過は 400）。全件取得 API は無い。
 - 内部 ID（`user_id` / `google_sub` / `road_id`）は公開レスポンスに出さない。
 
@@ -166,6 +167,8 @@
   失敗しても表示は妨げない）。未ログイン・自分の経験のときは登録しない。
 - 検索結果カード（道カード・方法カード）の右上に「✓ 既読 / ○ 未読」バッジ（アイコン＋文字）。
   未読は淡い緑、既読は白の背景。**既読数・閲覧数は表示しない。検索順位にも使わない。**
+- 検索の絞り込みに **「既読だけ / 未読だけ」**（`?read=read` / `?read=unread`）。ログイン中のみ表示・有効
+  （未ログインは無視）。道カードは「その道の公開経験を 1 つでも読んだか」で判定。
 - ユーザーごとの状態。`attempts` に `is_read` は追加しない（専用テーブル `attempt_reads`）。
 
 ### 5.7 アカウント設定・削除
@@ -274,7 +277,7 @@
 | AI | Anthropic Claude（`@anthropic-ai/sdk`）。キー未設定時はスタブ。ローカル AI は Ollama 互換（任意） |
 | スタイル | Tailwind v4（`@theme` のデザイントークン `src/styles/tokens.css`） |
 | 画像・写真 | ユーザー投稿なし。`next/image` はサイト内静的アセットのみ |
-| テスト | Vitest（unit / integration、実 DB）、Playwright + axe-core（E2E / a11y）。現況: Vitest 194 / Playwright 96 |
+| テスト | Vitest（unit / integration、実 DB）、Playwright + axe-core（E2E / a11y）。現況: Vitest 203 / Playwright 106 |
 | インフラ（開発） | docker compose（PostgreSQL のみ、ホスト側ポート 5433） |
 | 本番ホスティング | 未確定（標準 PostgreSQL + Prisma なので移行容易） |
 

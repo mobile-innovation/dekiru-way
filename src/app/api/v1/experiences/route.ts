@@ -23,7 +23,9 @@ export const GET = handlePublicRead(async (req) => {
     );
   }
 
-  const where = buildExperienceWhere(q);
+  // read=read/unread は viewer 視点の絞り込み。where 生成前に閲覧者を解決する。
+  const viewerUserId = await getOptionalUserId();
+  const where = buildExperienceWhere(q, viewerUserId);
   const skip = (q.page - 1) * q.limit;
 
   const [total, rows] = await Promise.all([
@@ -38,7 +40,6 @@ export const GET = handlePublicRead(async (req) => {
   ]);
 
   // ログイン中なら、各経験の「いいね済み / 既読」を viewer 視点で付ける (数は返さない)。
-  const viewerUserId = await getOptionalUserId();
   const viewer = viewerUserId
     ? {
         userId: viewerUserId,

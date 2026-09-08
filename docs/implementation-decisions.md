@@ -775,6 +775,38 @@ SNS 的な人気競争にしないことを最優先に置く。
 - 将来への影響:
 ```
 
+### 2026-09-09 検索に「既読 / 未読」の絞り込みを追加
+- 追加: `?read=read` / `?read=unread`（未指定 = すべて）。ログイン中のみ有効・表示（未ログインは無視）。
+- `src/lib/search.ts#readFilterWhere(read, viewerUserId)` を Attempt レベルの where に足す
+  （`{ reads: { some: { userId } } }` / その `NOT`）。道カードは道レベルで
+  `{ attempts: { some|none: { …公開条件…, reads: { some: { userId } } } } }` を足す。
+  → **DB レベルの絞り込みなのでページング・件数も正しい**。
+- 道カードの `isRead` の意味を「入口経験を読んだか」→「その道の公開経験を 1 つでも読んだか」に変更
+  （絞り込み条件と一致させるため。詳細画面は入口経験を開くので通常は同じ）。
+- `experiences/page.tsx` は `<ExperienceSearchForm loggedIn defaultRead>` を渡し、フォームに
+  「既読 / 未読」セレクトを（ログイン中だけ）追加。`GET /api/v1/experiences` も同じ where を使う。
+- 影響範囲: `constants.ts` / `validation.ts` / `search.ts` / `queries.ts` /
+  `experiences/route.ts` / `experiences/page.tsx` / `experience-search-form.tsx`。
+  検索順位ロジックは不変。
+
+### 2026-09-09 他ページから検索に戻ったとき前回の検索状態を復元
+- 課題: 検索条件は URL クエリに乗っている（ブラウザの戻るは効く）が、ヘッダーの「経験を探す」
+  リンクや詳細画面の「← 経験を探すへ戻る」は素の `/experiences` を指すため、そこから戻ると
+  前回の検索が失われていた。
+- 対応: `src/components/restore-search.tsx`（クライアント）を `/experiences` に置く。
+  クエリ付きで開かれたらその検索文字列を `sessionStorage`（同タブ・同セッション内のみ）に記憶し、
+  クエリ無しで開かれて記憶があれば `router.replace` で復元する。`experiences/page.tsx` は
+  `<ExperienceSearchForm key={検索条件}>` にして、復元・戻る時にフォームの初期値を取り直す。
+  「条件をクリア」／条件なし送信は `clearStoredSearch()` で明示的に忘れる。
+- 修正（回帰）: 当初 `useSearchParams().toString()` を信じていたが、これはハイドレーション直後や
+  `router.push` 直後に一瞬 `""` を返すことがあり、その隙に「復元」ブランチへ入って**現在の検索条件を
+  記憶済みの古い条件で上書き（＝リロードで条件が消える）**していた。URL の有無は
+  `window.location.search` を直接見るように変更（クエリがあれば記憶するだけ・絶対に replace しない）。
+- 影響範囲: `restore-search.tsx`（新規）、`experiences/page.tsx`、`experience-search-form.tsx`。
+  検索ロジック・URL 仕様・API は不変。`localStorage` は使わない。さらに保険として、記憶から
+  `RESTORE_MAX_AGE_MS`（既定 60 分）経った条件は復元せず掃除する（タブを開きっぱなしで日をまたいだ
+  ときに古い条件を引きずらないため）。
+
 ### 2026-09-09 「表示する種類」の既定を `road` に戻し、選択肢の順を 道→方法→両方 に
 - 変更前: `EXPERIENCE_KINDS = ["road", "both", "method"]`（順: 道・両方・方法）、既定 `both`
 - 変更後: `EXPERIENCE_KINDS = ["road", "method", "both"]`（順: 道・方法・両方）、既定 **`road`（道だけ）**
