@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ResultBadge } from "@/components/ui";
+import { ReadBadge } from "@/components/read-badge";
 import type { MethodCardDTO } from "@/lib/queries";
 
 /**
@@ -16,9 +17,18 @@ export function MethodCard({ method: m }: { method: MethodCardDTO }) {
       : `/experiences/${m.attemptId}`;
 
   return (
-    <article className="rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-primary-soft)] p-5 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)]">
+    // 未読は淡い緑のまま「少しだけ目立つ」、既読は白背景で落ち着かせる。
+    // 色だけでなく右上の「既読 / 未読」バッジ（アイコン + 文字）でも判別できる（指示書 5）。
+    <article
+      className={`relative rounded-[var(--radius-lg)] border border-[var(--color-primary)] p-5 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)] ${
+        m.isRead ? "bg-[var(--color-surface)]" : "bg-[var(--color-primary-soft)]"
+      }`}
+    >
+      <div className="pointer-events-none absolute right-3 top-3">
+        <ReadBadge read={m.isRead} />
+      </div>
       <Link href={href} className="block no-underline">
-        <p className="text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+        <p className="pr-16 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
           方法の記録
         </p>
         <p className="mt-1 text-xs text-[var(--color-ink-muted)]">この道の困りごと：{context}</p>

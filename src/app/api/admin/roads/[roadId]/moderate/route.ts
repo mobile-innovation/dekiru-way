@@ -8,7 +8,7 @@ import { serializeRoad } from "@/lib/serializers";
 
 const roadInclude = {
   roadTags: { include: { tag: true } },
-  attempts: { include: { photos: true } },
+  attempts: true,
 } as const;
 
 // POST /api/admin/roads/{roadId}/moderate — 保留中の道を許可 / 却下する。

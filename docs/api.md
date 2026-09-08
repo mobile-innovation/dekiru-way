@@ -34,9 +34,9 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
 | --- | --- | --- |
 | GET | `/roads` | 自分の道一覧 `{ items: Road[] }`（新しい更新順） |
 | POST | `/roads` | 道を作成。201。 |
-| GET | `/roads/{roadId}` | 道の詳細（attempts / photos / tags 込み）。他人は 403、無ければ 404。 |
+| GET | `/roads/{roadId}` | 道の詳細（attempts / tags 込み）。他人は 403、無ければ 404。 |
 | PATCH | `/roads/{roadId}` | 部分更新。空ボディは 400。`title` と `difficulty` は一度値が入ると変更不可（別の値を送ると `409`。同値・省略は許可）。記述項目を変えると道の内容が再 AI 審査される。 |
-| DELETE | `/roads/{roadId}` | 削除（attempts / photos は cascade、ストレージ実体も削除）。204。 |
+| DELETE | `/roads/{roadId}` | 削除（attempts は cascade）。204。 |
 
 ### Road 作成 / 更新ボディ
 ```jsonc
@@ -51,7 +51,7 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
   "status": "string|null",
   "progress": "string|null",
   "nextAction": "string|null",
-  "visibility": "private|public",  // 既定 private
+  "visibility": "private|public",  // 既定 public（省略時）
   "tags": ["string", ...]          // 指定時のみ同期。Tag は自動 upsert
 }
 ```
@@ -121,15 +121,11 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
 
 ---
 
-## Photo（本人のみ）
+## 画像・写真について
 
-| メソッド | パス | 説明 |
-| --- | --- | --- |
-| GET | `/attempts/{attemptId}/photos` | 一覧 |
-| POST | `/attempts/{attemptId}/photos` | `multipart/form-data`（`file` 必須、`caption?`、`sortOrder?`）。201。 |
-| DELETE | `/attempts/{attemptId}/photos/{photoId}` | 削除（ストレージ実体も）。204。 |
-
-制約: `image/jpeg|png|webp|gif`、マジックバイト検証、5MB / 枚、8 枚 / 記録。
+**「できる道」は画像・写真の投稿／添付を扱わない**（プライバシー保護のため、サービス側で画像そのものを
+受け付けない）。写真アップロード API・`attempt_photos` テーブル・オブジェクトストレージは廃止済み。
+Attempt / Experience のレスポンスに画像フィールドは含まれない。
 
 ---
 
@@ -151,17 +147,24 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
   "result": "success|partial|no_change|failed|ongoing",
   "triedAt": "YYYY-MM-DD|null",
   "memo": "string|null",
-  "photos": [{ "id", "storageUrl", "caption", "sortOrder", "createdAt" }],
   "createdAt": "ISO",
   "road": {
     "previouslyAble", "difficulty", "goal", "situation",
     "progress", "nextAction", "startedAt", "tags": ["string"]
   },
-  "siblings"?: [{ "id", "method", "result", "triedAt", "isCurrent" }]  // 詳細取得時のみ
+  "siblings"?: [{ "id", "method", "result", "triedAt", "isCurrent" }],  // 詳細取得時のみ
+  "like": { "isMine": bool, "canLike": bool, "likedByMe": bool },  // 閲覧者から見たいいね状態。数は返さない
+  "isRead": bool  // 閲覧者がこの経験を既に開いたか。未ログインは false。既読数は返さない
 }
 ```
+`like` / `isRead` は Cookie のセッションから閲覧者を解決して埋める（未ログインは `like` 全て `false`、
+`isRead` は `false`）。`isMine`= 投稿者本人 / `canLike`= ログイン済みかつ本人でない / `likedByMe`= いいね済み。
+**いいね数・既読数（件数）は API のどのレスポンスにも含めない。**
+`GET /experiences`（一覧）の各 item にも同じ `like` / `isRead` が入る。
+
 検索対象カラム（指示書 13）: `roads.difficulty` / `roads.situation` / `roads.goal` /
 `roads.previouslyAble` / `attempts.method` / `attempts.memo` / `tags.name`。
+検索順位はいいねの影響を受けない（`sort=helpful` は結果種別による並びで、いいねとは無関係）。
 
 ---
 
@@ -185,6 +188,48 @@ SNS からの流入者が、1 件の「試したこと」だけを最小入力�
   記録するだけで、pending は覆さない。
 - 公開されるには管理者の承認が要る。`/admin/moderation` のキューに通常の経験と同じ形で並び、
   運営メモに「SNSからの簡易登録（未ログイン）」が付く。
+
+---
+
+## いいね / 通知（ログイン必須）
+
+公開された経験（他人の Attempt）に「参考になった」を送る。人気度・ランキング・検索順位には
+一切使わず、投稿者へ「役に立った」ことを伝えるためだけの機能。**いいね数はどこにも返さない。**
+
+| メソッド | パス | 説明 |
+| --- | --- | --- |
+| POST | `/api/v1/attempts/{attemptId}/like` | いいねする。`200 { liked: true }`。冪等（二重でも 200、行は増えない） |
+| DELETE | `/api/v1/attempts/{attemptId}/like` | 自分のいいねを取り消す。`204`。付いていなくても `204`（冪等）。**通知は消さない** |
+| POST | `/api/v1/notifications/read` | 自分の未読通知をすべて既読化。`204`。トップの通知ボックスの「閉じる」から呼ぶ |
+
+検証（すべてサーバ側 `src/lib/likes.ts`）:
+
+- 未ログイン → `401`
+- 自分の経験 → `403`「自分の経験にはいいねできません」（フロントで隠すだけでなく API でも拒否）
+- 非公開 / 存在しない Attempt → `404`
+- 二重登録は DB の `UNIQUE(attempt_id, user_id)` で防止（アプリ側は冪等に握りつぶす）
+- 取り消しは `deleteMany({ attemptId, userId })` で自分の行だけ。他人のいいねは触れない
+
+通知: 新規いいね時に投稿者へ 1 件（`notifications.type = "attempt_liked"`）。同じ経験に未読が
+残っていれば増やさない。誰がいいねしたか・件数は保存しない・出さない。取り消しでは消さない。
+
+---
+
+## 既読（ログイン必須）
+
+検索して見つけた経験を「自分がもう見たか」を判別するための、完全に個人用の状態。
+既読数・閲覧数は出さず、検索順位にも使わない。「いいね」とは別テーブル（`attempt_reads`）。
+
+| メソッド | パス | 説明 |
+| --- | --- | --- |
+| POST | `/api/v1/attempts/{attemptId}/read` | この経験を既読にする。`200 { read: true }`。冪等 |
+
+- 経験詳細（`/experiences/{id}`）を**開いた時点**でクライアントが 1 回呼ぶ。検索結果に出ただけでは呼ばない
+- 未ログイン → `401`（Cookie 等の簡易既読管理はしない）／非公開・不存在 → `404`
+- 自分の経験は既読登録しない（`{ read: false }` を返し行を作らない）
+- `user_id` はセッションから取得。リクエストボディの `user_id` は無視
+- 二重は DB `UNIQUE(user_id, attempt_id)` で防止（アプリ側は冪等）
+- 既読は補助機能。失敗しても経験の表示は妨げない（クライアントは握りつぶす）
 
 ---
 
@@ -238,7 +283,7 @@ SNS からの流入者が、1 件の「試したこと」だけを最小入力�
 
 | パス | 説明 |
 | --- | --- |
-| `GET /robots.txt` | 一般クローラーは `/api/` `/me/` `/login` `/admin/` `/try` 不可、既知 AI クローラーは全体不可 |
+| `GET /robots.txt` | 一般クローラーは `/api/` `/me/` `/login` `/admin/` 不可、既知 AI クローラーは全体不可（`/try` は SNS 共有の着地点なので許可） |
 
 ## 開発専用
 

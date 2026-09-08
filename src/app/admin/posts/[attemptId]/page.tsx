@@ -110,20 +110,6 @@ export default async function AdminPostDetailPage({
           <Field label="その後の状態" value={attempt.stateAfter} />
           <Field label="次に試すこと" value={attempt.nextAction} />
         </dl>
-        {attempt.photos.length > 0 && (
-          <ul className="flex flex-wrap gap-2">
-            {attempt.photos.map((p) => (
-              <li key={p.id}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={p.storageUrl}
-                  alt={p.caption ?? "経験の写真"}
-                  className="h-24 w-24 rounded-[var(--radius-sm)] object-cover"
-                />
-              </li>
-            ))}
-          </ul>
-        )}
       </section>
 
       {/* 道の文脈 */}

@@ -2,7 +2,7 @@
 
 import type { ComponentProps, ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { TextField, TextAreaField, Field } from "@/components/form";
 import { VoiceInputButton } from "@/components/voice-input-button";
 import {
@@ -60,7 +60,8 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
   const [result, setResult] = useState<string>(attempt?.result ?? "");
   const [triedAt, setTriedAt] = useState(attempt?.triedAt ?? "");
   const [memo, setMemo] = useState(attempt?.memo ?? "");
-  const [isPublished, setIsPublished] = useState(attempt?.isPublished ?? false);
+  // 新規記録は既定で「公開」ON（編集時は既存の値をそのまま尊重する）。
+  const [isPublished, setIsPublished] = useState(attempt?.isPublished ?? true);
   const [tags, setTags] = useState(initialTags.join(", "));
   // v6: できた％（本人入力・任意）／気持ち／その後／次に試すこと／前に試した方法
   const [recordPercent, setRecordPercent] = useState(
@@ -74,30 +75,10 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
   const [nextAction, setNextAction] = useState(attempt?.nextAction ?? "");
   const [previousAttemptId, setPreviousAttemptId] = useState(attempt?.previousAttemptId ?? "");
   const prevChoices = siblingAttempts.filter((s) => s.id !== attempt?.id);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  async function uploadPhotos(attemptId: string) {
-    const files = fileRef.current?.files;
-    if (!files || files.length === 0) return;
-    for (const file of Array.from(files)) {
-      const fd = new FormData();
-      fd.append("file", file);
-      try {
-        await api.post(`/api/v1/attempts/${attemptId}/photos`, fd);
-      } catch (e) {
-        // 写真だけ失敗しても記録本体は残す
-        setError(
-          `記録は保存しましたが、写真の一部を保存できませんでした：${
-            e instanceof ClientApiError ? e.message : "不明なエラー"
-          }`,
-        );
-      }
-    }
-  }
 
   async function syncTags() {
     const list = tags
@@ -138,20 +119,13 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
         previousAttemptId: previousAttemptId || null,
       };
 
-      let attemptId: string;
       if (editing && attempt) {
-        const updated = await api.patch<AttemptDTO>(`/api/v1/attempts/${attempt.id}`, payload);
-        attemptId = updated.id;
+        await api.patch<AttemptDTO>(`/api/v1/attempts/${attempt.id}`, payload);
       } else {
-        const createdAttempt = await api.post<AttemptDTO>(
-          `/api/v1/roads/${roadId}/attempts`,
-          payload,
-        );
-        attemptId = createdAttempt.id;
+        await api.post<AttemptDTO>(`/api/v1/roads/${roadId}/attempts`, payload);
       }
 
       await syncTags();
-      await uploadPhotos(attemptId);
 
       router.push(`/me/roads/${roadId}`);
       router.refresh();
@@ -361,23 +335,6 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
           onChange={(e) => setTags(e.target.value)}
           placeholder="例：着替え, 手先, 朝の支度"
         />
-
-        <Field
-          label="写真"
-          hint="やってみた様子や使った道具など。JPEG/PNG/WebP/GIF、1枚5MBまで。"
-        >
-          {({ id, describedBy }) => (
-            <input
-              id={id}
-              ref={fileRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              multiple
-              aria-describedby={describedBy}
-              className="block w-full text-sm"
-            />
-          )}
-        </Field>
       </Section>
 
       {/* ⑥ 公開設定 */}

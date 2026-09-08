@@ -8,6 +8,8 @@ import {
   PUBLIC_ATTEMPT_WHERE,
 } from "@/lib/search";
 import { serializeExperience, serializeRoad, sortAttemptsChronologically } from "@/lib/serializers";
+import { likedAttemptIdSet } from "@/lib/likes";
+import { readAttemptIdSet } from "@/lib/reads";
 import { buildRoadDetailRows, splitDetailRowsIntoPages } from "@/lib/road-detail";
 import type { Branch } from "@/components/branching-paths";
 import { MAX_RESULT_WINDOW, type ExperienceQuery } from "@/lib/validation";
@@ -33,6 +35,8 @@ export interface RoadCardDTO {
     achievementPercent: number | null;
   }[];
   attemptCount: number;
+  /** ログイン中ユーザーがこの道の入口経験を既に開いたか (未ログインは false)。 */
+  isRead: boolean;
 }
 
 // 「うまくいった順」用: 前向きな結果ほど小さい
@@ -49,7 +53,7 @@ const BEST_RESULT_RANK: Record<string, number> = {
  * 方法（Attempt）ごとではなく、困りごと（Road）ごとに 1 カード。
  * ページング・件数は「道」単位。`GET /api/v1/experiences`（Attempt 単位）は変更しない。
  */
-export async function searchRoads(q: ExperienceQuery) {
+export async function searchRoads(q: ExperienceQuery, viewerUserId?: string | null) {
   const skip = (q.page - 1) * q.limit;
   if (skip >= MAX_RESULT_WINDOW) {
     return {
@@ -92,8 +96,18 @@ export async function searchRoads(q: ExperienceQuery) {
         achievementPercent: a.achievementPercent,
       })),
       attemptCount: pub.length,
+      isRead: false,
     };
   });
+
+  // ログイン中なら、各カードの入口経験を既読にしているかを付ける (未ログインは全て false)。
+  if (viewerUserId) {
+    const readSet = await readAttemptIdSet(
+      viewerUserId,
+      items.map((i) => i.entryId),
+    );
+    items = items.map((i) => ({ ...i, isRead: readSet.has(i.entryId) }));
+  }
 
   // 並び順は「道」単位で解釈し直す（DB は updatedAt desc で取得）
   if (q.sort === "helpful") {
@@ -133,6 +147,8 @@ export interface MethodCardDTO {
   roadTags: string[];
   /** その方法が道詳細ツリーの何ページ目に出るか（1 起点）。1 ならクエリ無しでリンク */
   treePage: number;
+  /** ログイン中ユーザーがこの経験を既に開いたか (未ログインは false)。 */
+  isRead: boolean;
 }
 
 /** 道詳細ツリー内で、その Attempt が出るページ番号（1 起点）を road ごとにまとめて計算。 */
@@ -174,7 +190,7 @@ async function treePageByAttempt(roadIds: string[]): Promise<Map<string, number>
  * 1 ページ `limit` 件、深さ上限は道カードと同じ（`page ≤ 100`、`(mp-1)*limit < MAX_RESULT_WINDOW`）。
  * リンク先は「その方法が見えるページ」の道詳細（ツリーが分割されていれば ?p=N 付き）。
  */
-export async function searchMethods(q: ExperienceQuery) {
+export async function searchMethods(q: ExperienceQuery, viewerUserId?: string | null) {
   const base = {
     items: [] as MethodCardDTO[],
     total: 0,
@@ -198,6 +214,12 @@ export async function searchMethods(q: ExperienceQuery) {
   ]);
 
   const pageOf = await treePageByAttempt([...new Set(rows.map((a) => a.roadId))]);
+  const readSet = viewerUserId
+    ? await readAttemptIdSet(
+        viewerUserId,
+        rows.map((a) => a.id),
+      )
+    : new Set<string>();
 
   const items: MethodCardDTO[] = rows.map((a) => ({
     attemptId: a.id,
@@ -210,6 +232,7 @@ export async function searchMethods(q: ExperienceQuery) {
     roadGoal: a.road.goal,
     roadTags: a.road.roadTags.map((rt) => rt.tag.name).sort((x, y) => x.localeCompare(y, "ja")),
     treePage: pageOf.get(a.id) ?? 1,
+    isRead: readSet.has(a.id),
   }));
 
   return {
@@ -221,7 +244,7 @@ export async function searchMethods(q: ExperienceQuery) {
   };
 }
 
-export async function searchExperiences(q: ExperienceQuery) {
+export async function searchExperiences(q: ExperienceQuery, viewerUserId?: string | null) {
   const skip = (q.page - 1) * q.limit;
   // 深いページングでの実質的な全件取得を SSR 経由でも防ぐ (追加指示書 §4/§15)
   if (skip >= MAX_RESULT_WINDOW) {
@@ -238,8 +261,15 @@ export async function searchExperiences(q: ExperienceQuery) {
       take: q.limit,
     }),
   ]);
+  const viewer = viewerUserId
+    ? {
+        userId: viewerUserId,
+        likedAttemptIds: await likedAttemptIdSet(viewerUserId, rows.map((r) => r.id)),
+        readAttemptIds: await readAttemptIdSet(viewerUserId, rows.map((r) => r.id)),
+      }
+    : undefined;
   return {
-    items: rows.map((r) => serializeExperience(r)),
+    items: rows.map((r) => serializeExperience(r, { viewer })),
     total,
     page: q.page,
     limit: q.limit,
@@ -250,7 +280,7 @@ export async function searchExperiences(q: ExperienceQuery) {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function getExperience(id: string) {
+export async function getExperience(id: string, viewerUserId?: string | null) {
   if (!UUID_RE.test(id)) return null;
   const row = await prisma.attempt.findFirst({
     where: { id, ...PUBLIC_ATTEMPT_WHERE },
@@ -261,7 +291,14 @@ export async function getExperience(id: string) {
     where: { roadId: row.roadId, ...PUBLIC_ATTEMPT_WHERE },
     include: experienceInclude,
   });
-  return serializeExperience(row, { siblings });
+  const viewer = viewerUserId
+    ? {
+        userId: viewerUserId,
+        likedAttemptIds: await likedAttemptIdSet(viewerUserId, [row.id]),
+        readAttemptIds: await readAttemptIdSet(viewerUserId, [row.id]),
+      }
+    : undefined;
+  return serializeExperience(row, { siblings, viewer });
 }
 
 export async function getPathClusters(opts: { q?: string; tag?: string; limit?: number }) {
@@ -303,7 +340,7 @@ export async function getMyRoads(userId: string) {
     where: { userId },
     include: {
       roadTags: { include: { tag: true } },
-      attempts: { include: { photos: true } },
+      attempts: true,
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -315,7 +352,7 @@ export async function getMyRoad(userId: string, roadId: string) {
     where: { id: roadId, userId },
     include: {
       roadTags: { include: { tag: true } },
-      attempts: { include: { photos: true } },
+      attempts: true,
     },
   });
   return road ? serializeRoad(road) : null;

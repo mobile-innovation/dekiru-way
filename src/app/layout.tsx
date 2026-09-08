@@ -3,8 +3,12 @@ import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteChrome } from "@/components/site-chrome";
+import { env } from "@/lib/env";
 
 export const metadata: Metadata = {
+  // 各ページの metadata が持つ相対URL (og:image / canonical など) を絶対URLへ解決する基点。
+  // 本番は SITE_URL、未設定時は http://localhost:3000。
+  metadataBase: new URL(env.site.url),
   title: {
     default: "できる道 — 誰かの試行錯誤を、誰かの次の一歩へ",
     template: "%s | できる道",

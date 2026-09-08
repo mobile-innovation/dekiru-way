@@ -54,6 +54,5 @@ export function clientKey(req: Request): string {
 /** よく使う制限プリセット */
 export const RATE_PRESETS = {
   write: { limit: 60, windowMs: 60_000 },
-  upload: { limit: 20, windowMs: 60_000 },
   ai: { limit: 15, windowMs: 60_000 },
 } as const;

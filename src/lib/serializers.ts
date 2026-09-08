@@ -1,4 +1,4 @@
-import type { Attempt, AttemptPhoto, Road, RoadTag, Tag } from "@prisma/client";
+import type { Attempt, Road, RoadTag, Tag } from "@prisma/client";
 import { publishStateOf } from "@/lib/publish-state";
 
 /**
@@ -11,21 +11,8 @@ function dateOnly(d: Date | null): string | null {
   return d ? d.toISOString().slice(0, 10) : null;
 }
 
-export type PhotoDTO = ReturnType<typeof serializePhoto>;
-export function serializePhoto(p: AttemptPhoto) {
-  return {
-    id: p.id,
-    storageUrl: p.storageUrl,
-    caption: p.caption,
-    sortOrder: p.sortOrder,
-    createdAt: p.createdAt.toISOString(),
-  };
-}
-
-type AttemptWithPhotos = Attempt & { photos?: AttemptPhoto[] };
-
 export type AttemptDTO = ReturnType<typeof serializeAttempt>;
-export function serializeAttempt(a: AttemptWithPhotos) {
+export function serializeAttempt(a: Attempt) {
   return {
     id: a.id,
     roadId: a.roadId,
@@ -45,10 +32,6 @@ export function serializeAttempt(a: AttemptWithPhotos) {
     stateAfter: a.stateAfter,
     nextAction: a.nextAction,
     previousAttemptId: a.previousAttemptId,
-    photos: (a.photos ?? [])
-      .slice()
-      .sort((x, y) => x.sortOrder - y.sortOrder || x.createdAt.getTime() - y.createdAt.getTime())
-      .map(serializePhoto),
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt.toISOString(),
   };
@@ -56,7 +39,7 @@ export function serializeAttempt(a: AttemptWithPhotos) {
 
 type RoadFull = Road & {
   roadTags?: (RoadTag & { tag: Tag })[];
-  attempts?: AttemptWithPhotos[];
+  attempts?: Attempt[];
 };
 
 export function roadTagNames(road: RoadFull): string[] {
@@ -107,7 +90,6 @@ export function sortAttemptsChronologically(a: Chronological, b: Chronological):
  * 同じ Road の非公開 Attempt は絶対に含めない (指示書 5/14)。
  */
 type ExperienceRow = Attempt & {
-  photos?: AttemptPhoto[];
   road: Road & { roadTags?: (RoadTag & { tag: Tag })[] };
 };
 
@@ -138,7 +120,6 @@ export interface ExperienceDTO {
   stateAfter: string | null;
   nextAction: string | null;
   previousAttemptId: string | null;
-  photos: PhotoDTO[];
   createdAt: string;
   road: {
     previouslyAble: string | null;
@@ -152,14 +133,41 @@ export interface ExperienceDTO {
   };
   /** 「道の見える化」(指示書 6-④)。詳細取得時のみ入る。 */
   siblings?: ExperienceSibling[];
+  /**
+   * 閲覧者から見た「いいね」の状態 (いいね指示書)。
+   * - いいね数は含めない。
+   * - `isMine`: この経験の投稿者が閲覧者本人 → いいねボタンを出さない
+   * - `canLike`: ログイン済みで、かつ本人の経験ではない → いいね操作できる
+   * - `likedByMe`: 閲覧者が既にいいね済み
+   */
+  like: { isMine: boolean; canLike: boolean; likedByMe: boolean };
+  /** 閲覧者がこの経験を既に開いたか (未ログインは false)。既読数は含めない。 */
+  isRead: boolean;
+}
+
+export interface ExperienceViewer {
+  /** ログイン中のアプリ内 user.id。未ログインなら null。 */
+  userId: string | null;
+  /** viewer がいいね済みの Attempt id 集合 (省略時は「未いいね」扱い)。 */
+  likedAttemptIds?: Set<string>;
+  /** viewer が既読にした Attempt id 集合 (省略時は「未読」扱い)。 */
+  readAttemptIds?: Set<string>;
 }
 
 export function serializeExperience(
   row: ExperienceRow,
-  opts?: { siblings?: ExperienceRow[] },
+  opts?: { siblings?: ExperienceRow[]; viewer?: ExperienceViewer },
 ): ExperienceDTO {
+  const viewerId = opts?.viewer?.userId ?? null;
+  const isMine = viewerId != null && viewerId === row.road.userId;
   const dto: ExperienceDTO = {
     id: row.id,
+    like: {
+      isMine,
+      canLike: viewerId != null && !isMine,
+      likedByMe: opts?.viewer?.likedAttemptIds?.has(row.id) ?? false,
+    },
+    isRead: opts?.viewer?.readAttemptIds?.has(row.id) ?? false,
     method: row.method,
     result: row.result,
     triedAt: dateOnly(row.triedAt),
@@ -169,10 +177,6 @@ export function serializeExperience(
     stateAfter: row.stateAfter,
     nextAction: row.nextAction,
     previousAttemptId: row.previousAttemptId,
-    photos: (row.photos ?? [])
-      .slice()
-      .sort((x, y) => x.sortOrder - y.sortOrder)
-      .map(serializePhoto),
     createdAt: row.createdAt.toISOString(),
     road: {
       // 本人特定につながる自由記述の生データは出すが、氏名等はスキーマ上そもそも持たない

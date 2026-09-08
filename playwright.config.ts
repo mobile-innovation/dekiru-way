@@ -43,6 +43,8 @@ export default defineConfig({
       LOCAL_AI_MODEL: "",
       // 公開のたびに Claude を呼ばない（課金・遅延・不安定さを避ける）。公開は即 approved。
       AI_MODERATION_ENABLED: "false",
+      // OGP の絶対URL基点を実際のテストサーバに合わせる（metadataBase 検証用）。
+      SITE_URL: baseURL,
     },
   },
 });

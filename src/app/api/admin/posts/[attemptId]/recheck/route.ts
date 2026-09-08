@@ -42,7 +42,6 @@ export const POST = handle(async (_req, ctx) => {
       aiCategories: result.categories,
       aiCheckedAt: new Date(),
     },
-    include: { photos: true },
   });
 
   await writeAudit(admin.id, "recheck", {

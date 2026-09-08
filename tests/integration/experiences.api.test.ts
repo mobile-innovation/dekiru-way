@@ -1,4 +1,15 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vitest";
+
+// 経験一覧 API は閲覧者を解決する（いいね済み/既読を付けるため）ので @/auth をモックする。
+// 既定は未ログイン（null）＝従来どおりの公開挙動。
+vi.mock("@/auth", () => ({
+  auth: vi.fn(async () => null),
+  signIn: vi.fn(),
+  signOut: vi.fn(),
+  handlers: {},
+  AUTH_COOKIE_NAME: "authjs.session-token",
+}));
+
 import { prisma } from "@/lib/db";
 import { resetBotGuard } from "@/lib/bot-guard";
 import { GET as listExperiences } from "@/app/api/v1/experiences/route";

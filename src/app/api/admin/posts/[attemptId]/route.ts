@@ -32,7 +32,6 @@ export const PATCH = handle(async (req, ctx) => {
       moderatedAt: new Date(),
       ...(note !== undefined ? { moderationNote: note || null } : {}),
     },
-    include: { photos: true },
   });
 
   const action = deriveManualModerationAction(current.moderationStatus, moderationStatus);

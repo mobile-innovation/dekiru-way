@@ -1,4 +1,4 @@
-# ローカル開発用インフラ: PostgreSQL + MinIO (S3 互換ストレージ)
+# ローカル開発用インフラ: PostgreSQL
 # 使い方: docker compose up -d
 
 services:
@@ -21,41 +21,5 @@ services:
       timeout: 5s
       retries: 10
 
-  minio:
-    image: minio/minio:latest
-    container_name: dekiru-minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: dekiru
-      MINIO_ROOT_PASSWORD: dekiru-secret
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio-data:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  # バケットを作成し匿名読み取りを許可する (公開写真を storage_url で直接表示するため)
-  minio-setup:
-    image: minio/mc:latest
-    container_name: dekiru-minio-setup
-    depends_on:
-      minio:
-        condition: service_started
-    entrypoint: >
-      /bin/sh -c "
-      until (mc alias set local http://minio:9000 dekiru dekiru-secret) do echo 'waiting for minio...' && sleep 1; done;
-      mc mb --ignore-existing local/dekiru-photos;
-      mc anonymous set download local/dekiru-photos;
-      echo 'minio bucket ready';
-      exit 0;
-      "
-
 volumes:
   db-data:
-  minio-data:

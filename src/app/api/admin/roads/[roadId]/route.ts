@@ -7,7 +7,7 @@ import { serializeRoad } from "@/lib/serializers";
 
 const roadInclude = {
   roadTags: { include: { tag: true } },
-  attempts: { include: { photos: true } },
+  attempts: true,
 } as const;
 
 // PATCH /api/admin/roads/{roadId} — 道の公開状態の手動遷移 (取り下げ / 再公開 など)。

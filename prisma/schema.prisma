@@ -16,7 +16,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// 公開範囲。Road 全体を他人が閲覧できるか。初期値は private。
+/// 公開範囲。Road 全体を他人が閲覧できるか。初期値は public（あとから非公開に切り替え可）。
 enum Visibility {
   private
   public
@@ -55,7 +55,10 @@ model User {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  roads Road[]
+  roads         Road[]
+  attemptLikes  AttemptLike[]
+  attemptReads  AttemptRead[]
+  notifications Notification[]
 
   @@map("users")
 }
@@ -82,7 +85,7 @@ model Road {
   progress      String?
   /// 次に試すこと
   nextAction    String?    @map("next_action")
-  visibility    Visibility @default(private)
+  visibility    Visibility @default(public)
   /// 道の内容モデレーション。承認済みでないと、この道の経験は公開面に出さない。
   /// 新規行は pending。既存の道はマイグレーションで approved にバックフィルする。
   moderationStatus   ModerationStatus @default(pending) @map("moderation_status")
@@ -155,10 +158,12 @@ model Attempt {
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
   road            Road           @relation(fields: [roadId], references: [id], onDelete: Cascade)
-  photos          AttemptPhoto[]
   previousAttempt Attempt?       @relation("AttemptChain", fields: [previousAttemptId], references: [id], onDelete: SetNull)
   nextAttempts    Attempt[]      @relation("AttemptChain")
   moderatedByAdmin AdminUser?    @relation(fields: [moderatedByAdminId], references: [id], onDelete: SetNull)
+  likes           AttemptLike[]
+  reads           AttemptRead[]
+  notifications   Notification[]
 
   @@index([roadId])
   @@index([result])
@@ -168,21 +173,6 @@ model Attempt {
   @@index([moderationStatus])
   @@index([isPublished, moderationStatus])
   @@map("attempts")
-}
-
-model AttemptPhoto {
-  id         String   @id @default(uuid()) @db.Uuid
-  attemptId  String   @map("attempt_id") @db.Uuid
-  /// オブジェクトストレージ上の URL。DB には URL のみ保持する。
-  storageUrl String   @map("storage_url")
-  caption    String?
-  sortOrder  Int      @default(0) @map("sort_order")
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-
-  @@index([attemptId])
-  @@map("attempt_photos")
 }
 
 model Tag {
@@ -248,4 +238,62 @@ model RoadTag {
   @@id([roadId, tagId])
   @@index([tagId])
   @@map("road_tags")
+}
+
+/// 公開された経験 (Attempt) への「いいね」。
+/// - 目的は投稿者へ「参考になった」ことを伝えること。人気度・ランキングには使わない。
+/// - 1 ユーザー 1 経験につき 1 件 (UNIQUE)。自分の経験にはいいねできない (アプリ層で拒否)。
+/// - いいね数は画面に出さない。保存するのは「いいね済みか」「取り消せるか」「通知を作る」ため。
+model AttemptLike {
+  id        String   @id @default(uuid()) @db.Uuid
+  attemptId String   @map("attempt_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, userId])
+  @@index([userId])
+  @@map("attempt_likes")
+}
+
+/// 公開された経験 (Attempt) を、そのユーザーが「実際に開いて見た」記録。
+/// - Attempt の属性ではなく「誰が読んだか」というユーザーごとの状態なので専用テーブルにする
+///   (attempts.is_read は作らない)。
+/// - 既読数・閲覧数は出さない。検索順位にも使わない。個人用の状態。
+/// - 1 ユーザー 1 経験につき 1 件 (UNIQUE)。既読日時 (read_at) は将来の「最近見た経験」用に保持。
+model AttemptRead {
+  id        String   @id @default(uuid()) @db.Uuid
+  attemptId String   @map("attempt_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  readAt    DateTime @default(now()) @map("read_at")
+
+  attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, attemptId])
+  @@index([attemptId])
+  @@map("attempt_reads")
+}
+
+/// ユーザーへの通知。現状は「自分の経験にいいねが届いた」(attempt_liked) のみ。
+/// - 誰がいいねしたかは持たない・出さない (SNS 的な表現を避ける)。
+/// - いいね取り消しでは通知を消さない (その時点で評価された、という出来事として扱う)。
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  /// 通知種別。例: "attempt_liked"
+  type      String
+  /// 対象の経験 (Attempt)。種別によっては無い。
+  attemptId String?  @map("attempt_id") @db.Uuid
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempt Attempt? @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
 }

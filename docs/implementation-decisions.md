@@ -20,7 +20,7 @@
 | DB | **PostgreSQL 16**（開発は docker compose） | 指示書 4 / 16 の DDL（UUID PK・enum・TIMESTAMP・部分インデックス）をそのまま表現でき、標準的で移行先の選択肢が広い。本番ホスティングは MVP 実装後に決定。 |
 | ORM / Migration | **Prisma 6** | DDL とほぼ 1:1。`prisma migrate` で履歴管理。`@@map` / `@map` で指示書のスネークケース物理名を維持。 |
 | 認証 | **Auth.js (NextAuth v5) + Google Provider、JWT セッション（HttpOnly Cookie）** | Google ログイン基本の要件に最短。DB アダプタは使わず `users` は指示書 4 のスキーマのまま自前 upsert。 |
-| 写真ストレージ | **S3 互換（`@aws-sdk/client-s3`）／開発は docker の MinIO** | DB には `storage_url` のみ保持（指示書 15）。本番は R2 / S3 等へ差し替え可能。 |
+| 画像・写真 | **扱わない（廃止済み）** | プライバシー保護のためユーザーによる画像投稿・添付をサービスで受け付けない。`attempt_photos` テーブル・写真 API・オブジェクトストレージ（旧 MinIO / `@aws-sdk/client-s3`）は撤去。 |
 | AI | **Anthropic Claude（`@anthropic-ai/sdk`）／キー未設定時はスタブ** | 補助レイヤー（指示書 12）。キーが無くてもアプリは完全に動く。 |
 | テスト | Vitest（unit / integration）、Playwright + axe-core（E2E / アクセシビリティ） | 指示書 18 の公開側・本人側・権限・重要シナリオを機械的に固定。 |
 
@@ -46,7 +46,7 @@
   これは「困ったこと → 試したこと → 結果 → 現在 → 次」を追うために必要（指示書 6-③）。
 - ただし **同じ Road の非公開 Attempt は一切露出しない**（`experiences/{id}` の `siblings` も
   `is_published = true` に限定）。
-- `road.visibility`（private / public、初期値 private）は「自分の道ページ全体を他人が閲覧できるか」を
+- `road.visibility`（private / public、**初期値 public**・道の詳細画面で切替可）は「自分の道ページ全体を他人が閲覧できるか」を
   制御する**別概念**。MVP では公開経験の閲覧導線は Attempt 単位のみで完結しており、
   `road.visibility = public` は将来の「本人の道ページ公開」用のフラグとして保持している
   （現状 UI からトグルはできるが、他人向けの道ページ URL は未実装）。
@@ -97,15 +97,20 @@ AI に適用。将来は Upstash 等の共有ストアに差し替え。
 
 ---
 
-## 4. アップロード（指示書 15）
+## 4. 画像・写真は扱わない（画像投稿廃止指示書）
 
-- 受け付けるのは `image/jpeg` / `image/png` / `image/webp` / `image/gif`。
-- 検証: MIME ホワイトリスト ＋ **マジックバイト**（`detectImageType`）＋ サイズ上限 **5MB** ＋
-  1 記録あたり **8 枚**まで。
-- 保存キーは `attempts/<attemptId>/<uuid>.<ext>`。DB には公開 URL（`storage_url`）を保存。
-- MinIO バケットは匿名 read 可（`docker-compose.yml` の `minio-setup`）。公開写真を
-  `storage_url` で直接表示するため。本番で非公開バケット＋署名 URL にする場合は
-  `src/lib/storage.ts` に集約済みなので差し替え可能。
+プライバシー保護を最優先し、**ユーザーによる画像・写真の投稿／添付をサービスとして受け付けない**。
+「公開時だけ非公開にする」ではなく、画像そのものを入口で持たない設計。
+
+- `attempt_photos` テーブル・`storage_url` / `caption` / `sort_order` を撤去（マイグレーション
+  `drop_attempt_photos`）。`attempts` に画像関連カラムは無い。
+- 写真 API（`/api/v1/attempts/{id}/photos*`）・`src/lib/storage.ts`・オブジェクトストレージ
+  （旧 MinIO）・`@aws-sdk/*` 依存・`STORAGE_*` 環境変数・`next.config` の `images.remotePatterns`
+  を削除。`docker-compose.yml` は PostgreSQL のみ。
+- 「試したことを記録」フォームの写真添付 UI、経験詳細・自分の道・管理画面の写真表示領域を削除。
+  音声入力（画像とは別機能）は維持。
+- 経験の中心は文章（困った / やりたい / 試した / 結果 / 現在 / 次）。検索対象も従来どおり
+  文章・タグのみで、画像メタデータは対象にしない。
 
 ---
 
@@ -584,7 +589,7 @@ NG / 不明は保留して運営が管理画面で許可 / 却下する。
   cookie（HttpOnly / SameSite=Lax / Secure(prod) / 既定 8h）に格納。新規依存なし
   （パスワードは `node:crypto` scrypt）。
 - 画面: ダッシュボード（件数）/ モデレーションキュー（許可・却下）/ 全投稿一覧（状態変更・
-  取り下げ・再公開・AI 再チェック）/ 投稿詳細（全項目 + 写真 + AI 判定 + 操作ログ）/ 操作ログ。
+  取り下げ・再公開・AI 再チェック）/ 投稿詳細（全項目 + AI 判定 + 操作ログ）/ 操作ログ。
 - 操作はすべて `AdminAuditLog` に記録（`login` / `approve` / `reject` / `unpublish` /
   `republish` / `recheck`）。
 - 初期管理者は `npm run admin:create -- <email> <password>` か、dev は `npm run db:seed`
@@ -687,7 +692,73 @@ SNS からの流入者が、ログインなしで「試したこと」1 件だ�
   保存値は常にテキストとして描画される（React の自動エスケープ）ため HTML/スクリプトは無害化される。
 - **濫用対策**: 未ログインのため `POST /api/v1/quick-experiences` は 6/分・IP 単位の
   レート制限（通常の書き込み 60/分より厳しい）。既知 Bot UA は middleware で拒否済み。
-  `robots.txt` は `/try` を一般クローラー不可、ページ自体も `robots: noindex`。
+- **PC 幅 / フッター微調整（最終微調整指示）**: フォームの最大幅を `max-w-xl`→`max-w-2xl`
+  （約 680px）に。スマホは `<main>` の `px-4` が効くため従来どおり。フォーム下の注記は
+  送信ボタン直上の注記と重複していた「運営が確認してから公開」を削り、個人情報を書かない旨と
+  `/terms` リンクだけを 1 行に。グローバルの `SiteFooter` は全ページ共通なので変更せず。
+- **OGP / SNS 共有（OGP 設定指示）**: `/try` は SNS からの着地点なので、共有時に「できる道」らしい
+  画像と説明が出るようにする。
+  - 画像は追加済みの `public/ogp.png`（1734×907 ≒ 1.91:1）をそのまま使用（変換しない）。
+  - 絶対 URL の基点は `env.site.url`（`SITE_URL`、未設定は `http://localhost:3000`）。
+    ルート `layout.tsx` の `metadata.metadataBase` に一元設定し、各ページは相対パスだけ書く。
+  - `/try` の `metadata` に `openGraph`（type/title/description/url/siteName/locale/images）、
+    `twitter`（summary_large_image）、`alternates.canonical: "/try"`、
+    `title.absolute`（テンプレート `%s | できる道` を通さず SNS と完全一致）を設定。
+  - canonical / 検索 description が意味を持つよう、`/try` の `robots: noindex` と
+    `robots.txt` の `/try` Disallow を解除（SNS クローラーが `robots.txt` を尊重するため
+    Disallow のままだとプレビューが出ない）。フォーム本文・機能は不変。
+
+### 経験への「いいね」＋通知（いいね指示書）
+
+公開された他人の経験に「参考になった」を送り、投稿者へ「役に立った」ことを伝えるだけの機能。
+SNS 的な人気競争にしないことを最優先に置く。
+
+- **数を出さない / 検索に使わない**: いいね数はカード・詳細・プロフィール・API のどこにも出さない。
+  検索ロジック（`src/lib/search.ts`）は一切変更していない。`sort=helpful` は従来どおり結果種別順で、
+  いいねとは無関係。
+- **データモデル**: 既存の Road/Attempt 設計はそのまま。追加は 2 テーブルのみ。
+  - `attempt_likes(attempt_id, user_id, created_at)` + `@@unique([attemptId, userId])` で二重登録防止。
+  - `notifications(user_id, type, attempt_id, is_read, created_at)`。現状 `type` は `attempt_liked` のみ。
+    誰がいいねしたかは持たない。
+- **自分の経験を守る多層防御**: フロントは `like.isMine` でボタン自体を出さない。加えて API 側
+  `src/lib/likes.ts#likeAttempt` が親 Road の `userId` と一致したら `403`。非公開・不存在は
+  `PUBLIC_ATTEMPT_WHERE` で弾いて `404`。取り消しは `deleteMany({ attemptId, userId })` なので
+  他人のいいねは削除できない。
+- **API**: `POST/DELETE /api/v1/attempts/{id}/like`（ログイン必須・`RATE_PRESETS.write`）、
+  `POST /api/v1/notifications/read`。`GET /api/v1/experiences/{id}` は Cookie から閲覧者を解決して
+  `like: { isMine, canLike, likedByMe }` を返す（数は返さない）。
+- **UI**: 検索 → 道の詳細（`/experiences/[id]`）の「この人がたどった道」カード見出しの右に
+  ハート 1 つ（`src/components/like-button.tsx`）。スマホでは折り返して見出しの下。
+  未評価＝灰色の輪郭「参考になった」、評価済み＝赤い塗り「参考になりました」。
+  未評価＝灰色の輪郭、評価済み＝赤い塗り。色だけに頼らず `aria-pressed` と文言（「参考になった」/
+  「参考になりました」）で状態を示す。未ログインで押すとログイン案内＋`/login?next=` へ。
+  検索カードへのハットは今回は入れていない（指示書上も任意。カードの主役＝困った→試した→結果 を保つ）。
+- **通知の見せ方**: ログイン後トップ（`/`）の最上部に `src/components/like-notice.tsx` のボックス。
+  「あなたの経験が、誰かの次の一歩になりました／あなたの経験に『いいね』が届いています。」のみ。
+  件数・氏名は出さない。「閉じる」で未読を全既読化して以後出さない。取り消しても既に出した通知は
+  消さない（その時点で評価された、という出来事として扱う）。
+
+### 検索結果カードの「既読 / 未読」（既読指示書）
+
+検索して見つけた経験のうち「自分がもう見たか」を後から判別できるようにする。完全に個人用。
+
+- **数を出さない / 検索に使わない**: 既読数・閲覧数はどこにも出さない。検索ロジックは未変更。
+- **`attempts.is_read` は作らない**: 「誰が読んだか」はユーザーごとの状態なので専用テーブル
+  `attempt_reads(attempt_id, user_id, read_at)` + `@@unique([userId, attemptId])`。`read_at` は
+  将来の「最近見た経験」用に保持（今は非表示）。いいね（`attempt_likes`）とは完全に別。
+- **既読になるタイミング**: 検索結果に出ただけでは既読にしない。経験詳細（`/experiences/[id]`）を
+  開いた時点で `src/components/mark-read.tsx` がマウント時に 1 回 `POST /api/v1/attempts/{id}/read`。
+  失敗しても表示は妨げない（握りつぶす）。未ログイン・自分の経験のときはコンポーネント自体を出さない。
+- **サーバ側検証**（`src/lib/reads.ts#markAttemptRead`）: 未ログイン→401 / 非公開・不存在→404 /
+  自分の経験→行を作らず `{ read:false }` / `user_id` はセッションから（ボディの user_id は無視）/
+  二重は DB UNIQUE + 冪等。
+- **カード表示**: `RoadCard`（入口経験 = `entryId` の既読状態）と `MethodCard`（その経験の既読状態）の
+  右上に `src/components/read-badge.tsx`（アイコン + 「既読」「未読」の文字。色だけに頼らない）。
+  背景は未読 = ごく淡い緑、既読 = 白（`--color-primary-tint` / `--color-surface`）。控えめ。
+  `searchRoads` / `searchMethods` / `searchExperiences` は `viewerUserId?` を受け取り
+  `readAttemptIdSet` で `isRead` を付ける（未ログインは全 `false`）。`serializeExperience` にも
+  `isRead` を追加（`GET /experiences` 一覧・詳細 API 共通）。ページングは `attempt_reads` 基準なので
+  何ページ目でも正しく出る。
 
 ---
 
@@ -703,6 +774,44 @@ SNS からの流入者が、ログインなしで「試したこと」1 件だ�
 - 影響範囲:
 - 将来への影響:
 ```
+
+### 2026-09-09 道 (Road) の visibility 初期値を public に
+- 変更前: `Road.visibility` の既定は `private`（`@default(private)` ＋ `POST /api/v1/roads` の
+  `input.visibility ?? "private"`）
+- 変更後: 既定 `public`（schema `@default(public)` ＋ 作成ルートの `?? "public"`）。道の詳細画面で
+  いつでも非公開に切り替えられるのは不変。マイグレーション `road_visibility_default_public`
+  （`ALTER COLUMN visibility SET DEFAULT 'public'` のみ／既存行は変更しない）
+- 理由: 前項と同じく、記録した経験を他の人の役に立てるサービスなので既定を共有寄りに
+- 影響範囲: `prisma/schema.prisma`、`src/app/api/v1/roads/route.ts`。SNS 簡易登録の匿名受け皿の道は
+  `src/lib/quick-submit.ts` で `visibility: "private"` を明示（道ページとして公開しない）
+- 将来への影響: 「本人の道ページ公開」機能を実装する際、既存の道はほぼ public になっている前提で設計できる
+
+### 2026-09-09 「試したことを記録」フォームの公開トグルを既定 ON に
+- 変更前: `attempt-form.tsx` の「この記録を『経験』として公開する」チェックボックスは新規記録で
+  既定 OFF（`attempt?.isPublished ?? false`）
+- 変更後: 新規記録は既定 ON（`attempt?.isPublished ?? true`）。編集時は既存の値をそのまま尊重
+- 理由: 記録した経験を他の人の役に立てることがサービスの中心なので、既定を共有寄りに。
+  公開したくない場合はチェックを外せる／あとから公開停止もできる、は不変
+- 影響範囲: `src/components/attempt-form.tsx` のみ（API・DB のデフォルトは `false` のまま。
+  クライアントが明示的に `isPublished: true` を送る形）。E2E `critical-flow` は作成した道を
+  後片付けで削除するよう更新
+- 将来への影響: なし
+
+### 2026-09-09 画像・写真投稿機能の廃止（画像投稿廃止指示書）
+- 変更前: Attempt に写真を添付できた（`attempt_photos` テーブル、`/api/v1/attempts/{id}/photos*`、
+  S3 互換ストレージ = 開発は MinIO、記録フォームの写真 UI、経験詳細・自分の道・管理画面の写真表示）
+- 変更後: **ユーザーによる画像・写真の投稿／添付を全廃**。`attempt_photos` を DROP、写真 API・
+  `src/lib/storage.ts`・`@aws-sdk/*` 依存・`STORAGE_*` 環境変数・`next.config` の画像リモート許可・
+  `docker-compose.yml` の MinIO を撤去。関連 UI・シリアライザの `photos` フィールド・
+  `tests/unit/storage.test.ts` を削除。`RATE_PRESETS.upload` / `FIELD_MAX.caption` も削除。
+- 理由: プライバシー保護の優先。画像に写り込む顔・氏名・住所・施設名・診察券・車両番号・
+  位置情報メタデータ等の公開リスクを、「利用者に注意を促す」ではなく**サービス側で画像を
+  受け付けないこと**で構造的に無くす。
+- 影響範囲: schema / マイグレーション / API / ストレージ / 記録フォーム / 経験詳細 / 自分の道 /
+  管理画面 / next.config / docker-compose / .env.example / package.json / docs / tests。
+  既存の Road・Attempt・結果 5 分類・公開/非公開・検索・道の見える化・AI 整理は不変。
+- 将来への影響: 初期版では画像投稿を再導入しない（§16）。文章・音声入力を中心に据える。
+  §8 冒頭より下の日付付きログに残る「写真」記述は当時の実装の記録であり、現行仕様は本項が優先。
 
 ### 2026-08-31 ローカル DB のホストポート
 - 変更前: PostgreSQL を `localhost:5432` で公開

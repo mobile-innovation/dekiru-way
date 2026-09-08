@@ -6,6 +6,8 @@
 見つかる Web アプリ。うまくいった経験だけでなく、**少しできた・変化なし・うまくいかなかった・
 継続中**も価値ある経験として残す。
 
+**画像・写真の投稿／添付は行わない**（プライバシー保護のため、サービス側で画像そのものを受け付けない）。記録は文章と音声入力が中心。
+
 ---
 
 ## 技術構成
@@ -15,7 +17,6 @@
 | Frontend / Backend | Next.js 15 (App Router, TypeScript) フルスタック |
 | DB | PostgreSQL 16 + Prisma 6 |
 | 認証 | Auth.js (NextAuth v5) + Google OAuth（JWT セッション Cookie） |
-| ストレージ | S3 互換（開発は MinIO）。DB は `storage_url` のみ保持 |
 | AI（補助） | Anthropic Claude（キー未設定時はスタブ） |
 | テスト | Vitest（unit / integration）、Playwright + axe-core（E2E / a11y） |
 
@@ -28,7 +29,7 @@ API 仕様は [`docs/api.md`](docs/api.md)、
 ## 必要なもの
 
 - Node.js 20 以上（開発は 22/25 で確認）
-- Docker（PostgreSQL と MinIO をローカル起動）
+- Docker（PostgreSQL をローカル起動）
 
 ---
 
@@ -41,7 +42,7 @@ cp .env.example .env
 #   Google 実ログインを使うなら AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET を設定
 #   （リダイレクト URI: http://localhost:3000/api/auth/callback/google）。
 
-# 2. インフラ（PostgreSQL:5433 / MinIO:9000, コンソール:9001）
+# 2. インフラ（PostgreSQL:5433）
 docker compose up -d
 
 # 3. 依存関係
@@ -79,9 +80,9 @@ npm run dev
 | 変数 | 必須 | 説明 |
 | --- | --- | --- |
 | `DATABASE_URL` | ○ | PostgreSQL 接続文字列。ローカル既定は `postgresql://dekiru:dekiru@localhost:5433/dekiru` |
+| `SITE_URL` | △ | サービスの公開 URL。OGP（`og:image` / `og:url`）や canonical の絶対 URL 基点。**本番は https の本番ドメイン必須**。未設定は `http://localhost:3000` にフォールバック |
 | `AUTH_SECRET` | ○ | Auth.js のセッション署名鍵（`openssl rand -base64 32`） |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | △ | Google OAuth クレデンシャル。未設定でも公開検索は動く。ログイン画面で未設定の旨を表示 |
-| `STORAGE_ENDPOINT` / `STORAGE_REGION` / `STORAGE_BUCKET` / `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` / `STORAGE_PUBLIC_BASE_URL` / `STORAGE_FORCE_PATH_STYLE` | ○ | S3 互換ストレージ。ローカル既定は MinIO |
 | `ANTHROPIC_API_KEY` | ✕ | 設定すると AI 補助が実 API 呼び出しに。未設定ならスタブ。**投稿・道のモデレーションもこのキーを使う**（未設定だと公開投稿・登録した道はすべて「不明」＝運営レビュー待ちになる。`AI_MODERATION_ENABLED=false` で審査自体を無効化＝即承認） |
 | `ANTHROPIC_MODEL` | ✕ | 既定 `claude-sonnet-5` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | ✕ | 初期管理者のブートストラップ用（`npm run db:seed` と `npm run admin:create` のみ参照。実行時の認証には使わない）。dev の既定は `admin@example.com` / `dekiru-admin` |
@@ -110,6 +111,10 @@ npm run dev
 7. 各記録の「経験として公開」トグル、道の公開設定、編集、削除
 8. 未ログインで `/try?problem=ボタンがとめにくい`（SNS 向け簡易登録）→ 困っていたことが入った状態で
    試したこと・結果を入力して登録 → 「確認待ち」で保存され、`/admin/moderation` に並ぶ（承認前は公開面に出ない）
+9. 別アカウントで `/experiences/{id}`（他人の経験）を開き「この経験は参考になりましたか？」のハートを押す
+   → 投稿者でログインするとトップ上部に「いいねが届いています」の通知（件数・氏名は出ない）。自分の経験にはハートは出ない
+10. ログイン状態で `/experiences` を検索 → カード右上が「未読」。カードから経験詳細を開いて検索に戻ると「既読」に変わる
+   （既読数などの数字は出さない。未ログインでは常に未読扱いで既読保存もしない）
 
 ---
 
@@ -136,7 +141,7 @@ npm run dev
 | `/admin/roads`（道を確認） | 道の審査キュー（状態フィルタ・検索） |
 | `/admin/roads/{id}` | 道の全項目＋AI 判定＋この道の経験一覧＋操作ログ |
 | `/admin/posts`（公開されている経験） | 全経験の一覧（状態フィルタ・検索）、公開停止・再公開・AI 再チェック |
-| `/admin/posts/{id}` | 経験の全項目＋写真＋AI 判定＋操作ログ |
+| `/admin/posts/{id}` | 経験の全項目＋AI 判定＋操作ログ |
 | `/admin/audit` | 全操作ログ（誰が・いつ・何をしたか） |
 
 「利用者」「通報・対応」は未実装のためリンクにせず、管理メニューに「準備中」とだけ表示する
@@ -160,16 +165,16 @@ admin 主要画面は axe-core (wcag2a/wcag2aa) で違反 0 件を確認済み�
 ## テスト
 
 ```bash
-docker compose up -d              # DB / MinIO
+docker compose up -d              # DB
 npx prisma migrate deploy && npm run db:seed
-npm test                          # Vitest: 154 件（lib ロジック + 道ツリー/ページ分割 + 検索の出し分け/ページ送り + 認可 + bot-guard + 投稿/道モデレーション/管理認証/SNS簡易登録 の結合）
-npm run test:e2e                  # Playwright: 76 件（重要シナリオ / 道の作成・文字数表示 / 権限 / 枝分かれ道・10件ページ分割 / 検索カードの出し分け・種類指定・ページ送り / できた％・気持ち / スクレイピング対策 / 管理画面モデレーション / SNS簡易登録 / axe）
+npm test                          # Vitest: 180 件（lib ロジック + 道ツリー/ページ分割 + 検索の出し分け/ページ送り + 認可 + bot-guard + 投稿/道モデレーション/管理認証/SNS簡易登録/いいね/既読 の結合）
+npm run test:e2e                  # Playwright: 86 件（重要シナリオ / 道の作成・文字数表示 / 権限 / 枝分かれ道・10件ページ分割 / 検索カードの出し分け・種類指定・ページ送り / できた％・気持ち / スクレイピング対策 / 管理画面モデレーション / SNS簡易登録 / いいね / 既読 / axe）
 ```
 
 E2E は `E2E_TEST_LOGIN=true` でモックログインを使う（Google OAuth 不要）。
 `playwright.config.ts` の `webServer` が毎回クリーンな本番ビルドを**専用ポート 3100**
 （`E2E_PORT` で変更可）で起動するため、`npm run dev`（3000）や他アプリと衝突しない。
-DB / MinIO（docker）は事前に起動しておくこと。
+DB（docker）は事前に起動しておくこと。
 
 ---
 
@@ -196,7 +201,6 @@ DB / MinIO（docker）は事前に起動しておくこと。
 - レート制限はメモリ内（単一プロセス前提）。水平スケール時は共有ストアへ。
 - 投稿モデレーションの AI 審査は公開操作に同期実行（Claude 呼び出し 1〜3 秒）。将来は非同期キューへ。
 - 管理画面は投稿モデレーション中心（利用者管理・IP ブロック UI・通報導線は未実装。`bot-guard` の運用フック関数は用意済み）。
-- MinIO バケットは匿名 read 可（公開写真を直接配信）。非公開運用なら署名 URL 化が必要。
 - `road.visibility = public`（本人の道ページの公開）はフラグのみ保持。他人向けの道ページ URL は未実装。
 - 検索は部分一致（`ILIKE`）。類似検索・AI 検索・全文検索は未実装（拡張点は `src/lib/search.ts` に集約）。
 - Prisma 6 の `package.json#prisma` 設定に非推奨警告が出る（動作影響なし。Prisma 7 で `prisma.config.ts` へ移行予定）。
@@ -211,10 +215,10 @@ prisma/                 スキーマ・マイグレーション・シード
 src/
   app/                  画面 + API Route Handlers (/api/v1/*、/admin、/api/admin/*)
   components/            UI・フォーム・各画面のクライアント部品（admin/ に管理画面部品）
-  lib/                  db / auth / authz / api / search / storage / ai / validation / moderation / admin ...
+  lib/                  db / auth / authz / api / search / ai / validation / moderation / likes / reads / admin ...
   styles/tokens.css     デザイントークン
 tests/
   unit/  integration/  e2e/
 docs/                   api.md / implementation-decisions.md / admin-manual.md
-docker-compose.yml      PostgreSQL + MinIO
+docker-compose.yml      PostgreSQL
 ```

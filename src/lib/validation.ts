@@ -85,16 +85,6 @@ export const attemptCreateSchema = z.object({
 
 export const attemptUpdateSchema = attemptCreateSchema.partial();
 
-// ---- Photo ----
-
-export const photoMetaSchema = z.object({
-  caption: trimmedOptional(FIELD_MAX.caption),
-  sortOrder: z.coerce.number().int().min(0).max(999).optional(),
-});
-
-export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
-export const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5MB
-
 // ---- Experience 検索 ----
 
 /**

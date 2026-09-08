@@ -36,27 +36,33 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
   await page.getByRole("button", { name: "この道を作る" }).click();
   await expect(page).toHaveURL(/\/me\/roads\/[0-9a-f-]{36}$/);
   const roadUrl = page.url();
+  const roadId = roadUrl.match(/([0-9a-f-]{36})$/)![1];
 
-  // 作成直後は Attempt が無い（この画面では道だけ作る）
-  await expect(page.getByText("まだ記録がありません")).toBeVisible();
+  try {
+    // 作成直後は Attempt が無い（この画面では道だけ作る）
+    await expect(page.getByText("まだ記録がありません")).toBeVisible();
 
-  // --- Attempt: failed ---
-  await page.getByRole("link", { name: "試したことを記録" }).click();
-  await page.getByLabel("何を試しましたか？").fill("片手で結ぼうとした");
-  await page.getByRole("radio", { name: /^うまくいかなかった/ }).click();
-  await page.getByRole("button", { name: "記録する" }).click();
-  await expect(page).toHaveURL(roadUrl);
+    // --- Attempt: failed ---
+    await page.getByRole("link", { name: "試したことを記録" }).click();
+    await page.getByLabel("何を試しましたか？").fill("片手で結ぼうとした");
+    await page.getByRole("radio", { name: /^うまくいかなかった/ }).click();
+    await page.getByRole("button", { name: "記録する" }).click();
+    await expect(page).toHaveURL(roadUrl);
 
-  // --- Attempt: success ---
-  await page.getByRole("link", { name: "試したことを記録" }).click();
-  await page.getByLabel("何を試しましたか？").fill("マグネット式のバッグ留めに替えた");
-  await page.getByRole("radio", { name: /^できるようになった/ }).click();
-  await page.getByRole("button", { name: "記録する" }).click();
-  await expect(page).toHaveURL(roadUrl);
+    // --- Attempt: success ---
+    await page.getByRole("link", { name: "試したことを記録" }).click();
+    await page.getByLabel("何を試しましたか？").fill("マグネット式のバッグ留めに替えた");
+    await page.getByRole("radio", { name: /^できるようになった/ }).click();
+    await page.getByRole("button", { name: "記録する" }).click();
+    await expect(page).toHaveURL(roadUrl);
 
-  // --- 自分の道に両方表示され、failed も残っている ---
-  await expect(page.getByText("片手で結ぼうとした")).toBeVisible();
-  await expect(page.getByText("マグネット式のバッグ留めに替えた")).toBeVisible();
-  await expect(page.getByText("うまくいかなかった").first()).toBeVisible();
-  await expect(page.getByText("できるようになった").first()).toBeVisible();
+    // --- 自分の道に両方表示され、failed も残っている ---
+    await expect(page.getByText("片手で結ぼうとした")).toBeVisible();
+    await expect(page.getByText("マグネット式のバッグ留めに替えた")).toBeVisible();
+    await expect(page.getByText("うまくいかなかった").first()).toBeVisible();
+    await expect(page.getByText("できるようになった").first()).toBeVisible();
+  } finally {
+    // 公開トグルが既定 ON になったため、この道の経験が公開一覧に残らないよう削除する。
+    await page.request.delete(`/api/v1/roads/${roadId}`);
+  }
 });

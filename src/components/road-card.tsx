@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ResultBadge } from "@/components/ui";
+import { ReadBadge } from "@/components/read-badge";
 import { IconArrowRight, IconFootprints } from "@/components/icons";
 import type { RoadCardDTO } from "@/lib/queries";
 
@@ -20,10 +21,19 @@ export function RoadCard({ road }: { road: RoadCardDTO }) {
   const rest = road.attemptCount - shown.length;
 
   return (
-    // 枠線は方法カード（MethodCard）／「自分の道」カードと同じ `--color-primary`。背景は白のまま。
-    <article className="flex h-full flex-col rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-5 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)]">
+    // 枠線は方法カード（MethodCard）／「自分の道」カードと同じ `--color-primary`。
+    // 既読は通常の白背景、未読はごく淡い緑（--color-primary-tint）で「少しだけ目立つ」。
+    // 色だけに頼らず、右上に「既読 / 未読」バッジ（アイコン + 文字）を必ず出す（指示書 5）。
+    <article
+      className={`relative flex h-full flex-col rounded-[var(--radius-lg)] border border-[var(--color-primary)] p-5 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)] ${
+        road.isRead ? "bg-[var(--color-surface)]" : "bg-[var(--color-primary-tint)]"
+      }`}
+    >
+      <div className="pointer-events-none absolute right-3 top-3">
+        <ReadBadge read={road.isRead} />
+      </div>
       <Link href={`/experiences/${road.entryId}`} className="flex flex-1 flex-col no-underline">
-        <p className="text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+        <p className="pr-16 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
           だれかの道
         </p>
 

@@ -48,6 +48,22 @@ test("SNS から困りごと付きで開き、試したことを登録できる"
   // 承認前なので公開検索には出ない
   await page.goto(`/experiences?q=${encodeURIComponent(method)}&kind=method`);
   await expect(page.getByText(method)).toHaveCount(0);
+
+  // 後片付け: 運営として確認キューに現れることを確かめ、「公開しない」で pending から外す
+  // （このスペックが確認待ちを溜め続けて他テストの 1 ページ目を埋めないように）。
+  await page.context().clearCookies();
+  await page.goto("/admin/login");
+  await page.getByLabel("メールアドレス").fill(process.env.ADMIN_EMAIL || "admin@example.com");
+  await page.getByLabel("パスワード").fill(process.env.ADMIN_PASSWORD || "dekiru-admin");
+  await page.getByRole("button", { name: "ログイン" }).click();
+  await page.waitForURL(/\/admin$/);
+
+  page.on("dialog", (d) => d.accept());
+  await page.goto("/admin/moderation");
+  const row = page.locator("li").filter({ hasText: method });
+  await expect(row).toBeVisible();
+  await row.getByRole("button", { name: "公開しない" }).click();
+  await expect(row).toHaveCount(0);
 });
 
 test("試したことが空だと、具体的な文言でエラーが出る", async ({ page }) => {
@@ -55,4 +71,34 @@ test("試したことが空だと、具体的な文言でエラーが出る", as
   await page.getByLabel("困っていたこと").fill("つめが切りにくい");
   await page.getByRole("button", { name: "試したことを登録する" }).click();
   await expect(page.getByText("試したことを入力してください。")).toBeVisible();
+});
+
+test("SNS 共有用の OGP / Twitter メタタグが絶対URLで設定されている", async ({ page, baseURL }) => {
+  await page.goto("/try");
+
+  const title = "あなたが試したことを教えてください｜できる道";
+  await expect(page).toHaveTitle(title);
+
+  const content = async (selector: string) =>
+    page.locator(selector).first().getAttribute("content");
+
+  expect(await content('meta[property="og:type"]')).toBe("website");
+  expect(await content('meta[property="og:title"]')).toBe(title);
+  expect(await content('meta[property="og:description"]')).toContain("うまくいかなかった方法も大切な経験");
+  expect(await content('meta[property="og:site_name"]')).toBe("できる道");
+  expect(await content('meta[property="og:locale"]')).toBe("ja_JP");
+  expect(await content('meta[property="og:url"]')).toBe(`${baseURL}/try`);
+  expect(await content('meta[property="og:image"]')).toBe(`${baseURL}/ogp.png`);
+
+  expect(await content('meta[name="twitter:card"]')).toBe("summary_large_image");
+  expect(await content('meta[name="twitter:title"]')).toBe(title);
+  expect(await content('meta[name="twitter:image"]')).toBe(`${baseURL}/ogp.png`);
+
+  expect(await page.locator('link[rel="canonical"]').getAttribute("href")).toBe(`${baseURL}/try`);
+  expect(await content('meta[name="description"]')).toContain("あなたが試したことを教えてください");
+
+  // OGP 画像が本番同様に「画像として」200 で返る
+  const res = await page.request.get("/ogp.png");
+  expect(res.status()).toBe(200);
+  expect(res.headers()["content-type"]).toContain("image/");
 });

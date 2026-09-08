@@ -30,7 +30,6 @@ export const POST = handle(async (req, ctx) => {
       moderatedAt: new Date(),
       ...(note !== undefined ? { moderationNote: note || null } : {}),
     },
-    include: { photos: true },
   });
 
   await writeAudit(admin.id, action === "approve" ? "approve" : "reject", {

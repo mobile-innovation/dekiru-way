@@ -21,6 +21,17 @@ export const env = {
     return required("DATABASE_URL");
   },
 
+  /**
+   * サービスの公開 URL。OGP の og:image / og:url / canonical など「絶対 URL」を組み立てる基点。
+   * 本番では必ず https の本番ドメインを `SITE_URL` に設定する。
+   * 未設定時はローカル開発用の http://localhost:3000 にフォールバックする。
+   */
+  site: {
+    get url() {
+      return optional("SITE_URL", "http://localhost:3000").replace(/\/+$/, "");
+    },
+  },
+
   auth: {
     get secret() {
       return optional("AUTH_SECRET");
@@ -46,33 +57,6 @@ export const env = {
     /** Google クレデンシャルが揃っているか */
     get googleConfigured() {
       return Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
-    },
-  },
-
-  storage: {
-    get endpoint() {
-      return optional("STORAGE_ENDPOINT", "http://localhost:9000");
-    },
-    get region() {
-      return optional("STORAGE_REGION", "us-east-1");
-    },
-    get bucket() {
-      return optional("STORAGE_BUCKET", "dekiru-photos");
-    },
-    get accessKeyId() {
-      return optional("STORAGE_ACCESS_KEY_ID", "dekiru");
-    },
-    get secretAccessKey() {
-      return optional("STORAGE_SECRET_ACCESS_KEY", "dekiru-secret");
-    },
-    get publicBaseUrl() {
-      return optional(
-        "STORAGE_PUBLIC_BASE_URL",
-        `${optional("STORAGE_ENDPOINT", "http://localhost:9000")}/${optional("STORAGE_BUCKET", "dekiru-photos")}`,
-      );
-    },
-    get forcePathStyle() {
-      return optional("STORAGE_FORCE_PATH_STYLE", "true") === "true";
     },
   },
 

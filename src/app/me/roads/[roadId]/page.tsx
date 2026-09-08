@@ -193,21 +193,6 @@ export default async function MyRoadPage({ params }: { params: Promise<{ roadId:
                         {a.nextAction}
                       </p>
                     )}
-                    {a.photos.length > 0 && (
-                      <ul className="mt-3 flex flex-wrap gap-2">
-                        {a.photos.map((p) => (
-                          <li key={p.id}>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={p.storageUrl}
-                              alt={p.caption ?? "試したときの写真"}
-                              className="h-20 w-20 rounded-[var(--radius-sm)] object-cover"
-                              loading="lazy"
-                            />
-                          </li>
-                        ))}
-                      </ul>
-                    )}
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                       <AttemptPublishToggle
                         attemptId={a.id}

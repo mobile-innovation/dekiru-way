@@ -81,7 +81,6 @@ export function buildExperienceOrderBy(
 
 /** 経験詳細/一覧で共通して読む関連 (非公開 Attempt は含めない)。 */
 export const experienceInclude = {
-  photos: true,
   road: { include: { roadTags: { include: { tag: true } } } },
 } satisfies Prisma.AttemptInclude;
 

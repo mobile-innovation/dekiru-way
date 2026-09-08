@@ -326,6 +326,9 @@ async function main() {
         progress: r.progress ?? null,
         nextAction: r.nextAction ?? null,
         visibility: r.visibility ?? "private",
+        // 道の内容モデレーションが承認済みでないと、その道の経験は公開面に出ない。
+        // seed の道は公開デモ用なので明示的に approved にする（未指定だと既定 pending）。
+        moderationStatus: "approved",
       },
     });
 

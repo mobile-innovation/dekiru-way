@@ -11,7 +11,7 @@ import { applyRoadModeration, ROAD_MODERATED_FIELDS } from "@/lib/moderation";
 
 const roadInclude = {
   roadTags: { include: { tag: true } },
-  attempts: { include: { photos: true } },
+  attempts: true,
 } as const;
 
 // GET /api/v1/roads/{roadId} — 本人のみ (非公開データ)。
@@ -112,22 +112,13 @@ export const PATCH = handle(async (req, ctx) => {
   return ok(serializeRoad(road));
 });
 
-// DELETE /api/v1/roads/{roadId} — 本人のみ。attempts / photos は cascade で消える。
+// DELETE /api/v1/roads/{roadId} — 本人のみ。attempts は cascade で消える。
 export const DELETE = handle(async (_req, ctx) => {
   const userId = await requireUserId();
   const { roadId } = await ctx.params;
   await assertRoadOwner(roadId, userId);
   enforceRateLimit({ key: `road:delete:${userId}`, ...RATE_PRESETS.write });
 
-  const photos = await prisma.attemptPhoto.findMany({
-    where: { attempt: { roadId } },
-    select: { storageUrl: true },
-  });
   await prisma.road.delete({ where: { id: roadId } });
-
-  // ストレージ上の実体も掃除する (失敗しても致命的には扱わない)
-  const { deleteByUrl } = await import("@/lib/storage");
-  await Promise.allSettled(photos.map((p) => deleteByUrl(p.storageUrl)));
-
   return noContent();
 });

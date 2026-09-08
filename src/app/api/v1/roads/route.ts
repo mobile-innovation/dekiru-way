@@ -11,7 +11,7 @@ import { applyRoadModeration } from "@/lib/moderation";
 
 const roadInclude = {
   roadTags: { include: { tag: true } },
-  attempts: { include: { photos: true } },
+  attempts: true,
 } as const;
 
 // GET /api/v1/roads — 自分の道の一覧 (指示書 11)。
@@ -38,7 +38,8 @@ export const POST = handle(async (req) => {
       userId,
       ...rest,
       startedAt: toDbDate(startedAt) ?? null,
-      visibility: input.visibility ?? "private",
+      // 道のページは初期は公開。非公開にしたい場合は道の詳細画面で切り替えられる。
+      visibility: input.visibility ?? "public",
     },
   });
   await syncRoadTags(road.id, tags);

@@ -3,6 +3,9 @@ import { ok, ApiError, assertUuid } from "@/lib/api";
 import { handlePublicRead } from "@/lib/public-api";
 import { experienceInclude, PUBLIC_ATTEMPT_WHERE } from "@/lib/search";
 import { serializeExperience } from "@/lib/serializers";
+import { getOptionalUserId } from "@/lib/authz";
+import { likedAttemptIdSet } from "@/lib/likes";
+import { readAttemptIdSet } from "@/lib/reads";
 
 /**
  * GET /api/v1/experiences/{id} — 経験詳細 (ログイン不要, 指示書 6-③)。
@@ -27,5 +30,15 @@ export const GET = handlePublicRead(async (_req, ctx) => {
     include: experienceInclude,
   });
 
-  return ok(serializeExperience(row, { siblings }));
+  // 閲覧者が分かれば「いいねボタンを出せるか / いいね済みか」を返す (いいね数は返さない)。
+  const viewerUserId = await getOptionalUserId();
+  const viewer = viewerUserId
+    ? {
+        userId: viewerUserId,
+        likedAttemptIds: await likedAttemptIdSet(viewerUserId, [row.id]),
+        readAttemptIds: await readAttemptIdSet(viewerUserId, [row.id]),
+      }
+    : undefined;
+
+  return ok(serializeExperience(row, { siblings, viewer }));
 });

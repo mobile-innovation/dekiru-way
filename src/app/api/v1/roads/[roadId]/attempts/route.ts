@@ -15,7 +15,6 @@ export const GET = handle(async (_req, ctx) => {
   await assertRoadOwner(roadId, userId);
   const attempts = await prisma.attempt.findMany({
     where: { roadId },
-    include: { photos: true },
   });
   return ok({ items: attempts.sort(sortAttemptsChronologically).map(serializeAttempt) });
 });
@@ -45,7 +44,6 @@ export const POST = handle(async (req, ctx) => {
       nextAction: input.nextAction ?? null,
       previousAttemptId: input.previousAttemptId ?? null,
     },
-    include: { photos: true },
   });
 
   // 公開して作成された場合は AI 審査を走らせる (OK なら即公開 / NG・不明は運営レビュー待ち)。
@@ -53,7 +51,6 @@ export const POST = handle(async (req, ctx) => {
     await applyModerationOnPublish(attempt.id);
     const fresh = await prisma.attempt.findUniqueOrThrow({
       where: { id: attempt.id },
-      include: { photos: true },
     });
     return created(serializeAttempt(fresh));
   }

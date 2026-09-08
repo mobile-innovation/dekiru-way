@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { requirePageUserId } from "@/lib/session";
 import { getMyRoad } from "@/lib/queries";
 import { AttemptForm } from "@/components/attempt-form";
-import { AttemptPhotos } from "@/components/attempt-photos";
 import { IconNotebookPen } from "@/components/icons";
 
 export const metadata: Metadata = { title: "記録を編集" };
@@ -38,7 +37,6 @@ export default async function EditAttemptPage({
         </h1>
       </div>
 
-      <AttemptPhotos attemptId={attempt.id} photos={attempt.photos} />
       <AttemptForm
         roadId={roadId}
         initialTags={road.tags}

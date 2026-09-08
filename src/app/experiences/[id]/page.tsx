@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { Callout, Card } from "@/components/ui";
 import {
   IconHistory,
-  IconImage,
   IconInfo,
   IconRoute,
   IconSprout,
@@ -12,7 +11,10 @@ import {
 } from "@/components/icons";
 import { BranchingPaths, type Branch } from "@/components/branching-paths";
 import { RateLimitedNotice } from "@/components/rate-limited-notice";
+import { LikeButton } from "@/components/like-button";
+import { MarkRead } from "@/components/mark-read";
 import { getExperience } from "@/lib/queries";
+import { getOptionalUserId } from "@/lib/authz";
 import { guardPublicPage } from "@/lib/page-guard";
 import { DISCLAIMER } from "@/lib/ai/client";
 
@@ -44,7 +46,8 @@ export default async function ExperienceDetailPage({
   const guard = await guardPublicPage("/experiences/[id]", { id });
   if (!guard.ok) return <RateLimitedNotice retryAfter={guard.retryAfter} />;
 
-  const exp = await getExperience(id);
+  const viewerUserId = await getOptionalUserId();
+  const exp = await getExperience(id, viewerUserId);
   if (!exp) notFound();
 
   const r = exp.road;
@@ -69,6 +72,9 @@ export default async function ExperienceDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-8">
+      {/* 経験詳細を開いた = 既読。ログイン中で、かつ自分の経験でないときだけ登録する。 */}
+      {viewerUserId != null && !exp.like.isMine && <MarkRead attemptId={exp.id} />}
+
       {/* ① 戻る / ② タイトル */}
       <div className="space-y-4">
         <p className="text-sm">
@@ -98,10 +104,21 @@ export default async function ExperienceDetailPage({
         <div className="space-y-8">
           {/* ③ この人がたどった道（枝分かれ） */}
           <Card as="section">
-            <h2 className="flex items-center gap-2 text-base font-bold">
-              <IconRoute aria-hidden="true" className="h-5 w-5 shrink-0 text-[var(--color-primary)]" />
-              この人がたどった道
-            </h2>
+            {/* 見出しの右に「参考になった」= この道が役に立ったことを投稿者へ伝えるボタン（いいね指示書）。
+                スマホでは折り返して見出しの下に来る。 */}
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+              <h2 className="flex items-center gap-2 text-base font-bold">
+                <IconRoute aria-hidden="true" className="h-5 w-5 shrink-0 text-[var(--color-primary)]" />
+                この人がたどった道
+              </h2>
+              <LikeButton
+                attemptId={exp.id}
+                isMine={exp.like.isMine}
+                loggedIn={viewerUserId != null}
+                initialLiked={exp.like.likedByMe}
+                loginNext={`/experiences/${id}`}
+              />
+            </div>
         <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
           この人が試してきた方法を、時系列で見られます。うまくいかなかった方法も、道の一部です。
         </p>
@@ -147,37 +164,6 @@ export default async function ExperienceDetailPage({
           />
         </div>
       </Card>
-
-          {exp.photos.length > 0 && (
-            <section aria-labelledby="photos-heading" className="space-y-2">
-              <h2
-                id="photos-heading"
-                className="flex items-center gap-2 text-base font-bold"
-              >
-                <IconImage
-                  aria-hidden="true"
-                  className="h-5 w-5 shrink-0 text-[var(--color-primary)]"
-                />
-                写真
-              </h2>
-              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {exp.photos.map((p) => (
-                  <li key={p.id}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={p.storageUrl}
-                      alt={p.caption ?? "試したときの写真"}
-                      className="aspect-square w-full rounded-[var(--radius-md)] object-cover"
-                      loading="lazy"
-                    />
-                    {p.caption && (
-                      <p className="mt-1 text-xs text-[var(--color-ink-muted)]">{p.caption}</p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
         </div>
 
         {/* PC は右サイド、スマホは道の下: 参考情報 → 自分の道を作る */}

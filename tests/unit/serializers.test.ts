@@ -28,7 +28,6 @@ describe("serializeExperience", () => {
     isPublished: true,
     createdAt: new Date("2025-02-01"),
     updatedAt: new Date("2025-02-01"),
-    photos: [],
     road: {
       previouslyAble: null,
       difficulty: "むずかしい",
@@ -55,5 +54,52 @@ describe("serializeExperience", () => {
     expect(dto.siblings).toHaveLength(2);
     expect(dto.siblings!.find((s) => s.id === "a1")!.isCurrent).toBe(true);
     expect(dto.siblings!.find((s) => s.id === "a2")!.isCurrent).toBe(false);
+  });
+
+  describe("like（いいね状態・数は含めない）", () => {
+    const withOwner = { ...base, road: { ...base.road, userId: "u-owner" } };
+
+    it("viewer 無し → すべて false", () => {
+      expect(serializeExperience(withOwner as any).like).toEqual({
+        isMine: false,
+        canLike: false,
+        likedByMe: false,
+      });
+    });
+
+    it("他人が閲覧 → canLike true、いいね済みなら likedByMe true", () => {
+      const dto = serializeExperience(withOwner as any, {
+        viewer: { userId: "u-other", likedAttemptIds: new Set(["a1"]) },
+      });
+      expect(dto.like).toEqual({ isMine: false, canLike: true, likedByMe: true });
+    });
+
+    it("投稿者本人が閲覧 → isMine true / canLike false", () => {
+      const dto = serializeExperience(withOwner as any, { viewer: { userId: "u-owner" } });
+      expect(dto.like).toEqual({ isMine: true, canLike: false, likedByMe: false });
+    });
+
+    it("DTO にいいね数のキーは無い", () => {
+      const dto = serializeExperience(withOwner as any, { viewer: { userId: "u-other" } });
+      expect(JSON.stringify(dto)).not.toMatch(/count/i);
+    });
+  });
+
+  describe("isRead（既読・数は含めない）", () => {
+    it("viewer 無し → false", () => {
+      expect(serializeExperience(base as any).isRead).toBe(false);
+    });
+    it("readAttemptIds に入っていれば true", () => {
+      const dto = serializeExperience(base as any, {
+        viewer: { userId: "u1", readAttemptIds: new Set(["a1"]) },
+      });
+      expect(dto.isRead).toBe(true);
+    });
+    it("readAttemptIds に無ければ false", () => {
+      const dto = serializeExperience(base as any, {
+        viewer: { userId: "u1", readAttemptIds: new Set(["other"]) },
+      });
+      expect(dto.isRead).toBe(false);
+    });
   });
 });

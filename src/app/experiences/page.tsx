@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui";
 import { RateLimitedNotice } from "@/components/rate-limited-notice";
 import { experienceQuerySchema } from "@/lib/validation";
 import { searchRoads, searchMethods, getPopularTags } from "@/lib/queries";
+import { getOptionalUserId } from "@/lib/authz";
 import { guardPublicPage } from "@/lib/page-guard";
 
 export const metadata: Metadata = { title: "経験を探す" };
@@ -43,9 +44,12 @@ export default async function ExperiencesPage({
   const methodEnabled = q.kind !== "road";
   const emptyRes = { items: [] as never[], total: 0, page: 1, hasMore: false, windowExceeded: false };
 
+  // ログイン中なら各カードに既読/未読を付ける（未ログインは全て未読扱い）。
+  const viewerUserId = await getOptionalUserId();
+
   const [roadRes, methodMatch, tags] = await Promise.all([
-    roadEnabled ? searchRoads(q) : Promise.resolve(emptyRes),
-    methodEnabled ? searchMethods(q) : Promise.resolve(emptyRes),
+    roadEnabled ? searchRoads(q, viewerUserId) : Promise.resolve(emptyRes),
+    methodEnabled ? searchMethods(q, viewerUserId) : Promise.resolve(emptyRes),
     getPopularTags(12),
   ]);
   const { items, total, page, hasMore, windowExceeded } = roadRes;

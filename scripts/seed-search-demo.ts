@@ -45,6 +45,8 @@ async function main() {
         difficulty: `${ROAD_WORD}その${r}：日常の動作がしにくくなって困っている`,
         goal: "自分のペースでできるようになりたい",
         situation: "急いでいるとき。",
+        // 公開デモなので道も承認済みにする（未指定だと既定 pending でその道の経験は公開面に出ない）。
+        moderationStatus: "approved",
         attempts: {
           create: Array.from({ length: methodCount }, (_, i) => {
             // 一部の方法本文に METHOD_WORD を入れる（方法カード用）。合計 20 件超にして
@@ -57,6 +59,7 @@ async function main() {
                 : `方法${r}-${i + 1}：やり方を少し変えてみた`,
               result: RESULTS[(r + i) % RESULTS.length],
               isPublished: true,
+              moderationStatus: "approved" as const,
               triedAt: new Date(2025, (r + i) % 12, ((r + i) % 27) + 1),
               memo: i === 0 ? "最初はうまくいかなかったが、続けたら慣れた。" : null,
             };

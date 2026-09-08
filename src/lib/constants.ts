@@ -15,7 +15,6 @@ export const FIELD_MAX = {
   title: 120,
   statusLabel: 60,
   tagName: 30,
-  caption: 200,
   text: 2000,
   longText: 4000,
   // SNS からの簡易登録 (/try)。ログイン不要・匿名なので、乱用の的を小さくするため

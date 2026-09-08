@@ -3,12 +3,33 @@ import Link from "next/link";
 import { QuickSubmitForm } from "@/components/quick-submit-form";
 import { sanitizeProblemParam } from "@/lib/validation";
 
+// SNS 共有時のタイトル・説明・画像。ページ本文の見た目は変えず、head の metadata だけ設定する。
+const SHARE_TITLE = "あなたが試したことを教えてください｜できる道";
+const SHARE_DESCRIPTION =
+  "うまくいった方法だけでなく、うまくいかなかった方法も大切な経験です。あなたが試したことを教えてください。";
+// public/ogp.png = 1734×907 (≒1.91:1)。SNS の大きい画像カードにそのまま使える比率なので変換しない。
+const SHARE_IMAGE = "/ogp.png";
+
 export const metadata: Metadata = {
-  title: "あなたが試したことを教えてください",
-  description:
-    "困っていることに対して、試してみた方法を教えてください。うまくいかなかったことも、誰かの次の一歩につながります。",
-  // 入力用のページなので検索エンジンには載せない (SNS から直接ひらく想定)。
-  robots: { index: false, follow: false },
+  // title.template ("%s | できる道") を通さず、SNS と完全一致の文字列にする。
+  title: { absolute: SHARE_TITLE },
+  description: SHARE_DESCRIPTION,
+  alternates: { canonical: "/try" },
+  openGraph: {
+    type: "website",
+    title: SHARE_TITLE,
+    description: SHARE_DESCRIPTION,
+    url: "/try",
+    siteName: "できる道",
+    locale: "ja_JP",
+    images: [{ url: SHARE_IMAGE, width: 1734, height: 907, alt: "できる道" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SHARE_TITLE,
+    description: SHARE_DESCRIPTION,
+    images: [SHARE_IMAGE],
+  },
 };
 
 type SearchParams = { [key: string]: string | string[] | undefined };

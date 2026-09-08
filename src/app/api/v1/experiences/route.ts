@@ -4,6 +4,9 @@ import { handlePublicRead } from "@/lib/public-api";
 import { experienceQuerySchema, MAX_RESULT_WINDOW } from "@/lib/validation";
 import { buildExperienceWhere, buildExperienceOrderBy, experienceInclude } from "@/lib/search";
 import { serializeExperience } from "@/lib/serializers";
+import { getOptionalUserId } from "@/lib/authz";
+import { likedAttemptIdSet } from "@/lib/likes";
+import { readAttemptIdSet } from "@/lib/reads";
 
 /**
  * GET /api/v1/experiences — 公開経験の検索 (ログイン不要, 指示書 10/13)。
@@ -34,8 +37,18 @@ export const GET = handlePublicRead(async (req) => {
     }),
   ]);
 
+  // ログイン中なら、各経験の「いいね済み / 既読」を viewer 視点で付ける (数は返さない)。
+  const viewerUserId = await getOptionalUserId();
+  const viewer = viewerUserId
+    ? {
+        userId: viewerUserId,
+        likedAttemptIds: await likedAttemptIdSet(viewerUserId, rows.map((r) => r.id)),
+        readAttemptIds: await readAttemptIdSet(viewerUserId, rows.map((r) => r.id)),
+      }
+    : undefined;
+
   return ok({
-    items: rows.map((r) => serializeExperience(r)),
+    items: rows.map((r) => serializeExperience(r, { viewer })),
     page: q.page,
     limit: q.limit,
     total,

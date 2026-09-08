@@ -5,7 +5,6 @@ import { enforceRateLimit, RATE_PRESETS } from "@/lib/ratelimit";
 import { attemptUpdateSchema } from "@/lib/validation";
 import { serializeAttempt } from "@/lib/serializers";
 import { toDbDate } from "@/lib/dates";
-import { deleteByUrl } from "@/lib/storage";
 import { assertValidPreviousAttempt } from "@/lib/attempts";
 import { applyModerationOnPublish } from "@/lib/moderation";
 
@@ -16,7 +15,6 @@ export const GET = handle(async (_req, ctx) => {
   await assertAttemptOwner(attemptId, userId);
   const attempt = await prisma.attempt.findUniqueOrThrow({
     where: { id: attemptId },
-    include: { photos: true },
   });
   return ok(serializeAttempt(attempt));
 });
@@ -66,7 +64,6 @@ export const PATCH = handle(async (req, ctx) => {
         ? { previousAttemptId: input.previousAttemptId }
         : {}),
     },
-    include: { photos: true },
   });
 
   // AI 審査が必要か:
@@ -82,7 +79,6 @@ export const PATCH = handle(async (req, ctx) => {
     await applyModerationOnPublish(attemptId);
     const fresh = await prisma.attempt.findUniqueOrThrow({
       where: { id: attemptId },
-      include: { photos: true },
     });
     return ok(serializeAttempt(fresh));
   }
@@ -98,11 +94,6 @@ export const DELETE = handle(async (_req, ctx) => {
   await assertAttemptOwner(attemptId, userId);
   enforceRateLimit({ key: `attempt:delete:${userId}`, ...RATE_PRESETS.write });
 
-  const photos = await prisma.attemptPhoto.findMany({
-    where: { attemptId },
-    select: { storageUrl: true },
-  });
   await prisma.attempt.delete({ where: { id: attemptId } });
-  await Promise.allSettled(photos.map((p) => deleteByUrl(p.storageUrl)));
   return noContent();
 });

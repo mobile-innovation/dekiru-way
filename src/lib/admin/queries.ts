@@ -179,7 +179,6 @@ export async function postDetail(attemptId: string) {
   const attempt = await prisma.attempt.findUnique({
     where: { id: attemptId },
     include: {
-      photos: { orderBy: { sortOrder: "asc" } },
       road: { include: { roadTags: { include: { tag: true } } } },
       moderatedByAdmin: { select: { id: true, email: true, displayName: true } },
     },
