@@ -90,7 +90,9 @@ npm run dev
 | `BLOCKED_IPS` | ✕ | 手動ブロックする IP のカンマ区切り（管理画面の代替） |
 | `ACCESS_LOG_SALT` | ✕ | アクセスログのクライアント識別子を匿名化するソルト |
 | `E2E_TEST_LOGIN` | ✕ | `true` で開発/E2E 用モックログイン（`/api/test/login`）を有効化。**本番では絶対に設定しない** |
-| `ADS_ENABLED` | ✕ | `true` で検索一覧・道詳細の 2 枠に広告スロットを描画（既定 false）。プロバイダ未接続の間はプレースホルダのみ。トップ・自分の道・各フォームには出さない |
+| `ADS_ENABLED` | ✕ | `true` で検索一覧・道詳細の 2 枠に広告を描画（既定 false）。トップ・自分の道・各フォーム・ログイン・アカウントには出さない |
+| `NEXT_PUBLIC_ADSENSE_CLIENT` | ✕ | Google AdSense のパブリッシャ ID（`ca-pub-…`）。空ならプレースホルダのまま（実広告は出ない）。広告は**非パーソナライズ**（文脈のみ・行動追跡なし）で配信 |
+| `NEXT_PUBLIC_ADSENSE_SLOT_SEARCH` / `NEXT_PUBLIC_ADSENSE_SLOT_ROAD` | ✕ | 各枠の広告ユニット slot ID。`ADS_ENABLED=true` ＋ `CLIENT` ＋ その枠の slot ID が揃うと `<ins class="adsbygoogle">` を差し込む |
 
 ### プロキシ配下での注意（Rate Limit の識別子）
 
@@ -172,7 +174,7 @@ admin 主要画面は axe-core (wcag2a/wcag2aa) で違反 0 件を確認済み�
 ```bash
 docker compose up -d              # DB
 npx prisma migrate deploy && npm run db:seed
-npm test                          # Vitest: 194 件（lib ロジック + 道ツリー/ページ分割 + 検索の出し分け/ページ送り/公開で浮上 + 認可 + 同一オリジン強制 + bot-guard + 投稿モデレーション/保留/管理認証/SNS簡易登録/いいね/既読/アカウント削除/広告カテゴリ の結合）
+npm test                          # Vitest: 198 件（lib ロジック + 道ツリー/ページ分割 + 検索の出し分け/ページ送り/公開で浮上 + 認可 + 同一オリジン強制 + bot-guard + 投稿モデレーション/保留/管理認証/SNS簡易登録/いいね/既読/アカウント削除/広告(AdSense) の結合）
 npm run test:e2e                  # Playwright: 106 件（重要シナリオ / 道の作成・文字数表示 / 権限 / 枝分かれ道・10件ページ分割 / 検索カードの出し分け・種類指定・ページ送り・既読絞り込み / できた％・気持ち / スクレイピング対策 / 管理画面モデレーション / SNS簡易登録 / いいね / 既読 / アカウント設定・削除 / 広告配置 / 検索状態の復元 / axe）
 ```
 

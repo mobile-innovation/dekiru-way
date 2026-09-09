@@ -1,5 +1,8 @@
 import { env } from "@/lib/env";
 import type { AdContext } from "@/lib/ads";
+import { AdSenseUnit } from "@/components/adsense-unit";
+
+type SlotName = "search_after_2" | "road_detail_mid";
 
 /**
  * 広告スロット（広告表示方針 v1）。
@@ -9,20 +12,26 @@ import type { AdContext } from "@/lib/ads";
  *   トップ・自分の道・各フォーム・ログイン・アカウント画面では使わない。
  * - 経験カード（白背景＋緑の実線枠）とは明確に違う見た目（生成り背景＋破線枠＋「広告」表示）にし、
  *   経験情報と誤認させない。
- * - 広告プロバイダは未接続。接続時はこの中に配信タグを差し込む（UI と疎結合）。
- *   `data-ad-*` は将来のプロバイダ用のヒント。ここから外部へは何も送らない。
- * - 読み込み失敗時に大きな空白を残さないよう、プレースホルダ自体を小さく保つ。
+ * - `NEXT_PUBLIC_ADSENSE_CLIENT` ＋ その枠の slot ID が揃っていれば Google AdSense の配信タグ
+ *   （非パーソナライズ）を差し込む。揃っていなければ控えめなプレースホルダのみ（dev / 審査前）。
+ * - `context`（内部カテゴリ）は AdSense へは渡さない。`data-ad-*` は DOM 内のヒントで、ここから
+ *   外部へは何も送らない。
  */
 export function AdSlot({
   slot,
   context,
   className = "",
 }: {
-  slot: "search_after_2" | "road_detail_mid";
+  slot: SlotName;
   context?: AdContext | null;
   className?: string;
 }) {
   if (!env.ads.enabled) return null;
+
+  const client = env.ads.adsenseClient;
+  const adUnitSlot =
+    slot === "search_after_2" ? env.ads.adsenseSlotSearch : env.ads.adsenseSlotRoad;
+  const useAdsense = Boolean(client && adUnitSlot);
 
   return (
     <aside
@@ -35,8 +44,11 @@ export function AdSlot({
       <p className="text-[11px] font-bold uppercase tracking-wide text-[var(--color-ink-muted)]">
         広告
       </p>
-      <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">スポンサーからのお知らせ</p>
-      {/* 広告プロバイダの配信タグはここに入る（未接続時はプレースホルダのみ）。 */}
+      {useAdsense ? (
+        <AdSenseUnit client={client} slot={adUnitSlot} />
+      ) : (
+        <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">スポンサーからのお知らせ</p>
+      )}
     </aside>
   );
 }

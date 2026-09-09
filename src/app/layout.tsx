@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -40,6 +41,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SiteChrome>
           <SiteFooter />
         </SiteChrome>
+        {/* Google AdSense のローダ。パブリッシャ ID 設定時のみ。
+            配信は各 <AdSenseUnit> が push 前に requestNonPersonalizedAds=1 を立てて非パーソナライズに固定。 */}
+        {env.ads.enabled && env.ads.adsenseClient && (
+          <Script
+            id="adsbygoogle-loader"
+            async
+            strategy="afterInteractive"
+            crossOrigin="anonymous"
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${env.ads.adsenseClient}`}
+          />
+        )}
       </body>
     </html>
   );

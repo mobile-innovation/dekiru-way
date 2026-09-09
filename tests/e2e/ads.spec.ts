@@ -23,6 +23,9 @@ test("検索一覧: 最初の2件のあとに広告が1枠だけ出る（経験�
   await expect(ad).toBeVisible();
   await expect(ad).toContainText("広告");
 
+  // AdSense クライアント未設定なので実配信タグ（ins.adsbygoogle）は読み込まない
+  await expect(ad.locator("ins.adsbygoogle")).toHaveCount(0);
+
   // 経験カード（article）ではない
   expect(await ad.evaluate((el) => el.tagName.toLowerCase())).not.toBe("article");
 

@@ -62,12 +62,28 @@ export const env = {
 
   ads: {
     /**
-     * 広告表示の ON / OFF。既定 false（広告プロバイダ未接続の MVP は無効）。
-     * `ADS_ENABLED=true` のときだけ、検索一覧と道詳細の 2 枠に広告スロットを描画する。
-     * 無効時は `<AdSlot>` は何も描画しない（レイアウトに影響を残さない）。
+     * 広告表示の ON / OFF。既定 false（無効時は `<AdSlot>` は何も描画しない）。
+     * `ADS_ENABLED=true` のときだけ、検索一覧と道詳細の 2 枠に広告を描画する。
      */
     get enabled() {
       return process.env.ADS_ENABLED === "true";
+    },
+    /**
+     * Google AdSense のパブリッシャ ID (`ca-pub-XXXXXXXXXXXXXXXX`)。
+     * 空なら実広告は出さずプレースホルダのまま（dev / E2E / 審査前）。
+     * `NEXT_PUBLIC_` = ローダ script と `<ins data-ad-client>` でクライアント側からも読むため。
+     * 広告は **非パーソナライズ（文脈のみ・行動追跡なし）** で配信する（広告方針の制約）。
+     */
+    get adsenseClient() {
+      return optional("NEXT_PUBLIC_ADSENSE_CLIENT");
+    },
+    /** 検索一覧枠 (`search_after_2`) の広告ユニット slot ID。 */
+    get adsenseSlotSearch() {
+      return optional("NEXT_PUBLIC_ADSENSE_SLOT_SEARCH");
+    },
+    /** 道詳細枠 (`road_detail_mid`) の広告ユニット slot ID。 */
+    get adsenseSlotRoad() {
+      return optional("NEXT_PUBLIC_ADSENSE_SLOT_ROAD");
     },
   },
 

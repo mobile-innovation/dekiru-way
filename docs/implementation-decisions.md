@@ -779,6 +779,33 @@ SNS 的な人気競争にしないことを最優先に置く。
 - 将来への影響:
 ```
 
+### 2026-09-09 広告: Google AdSense（非パーソナライズのみ）を接続
+- 変更前: `ADS_ENABLED=true` のときプレースホルダ枠を 2 か所に出すだけ。実配信なし。
+- 変更後: **Google AdSense** を接続。
+  - env（`NEXT_PUBLIC_` = クライアント側でも読む）: `NEXT_PUBLIC_ADSENSE_CLIENT`（`ca-pub-…`）、
+    `NEXT_PUBLIC_ADSENSE_SLOT_SEARCH` / `_ROAD`。`ADS_ENABLED=true` ＋ client ＋ その枠の slot ID が
+    揃ったときだけ実配信。未設定なら従来のプレースホルダ（dev / E2E / 審査前でも壊れない）。
+  - `src/components/adsense-unit.tsx`（新規・client）: `<ins class="adsbygoogle">` ＋ `useEffect` で
+    `push({})`。**push 前に `adsbygoogle.requestNonPersonalizedAds = 1`** を立て、
+    **非パーソナライズ配信（行動追跡なし・文脈広告のみ）に固定**。
+  - `src/components/ad-slot.tsx`（server）: ゲート（`env.ads.enabled`）とラベル枠
+    （`<aside aria-label="広告">` 破線・「広告」表示）は不変。中身を AdSenseUnit / プレースホルダで出し分け。
+    `slot` 名 → 実 slot ID のマップは同ファイル内。`context`（内部カテゴリ）は **AdSense へ渡さない**
+    （`data-ad-*` は DOM 内ヒント。外部送信なし）。呼び出し側 2 ページは無変更。
+  - `src/app/layout.tsx`: `env.ads.adsenseClient` があるときだけ `next/script`（`afterInteractive`）で
+    `adsbygoogle.js` を 1 本ロード。
+  - `src/app/ads.txt/route.ts`（新規）: client 設定時に
+    `google.com, pub-…, DIRECT, f08c47fec0942fa0` を配信。未設定は 404。middleware matcher の除外にも追加。
+- 理由: ユーザー確認済み方針「実広告ネットワークを接続」「非パーソナライズのみ」。広告方針の
+  「病名・障害名・健康状態を個人向けターゲティングに使わない／識別情報を渡さない」を、行動追跡を
+  そもそも無効化することと、内部カテゴリを送らないことで設計上担保する。
+- 既知の制約: EEA/UK 向けは Google 認定 CMP 未導入のため配信が絞られる可能性（将来課題）。
+  実広告の表示は AdSense のサイト審査通過後。CSP は現状無い。導入時は
+  `pagead2.googlesyndication.com` / `*.googlesyndication.com` / `*.g.doubleclick.net` /
+  `*.googleadservices.com` / `www.google.com` を script/frame/img に許可すること。
+- テスト: `tests/unit/ad-slot.test.tsx` に client 有無での `<ins>` 出し分け、
+  `tests/unit/ads-txt.test.ts` 新規、`tests/e2e/ads.spec.ts` に「client 未設定で実配信タグを読まない」。
+
 ### 2026-09-09 「自分の道」一覧に「公開表示」ボタン ＋ 細かな見た目調整
 - **`/me` カード右上に「公開表示」ボタン**（`src/app/me/page.tsx`）。押すと、検索した人が見るのと
   同じ経験詳細 `/experiences/{id}` へ。`id` は「時系列で最初の“公開中”の試したこと」＝検索の道カードの

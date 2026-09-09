@@ -189,13 +189,16 @@
 - 表示は **検索一覧**（道カード 2 件のあと・3 件以上あるときだけ 1 枠）と **道詳細**（内容のあと・
   CTA より前に 1 枠）の **2 画面のみ**。トップ・自分の道・各フォーム・ログイン・アカウントには出さない。
 - `ADS_ENABLED=true` のときだけ描画。無効時は何も描画しない（レイアウトに影響を残さない）。
-  広告プロバイダは未接続で、有効時も控えめなプレースホルダのみ。
+- 配信は **Google AdSense**。`NEXT_PUBLIC_ADSENSE_CLIENT`（`ca-pub-…`）＋その枠の slot ID
+  （`NEXT_PUBLIC_ADSENSE_SLOT_SEARCH` / `_ROAD`）が揃うと `<ins class="adsbygoogle">` を差し込む。
+  未設定なら控えめなプレースホルダのまま（dev / 審査前でも壊れない）。site root に `/ads.txt` を配信。
+- **非パーソナライズ配信のみ**（行動追跡なし・文脈広告）。各ユニットが push 前に
+  `adsbygoogle.requestNonPersonalizedAds = 1` を立てる。`src/lib/ads.ts` の内部カテゴリは
+  AdSense へ渡さない（`data-ad-*` は DOM 内ヒント。外部送信なし）。
 - 経験カード（白＋緑の実線枠の `<article>`）とは明確に別（生成り背景＋破線枠＋「広告」表示、
   `<aside aria-label="広告">`）。経験情報に見せない。
 - **検索順位には一切影響しない。** 広告はレンダリング時に結果へ差し込むだけ（検索ロジック無変更）。
-- ターゲティングは非個人情報のみ: 検索語／道の記述を `src/lib/ads.ts` が「動作カテゴリ」
-  （clothing / cooking / mobility …）にだけ変換。生テキスト・氏名・病名・健康状態は出力しない。
-  広告データは DB に持たない（外部配信）。
+- 広告データは DB に持たない（外部配信）。EEA/UK は CMP 未導入のため配信が絞られる可能性（将来課題）。
 
 ### 5.9 AI 補助（断定しない）
 
@@ -278,7 +281,7 @@
 | AI | Anthropic Claude（`@anthropic-ai/sdk`）。キー未設定時はスタブ |
 | スタイル | Tailwind v4（`@theme` のデザイントークン `src/styles/tokens.css`） |
 | 画像・写真 | ユーザー投稿なし。`next/image` はサイト内静的アセットのみ |
-| テスト | Vitest（unit / integration、実 DB）、Playwright + axe-core（E2E / a11y）。現況: Vitest 194 / Playwright 106 |
+| テスト | Vitest（unit / integration、実 DB）、Playwright + axe-core（E2E / a11y）。現況: Vitest 198 / Playwright 106 |
 | インフラ（開発） | docker compose（PostgreSQL のみ、ホスト側ポート 5433） |
 | 本番ホスティング | 未確定（標準 PostgreSQL + Prisma なので移行容易） |
 
@@ -296,7 +299,8 @@
 | `AI_MODERATION_ENABLED` | ✕ | `false` で公開時の AI 審査を無効化（即 approved）。既定 true。E2E は自動で false |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | ✕ | 初期管理者ブートストラップ用（`db:seed` / `admin:create` のみ参照） |
 | `ADMIN_SESSION_TTL_HOURS` | ✕ | 管理セッション有効時間（既定 8） |
-| `ADS_ENABLED` | ✕ | `true` で検索一覧・道詳細に広告スロットを描画（既定 false。プロバイダ未接続時はプレースホルダのみ） |
+| `ADS_ENABLED` | ✕ | `true` で検索一覧・道詳細に広告を描画（既定 false） |
+| `NEXT_PUBLIC_ADSENSE_CLIENT` / `NEXT_PUBLIC_ADSENSE_SLOT_SEARCH` / `NEXT_PUBLIC_ADSENSE_SLOT_ROAD` | ✕ | Google AdSense（非パーソナライズ）。空ならプレースホルダのまま |
 | `BLOCKED_IPS` | ✕ | 手動ブロックする IP（カンマ区切り） |
 | `ACCESS_LOG_SALT` | ✕ | アクセスログの識別子匿名化ソルト |
 | `E2E_TEST_LOGIN` | ✕ | `true` で開発／E2E 用モックログイン（`/api/test/login`）を有効化。**本番では設定しない** |
