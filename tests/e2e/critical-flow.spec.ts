@@ -75,6 +75,13 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
     await expect(card.getByText("マグネット式のバッグ留めに替えた")).toBeVisible();
     // 各方法の右に公開状態（E2E は AI 審査オフなので公開済み → 公開中）
     await expect(card.getByText("公開中", { exact: true })).toHaveCount(2);
+
+    // 右上「公開表示」→ 検索での詳細（公開経験）へ。公開中の経験があるので押せる。
+    const preview = card.getByRole("link", { name: "公開表示" });
+    await expect(preview).toBeVisible();
+    await preview.click();
+    await expect(page).toHaveURL(/\/experiences\/[0-9a-f-]{36}$/);
+    await expect(page.getByRole("heading", { name: "この人がたどった道" })).toBeVisible();
   } finally {
     // 公開トグルが既定 ON になったため、この道の経験が公開一覧に残らないよう削除する。
     await page.request.delete(`/api/v1/roads/${roadId}`);

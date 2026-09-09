@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requirePageUserId } from "@/lib/session";
 import { getMyRoads } from "@/lib/queries";
 import { Callout, EmptyState, LinkButton, ResultBadge } from "@/components/ui";
-import { IconFootprints, IconSprout } from "@/components/icons";
+import { IconEye, IconFootprints, IconSprout } from "@/components/icons";
 
 export const metadata: Metadata = { title: "自分の道" };
 
@@ -51,17 +51,40 @@ export default async function MyRoadsPage() {
           {roads.map((road) => {
             const published = road.attempts.filter((a) => a.publishState === "published").length;
             const reviewing = road.attempts.filter((a) => a.publishState === "reviewing").length;
+            // 検索で最初に開かれる経験（＝道の入口。時系列で最初の「公開中」の試したこと）。
+            // これがあるとき＝この道は検索に出せる状態なので、公開表示ボタンを押せる。
+            const publicEntryId = road.attempts.find((a) => a.publishState === "published")?.id;
             return (
               <li key={road.id} className="h-full">
                 {/* 枠線は検索の方法カード（MethodCard）と同じ `--color-primary`。背景は白のまま。
                     左右に並ぶとき高さを長い方にそろえるため h-full（グリッド行の高さいっぱい）。
                     カード全体をタップで道の詳細へ（リンクに p-5 を持たせて余白も反応させる）。 */}
-                <article className="h-full rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)]">
+                <article className="relative h-full rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)]">
+                  {/* 右上: 検索でこの道がどう見えるか（公開経験の詳細）を確認する。
+                      公開中の経験が 1 つ以上あるときだけ押せる。 */}
+                  {publicEntryId ? (
+                    <Link
+                      href={`/experiences/${publicEntryId}`}
+                      className="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-[var(--radius-pill)] border border-[var(--color-primary)] bg-[var(--color-primary-soft)] px-2.5 py-1 text-xs font-bold text-[var(--color-primary-hover)] no-underline hover:bg-[var(--color-primary-tint)]"
+                    >
+                      <IconEye aria-hidden="true" className="h-3.5 w-3.5" />
+                      公開表示
+                    </Link>
+                  ) : (
+                    <span
+                      aria-disabled="true"
+                      title="公開中の経験がありません。試したことを「経験として公開」すると押せます。"
+                      className="absolute right-3 top-3 z-10 inline-flex cursor-not-allowed items-center gap-1 rounded-[var(--radius-pill)] border border-[var(--color-border)] px-2.5 py-1 text-xs font-bold text-[var(--color-ink-muted)] opacity-60"
+                    >
+                      <IconEye aria-hidden="true" className="h-3.5 w-3.5" />
+                      公開表示
+                    </span>
+                  )}
                   <Link
                     href={`/me/roads/${road.id}`}
                     className="flex h-full flex-col p-5 no-underline"
                   >
-                    <p className="flex items-start gap-1.5 font-bold text-[var(--color-ink)]">
+                    <p className="flex items-start gap-1.5 pr-24 font-bold text-[var(--color-ink)]">
                       <IconFootprints
                         aria-hidden="true"
                         className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-primary)]"
