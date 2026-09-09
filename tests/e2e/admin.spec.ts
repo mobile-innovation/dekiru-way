@@ -62,7 +62,27 @@ test("管理者ログイン → 投稿の取り下げ・再許可が公開検索
     await page.goto("/admin/moderation");
     const row = page.locator("li").filter({ hasText: `${word} を試した` });
     await expect(row).toBeVisible();
-    await row.getByRole("button", { name: "公開する", exact: true }).click();
+
+    // --- 「保留」に送る → 既定キューから消え、「保留している」で見える → 解除 ---
+    await row.getByRole("button", { name: "保留", exact: true }).click();
+    await expect(page.locator("li").filter({ hasText: `${word} を試した` })).toHaveCount(0);
+    await page.goto("/admin/moderation?held=1");
+    const heldRow = page.locator("li").filter({ hasText: `${word} を試した` });
+    await expect(heldRow).toBeVisible();
+    await heldRow.getByRole("button", { name: "保留を解除", exact: true }).click();
+    // 解除が反映されると「保留している」一覧から消える（次の遷移前に待つ）
+    await expect(page.locator("li").filter({ hasText: `${word} を試した` })).toHaveCount(0);
+
+    // --- 既定キューに戻ったところで「公開する」 ---
+    await expect(async () => {
+      await page.goto("/admin/moderation");
+      await expect(page.locator("li").filter({ hasText: `${word} を試した` })).toBeVisible();
+    }).toPass();
+    await page
+      .locator("li")
+      .filter({ hasText: `${word} を試した` })
+      .getByRole("button", { name: "公開する", exact: true })
+      .click();
 
     // 再び公開検索に出る
     await expect(async () => {

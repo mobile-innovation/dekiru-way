@@ -23,6 +23,8 @@ export function serializeAttempt(a: Attempt) {
     isPublished: a.isPublished,
     // モデレーション (本人ビュー用)。公開申請の状態と、AI が挙げた理由。
     moderationStatus: a.moderationStatus,
+    // 運営が「保留」にしたか (管理画面用。本人ビューでは publishState = reviewing のまま)。
+    moderationHeld: a.moderationHeld,
     publishState: publishStateOf(a),
     aiVerdict: a.aiVerdict,
     aiReason: a.aiReason,

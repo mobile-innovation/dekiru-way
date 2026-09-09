@@ -101,20 +101,20 @@ const endpoints = (id: string) => ({
   noun: "経験",
 });
 
-/** 確認キュー / 詳細の「公開する / 公開しない」。 */
-export function ModerationDecisionButtons({ id }: { id: string }) {
+/** 確認キュー / 詳細の「公開する / 公開しない」。右端に「保留」(保留一覧では「保留を解除」)。 */
+export function ModerationDecisionButtons({ id, held = false }: { id: string; held?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const ep = endpoints(id);
 
-  function decide(action: "approve" | "reject") {
+  function run(action: "approve" | "reject" | "hold" | "unhold", done: string) {
     if (action === "reject" && !confirm(`この${ep.noun}は公開しない、でよろしいですか？`)) return;
     setMsg(null);
     start(async () => {
       try {
         await api.post(ep.moderate, { action });
-        setMsg(action === "approve" ? "公開しました" : "公開しないにしました");
+        setMsg(done);
         router.refresh();
       } catch (e) {
         setMsg(e instanceof ClientApiError ? e.message : "更新できませんでした");
@@ -124,13 +124,42 @@ export function ModerationDecisionButtons({ id }: { id: string }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button type="button" disabled={pending} onClick={() => decide("approve")} className={BTN_PRIMARY}>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => run("approve", "公開しました")}
+        className={BTN_PRIMARY}
+      >
         公開する
       </button>
-      <button type="button" disabled={pending} onClick={() => decide("reject")} className={BTN_DANGER}>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => run("reject", "公開しないにしました")}
+        className={BTN_DANGER}
+      >
         公開しない
       </button>
-      {msg && <span className="text-xs text-[var(--color-ink-muted)]">{msg}</span>}
+      {held ? (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => run("unhold", "保留を解除しました")}
+          className={`${BTN_PLAIN} ml-auto`}
+        >
+          保留を解除
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => run("hold", "保留にしました")}
+          className={`${BTN_PLAIN} ml-auto`}
+        >
+          保留
+        </button>
+      )}
+      {msg && <span className="w-full text-xs text-[var(--color-ink-muted)]">{msg}</span>}
     </div>
   );
 }

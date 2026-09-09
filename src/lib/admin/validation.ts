@@ -7,7 +7,8 @@ export const adminLoginSchema = z.object({
 });
 
 export const moderationActionSchema = z.object({
-  action: z.enum(["approve", "reject"]),
+  // approve / reject: 最終判断。hold / unhold: 「保留」= 公開できない記録として脇に置く / 戻す。
+  action: z.enum(["approve", "reject", "hold", "unhold"]),
   note: z.string().trim().max(1000).optional(),
 });
 

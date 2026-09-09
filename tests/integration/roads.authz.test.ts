@@ -41,6 +41,48 @@ afterAll(async () => {
 const ctx = { params: Promise.resolve({ roadId: "" }) };
 const ctxFor = (roadId: string) => ({ params: Promise.resolve({ roadId }) });
 
+describe("書き込みは同一オリジンからのみ (CSRF 対策)", () => {
+  it("別サイトからの Road 作成は 403 (Sec-Fetch-Site: cross-site)", async () => {
+    asUser(ownerId);
+    const res = await createRoad(
+      new Request("http://localhost/api/v1/roads", {
+        method: "POST",
+        body: JSON.stringify({ difficulty: "csrf" }),
+        headers: { "content-type": "application/json", "sec-fetch-site": "cross-site" },
+      }),
+      ctx,
+    );
+    expect(res.status).toBe(403);
+    expect(await prisma.road.findFirst({ where: { difficulty: "csrf" } })).toBeNull();
+  });
+
+  it("別オリジンの Origin ヘッダ付き書き込みは 403", async () => {
+    asUser(ownerId);
+    const res = await createRoad(
+      new Request("http://localhost/api/v1/roads", {
+        method: "POST",
+        body: JSON.stringify({ difficulty: "csrf2" }),
+        headers: { "content-type": "application/json", origin: "https://evil.example" },
+      }),
+      ctx,
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("Sec-Fetch-Site: same-origin の書き込みは通常どおり処理される", async () => {
+    asUser(ownerId);
+    const res = await createRoad(
+      new Request("http://localhost/api/v1/roads", {
+        method: "POST",
+        body: JSON.stringify({ difficulty: `same-origin ${Date.now()}` }),
+        headers: { "content-type": "application/json", "sec-fetch-site": "same-origin" },
+      }),
+      ctx,
+    );
+    expect(res.status).toBe(201);
+  });
+});
+
 describe("Road の所有者チェック (指示書 10)", () => {
   it("未ログインは Road 作成で 401", async () => {
     asUser(null);

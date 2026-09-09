@@ -9,10 +9,13 @@ const PAGE_SIZE = 20;
 
 export async function dashboardStats() {
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
-  const [pending, approved, rejected, users, roads, publishedAttempts, recentApproved] =
+  const [pendingActive, pendingHeld, approved, rejected, users, roads, publishedAttempts, recentApproved] =
     await Promise.all([
       prisma.attempt.count({
-        where: { isPublished: true, moderationStatus: ModerationStatus.pending },
+        where: { isPublished: true, moderationStatus: ModerationStatus.pending, moderationHeld: false },
+      }),
+      prisma.attempt.count({
+        where: { isPublished: true, moderationStatus: ModerationStatus.pending, moderationHeld: true },
       }),
       prisma.attempt.count({
         where: { isPublished: true, moderationStatus: ModerationStatus.approved },
@@ -31,7 +34,17 @@ export async function dashboardStats() {
         },
       }),
     ]);
-  return { pending, approved, rejected, users, roads, publishedAttempts, recentApproved };
+  return {
+    // 確認が必要な経験のうち「保留していない」件数と「保留している」件数。
+    pendingActive,
+    pendingHeld,
+    approved,
+    rejected,
+    users,
+    roads,
+    publishedAttempts,
+    recentApproved,
+  };
 }
 
 /**
@@ -101,16 +114,21 @@ const attemptCardSelect = {
   aiCheckedAt: true,
   moderatedAt: true,
   moderationNote: true,
+  moderationHeld: true,
   createdAt: true,
   updatedAt: true,
   road: { select: { id: true, difficulty: true, goal: true } },
 } satisfies Prisma.AttemptSelect;
 
-export async function moderationQueue(opts: { verdict?: "ng" | "unknown"; page?: number } = {}) {
+export async function moderationQueue(
+  opts: { verdict?: "ng" | "unknown"; page?: number; held?: boolean } = {},
+) {
   const page = Math.max(1, opts.page ?? 1);
   const where: Prisma.AttemptWhereInput = {
     isPublished: true,
     moderationStatus: ModerationStatus.pending,
+    // 既定は「保留していない」= moderationHeld:false。held:true で「保留している」一覧。
+    moderationHeld: opts.held ?? false,
     ...(opts.verdict ? { aiVerdict: opts.verdict } : {}),
   };
   const [total, items] = await Promise.all([
@@ -118,7 +136,7 @@ export async function moderationQueue(opts: { verdict?: "ng" | "unknown"; page?:
     prisma.attempt.findMany({
       where,
       select: attemptCardSelect,
-      orderBy: { updatedAt: "asc" }, // 古い (待たせている) ものから
+      orderBy: { updatedAt: "desc" }, // 新しい順
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),

@@ -136,6 +136,9 @@ model Attempt {
   moderatedAt        DateTime?        @map("moderated_at")
   /// 運営メモ (任意)。
   moderationNote     String?          @map("moderation_note")
+  /// 運営が「今は公開できない」として脇に置いた記録。却下 (rejected) ではない。
+  /// 確認待ちキューの既定表示から外し、「保留している」タブでのみ見える。公開ゲートには無関係。
+  moderationHeld     Boolean          @default(false) @map("moderation_held")
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 

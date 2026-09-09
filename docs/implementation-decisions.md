@@ -779,6 +779,56 @@ SNS 的な人気競争にしないことを最優先に置く。
 - 将来への影響:
 ```
 
+### 2026-09-09 経験の確認画面: 新しい順 ＋「保留」状態と切り替え表示
+- 変更前: `/admin/moderation` は `moderationStatus=pending` の経験を `updatedAt asc`（古い順）で表示。
+  判断は「公開する / 公開しない」の 2 択のみ。
+- 変更後:
+  - 並びを `updatedAt desc`（新しい順）に。
+  - `Attempt` に `moderationHeld Boolean @default(false)`（マイグレーション `add_attempt_moderation_held`）。
+    「今は公開できない記録」として運営が脇に置くフラグ。**却下ではなく、`moderationStatus` は `pending` のまま**。
+  - `/admin/moderation` 上部に「保留していない（既定・`?held` なし）／保留している（`?held=1`）」トグル。
+    既定は `moderationHeld:false` の確認待ち、`held=1` は `moderationHeld:true`。
+  - `POST /api/admin/moderation/{id}` の `action` に `hold` / `unhold` を追加（`moderationStatus` 不変）。
+    `approve` / `reject` は最終判断時に `moderationHeld:false` も合わせてクリア。監査ログに `hold`/`unhold`。
+  - 決定ボタン行の右端（`ml-auto`）に第 3 ボタン「保留」／保留一覧では「保留を解除」。
+- 公開ゲートは不変（`moderationHeld` は `PUBLIC_ATTEMPT_WHERE` に関与しない。保留中は元々 pending なので非公開）。
+  `serializeAttempt` に `moderationHeld` を追加（管理 UI・型合わせ用。本人ビューの `publishState` は
+  reviewing のままで挙動不変）。
+
+### 2026-09-09 道の検索順: 公開経験が付いた道を浮上させる（`road.updatedAt` を bump）
+- 変更前: 「道だけ」検索の既定並び（`sort=recent`）は `roads.updatedAt` desc。だが試したことの
+  追加も運営承認も **親 Road の行を書かない**ため、既存の道に新しい公開経験が付いても順位は上がらず、
+  「道を作った / 最後に編集した時刻」の位置に埋もれていた（`/try` 経由は道ごと新規作成なので浮上していた）。
+- 変更後: **その道の経験が `approved`（公開可）になったとき、`road.updatedAt` を現在時刻に進める**。
+  `src/lib/moderation.ts#bumpRoadUpdatedAt(roadId)` を追加し、
+  - `applyModerationOnPublish`（試したこと作成・編集時。AI 無効の即 approved と、verdict=ok の両方）
+  - `POST /api/admin/moderation/{id}`（運営が「公開する」）
+  - `PATCH /api/admin/posts/{id}`（`→ approved` の再公開）
+  から呼ぶ。`pending` / `rejected` になるだけの操作では bump しない。
+- 影響: `updatedAt` は「道の行の編集」に加えて「その道の公開経験が動いた」も意味するようになる。
+  `/me`（自分の道一覧、`updatedAt` desc）も、経験を公開すると先頭に来る挙動になる。
+  `sort=helpful` / `sort=tried` は従来どおり（`updatedAt` を見ない）。
+- ユーザー確認済みの方針: 専用カラムは足さず `updatedAt` を流用する。
+- E2E: `branching-paths.spec.ts:110` を「試したこと（2 以上）を持つ道カード」で絞るよう修正
+  （先頭カードが他テスト由来の 1 メソッド道でも落ちないように。従来から不安定だった箇所を安定化）。
+
+### 2026-09-09 書き込み API を同一オリジンからのみに制限（CSRF 二重防御）
+- 変更前: 状態変更 API の防御はセッション Cookie（`SameSite=Lax`）＋ JSON content-type の
+  プリフライト頼み。Origin / `Sec-Fetch-Site` の明示チェックは無かった。
+- 変更後: `src/lib/api.ts#assertSameOrigin(req)` を追加し、`handle()` の先頭で全ルートに適用。
+  - `POST` / `PUT` / `PATCH` / `DELETE` のみ対象（`GET` / `HEAD` / `OPTIONS` は素通り）。
+  - `Sec-Fetch-Site` が `same-origin` / `same-site` → 許可。`cross-site` / `none` → `403 forbidden`。
+  - `Sec-Fetch-Site` が無い場合は `Origin` を見る。自オリジン（`SITE_URL` またはリクエスト自身の
+    ホスト／`X-Forwarded-Proto`）と一致 → 許可、不一致 → `403`。
+  - 両方とも無い（＝非ブラウザ：curl・サーバ間・結合テストの `new Request(...)`）→ 従来どおり通す。
+    CSRF はブラウザ発の攻撃で、ブラウザはクロスオリジン書き込みで必ずどちらかを送るため、
+    ブラウザ経由の CSRF はこれで塞がる。非ブラウザ直叩きは別レイヤー（セッション所持・レート制限）で対応。
+- 影響範囲: `src/lib/api.ts` のみ（全 `/api/v1/*` 書き込み・`/api/admin/*` が `handle()` 経由）。
+  `handlePublicRead`（公開 GET）と NextAuth の `/api/auth/*`、dev 専用 `/api/test/login` は対象外。
+  既存テスト・E2E は無変更で通過（Playwright の `page.request.*` はヘッダを送らず lenient 分岐）。
+- 理由: ユーザー要望「外部から操作されないようにしたい」。SameSite Cookie への上乗せとして、
+  別サイトに置かれた `fetch` / `form` からの書き込みを明示的に拒否する。
+
 ### 2026-09-09 道 (Road) の `title` を廃止（見出しは「できなくなったこと」に一本化）
 - 変更前: `Road.title`（本人向けの一覧見出し。公開面には出ない）。作成フォームでは入力させず、
   作成時に `difficulty` からローカル LLM（`src/lib/ai/local.ts#generateRoadTitle`、Ollama 互換）で

@@ -5,8 +5,11 @@ import { requireAdminApi } from "@/lib/admin/auth";
 import { writeAudit } from "@/lib/admin/audit";
 import { moderationActionSchema } from "@/lib/admin/validation";
 import { serializeAttempt } from "@/lib/serializers";
+import { bumpRoadUpdatedAt } from "@/lib/moderation";
 
-// POST /api/admin/moderation/{attemptId} — 保留投稿を許可 / 却下する。
+// POST /api/admin/moderation/{attemptId} — 確認待ち経験の判断。
+//   approve / reject: 最終判断 (moderationStatus を変える)。
+//   hold / unhold   : 「保留」= 公開できない記録として脇に置く / 戻す (moderationStatus は変えない)。
 export const POST = handle(async (req, ctx) => {
   const admin = await requireAdminApi();
   const { attemptId } = await ctx.params;
@@ -19,6 +22,23 @@ export const POST = handle(async (req, ctx) => {
   });
   if (!current) throw new ApiError("not_found", "投稿が見つかりません");
 
+  // --- 保留の切り替え: moderationStatus は動かさない ---
+  if (action === "hold" || action === "unhold") {
+    const held = action === "hold";
+    const updated = await prisma.attempt.update({
+      where: { id: attemptId },
+      data: {
+        moderationHeld: held,
+        moderatedByAdmin: { connect: { id: admin.id } },
+        moderatedAt: new Date(),
+        ...(note !== undefined ? { moderationNote: note || null } : {}),
+      },
+    });
+    await writeAudit(admin.id, action, { attemptId, detail: { held, note: note ?? null } });
+    return ok(serializeAttempt(updated));
+  }
+
+  // --- 最終判断: approve / reject ---
   const nextStatus =
     action === "approve" ? ModerationStatus.approved : ModerationStatus.rejected;
 
@@ -26,11 +46,18 @@ export const POST = handle(async (req, ctx) => {
     where: { id: attemptId },
     data: {
       moderationStatus: nextStatus,
+      // 保留のまま最終判断されたら保留フラグは残さない。
+      moderationHeld: false,
       moderatedByAdmin: { connect: { id: admin.id } },
       moderatedAt: new Date(),
       ...(note !== undefined ? { moderationNote: note || null } : {}),
     },
   });
+
+  // 公開になった = その道に公開経験が付いた → 検索の並び (roads.updatedAt desc) で浮上させる。
+  if (nextStatus === ModerationStatus.approved) {
+    await bumpRoadUpdatedAt(updated.roadId);
+  }
 
   await writeAudit(admin.id, action === "approve" ? "approve" : "reject", {
     attemptId,

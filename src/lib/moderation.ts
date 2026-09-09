@@ -6,6 +6,15 @@ import { moderateAttemptContent, type ModerationVerdict } from "@/lib/ai/moderat
 export { publishStateOf, PUBLISH_STATE_LABEL, type PublishState } from "@/lib/publish-state";
 
 /**
+ * その道に「公開できる経験」が増えた / 内容が更新されたとき、道の `updatedAt` を進める。
+ * 検索の既定並び順は `roads.updatedAt` desc なので、新しい公開経験が付いた道を上へ浮かせるため。
+ * （`updatedAt` は「道の行の編集」に加えて「その道の公開経験が動いた」も意味するようになる。）
+ */
+export async function bumpRoadUpdatedAt(roadId: string): Promise<void> {
+  await prisma.road.update({ where: { id: roadId }, data: { updatedAt: new Date() } });
+}
+
+/**
  * 投稿 (Attempt) を公開しようとしたタイミングで AI 審査を走らせ、結果を Attempt に反映する。
  *
  * - verdict "ok"      → moderationStatus = approved (そのまま公開)
@@ -20,16 +29,19 @@ export { publishStateOf, PUBLISH_STATE_LABEL, type PublishState } from "@/lib/pu
 export async function applyModerationOnPublish(attemptId: string): Promise<ModerationVerdict> {
   // 運用スイッチ: AI モデレーション無効時は AI を呼ばず即 approved にする。
   if (!env.ai.moderationEnabled) {
-    await prisma.attempt.update({
+    const { roadId } = await prisma.attempt.update({
       where: { id: attemptId },
       data: { moderationStatus: ModerationStatus.approved },
+      select: { roadId: true },
     });
+    await bumpRoadUpdatedAt(roadId);
     return { verdict: "ok", reason: "モデレーションは無効化されています", categories: [] };
   }
 
   const attempt = await prisma.attempt.findUnique({
     where: { id: attemptId },
     select: {
+      roadId: true,
       method: true,
       memo: true,
       feeling: true,
@@ -80,5 +92,9 @@ export async function applyModerationOnPublish(attemptId: string): Promise<Moder
   };
 
   await prisma.attempt.update({ where: { id: attemptId }, data });
+  // approved になった = その道の公開経験が増えた / 更新された → 道を浮上させる。
+  if (result.verdict === "ok") {
+    await bumpRoadUpdatedAt(attempt.roadId);
+  }
   return result;
 }

@@ -169,7 +169,7 @@ admin 主要画面は axe-core (wcag2a/wcag2aa) で違反 0 件を確認済み�
 ```bash
 docker compose up -d              # DB
 npx prisma migrate deploy && npm run db:seed
-npm test                          # Vitest: 178 件（lib ロジック + 道ツリー/ページ分割 + 検索の出し分け/ページ送り + 認可 + bot-guard + 投稿モデレーション/管理認証/SNS簡易登録/いいね/既読/アカウント削除/広告カテゴリ の結合）
+npm test                          # Vitest: 193 件（lib ロジック + 道ツリー/ページ分割 + 検索の出し分け/ページ送り/公開で浮上 + 認可 + 同一オリジン強制 + bot-guard + 投稿モデレーション/保留/管理認証/SNS簡易登録/いいね/既読/アカウント削除/広告カテゴリ の結合）
 npm run test:e2e                  # Playwright: 106 件（重要シナリオ / 道の作成・文字数表示 / 権限 / 枝分かれ道・10件ページ分割 / 検索カードの出し分け・種類指定・ページ送り・既読絞り込み / できた％・気持ち / スクレイピング対策 / 管理画面モデレーション / SNS簡易登録 / いいね / 既読 / アカウント設定・削除 / 広告配置 / 検索状態の復元 / axe）
 ```
 
@@ -191,6 +191,9 @@ DB（docker）は事前に起動しておくこと。
   全件取得 API は無い
 - **既知 AI クローラーの遮断**（`src/middleware.ts`）— GPTBot / ClaudeBot / CCBot / Bytespider 等の
   UA は `403`。全レスポンスに `X-Robots-Tag: noai, noimageai`
+- **書き込みは同一オリジンからのみ**（`src/lib/api.ts#assertSameOrigin`）— `POST` / `PATCH` /
+  `PUT` / `DELETE` は `Sec-Fetch-Site` / `Origin` を検証し、別サイト発なら `403`。`SameSite=Lax`
+  セッション Cookie への CSRF 二重防御
 - **`robots.txt`**（`src/app/robots.ts`）— `/api/` と AI クローラーを Disallow（単独の防御にはしない）
 - **レスポンス最小化** — `user_id` / `google_sub` / `road_id` など内部 ID を公開面に出さない
 - **アクセスログ**（`src/lib/access-log.ts`）— 匿名化した識別子で記録。生 IP・認証情報は残さない

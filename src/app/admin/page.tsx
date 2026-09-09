@@ -13,14 +13,20 @@ function ReviewCard({
   href,
   noun,
   count,
+  held = 0,
   hint,
 }: {
   href: string;
   noun: string;
   count: number;
+  /** カッコで小さく添える「保留中」件数 */
+  held?: number;
   hint: string;
 }) {
   const has = count > 0;
+  const heldNote = held > 0 && (
+    <span className="ml-1 text-sm text-[var(--color-ink-muted)]">（保留中 {held} 件）</span>
+  );
   return (
     <Link
       href={href}
@@ -34,9 +40,10 @@ function ReviewCard({
       {has ? (
         <p className="mt-1 text-base">
           <span className="text-2xl font-bold">{count}</span> 件あります
+          {heldNote}
         </p>
       ) : (
-        <p className="mt-1 text-sm text-[var(--color-ink-muted)]">今はありません</p>
+        <p className="mt-1 text-sm text-[var(--color-ink-muted)]">今はありません{heldNote}</p>
       )}
       <p className="mt-1 text-sm text-[var(--color-ink-muted)]">{hint}</p>
       <p
@@ -70,18 +77,46 @@ const MENU: { href: string; label: string; ready: boolean }[] = [
 export default async function AdminDashboardPage() {
   await requireAdmin();
   const [s, activity] = await Promise.all([dashboardStats(), recentActivity()]);
-  const needsReview = s.pending;
+  const needsReview = s.pendingActive;
 
   return (
     <div className="space-y-8">
       <h1 className="text-lg font-bold">できる道 管理</h1>
 
-      {/* 確認が必要 — 最初に見るべきもの */}
+      {/* 管理メニュー — 最初に置く */}
+      <section aria-labelledby="menu" className="space-y-3">
+        <h2 id="menu" className="text-base font-bold">
+          管理メニュー
+        </h2>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {MENU.map((m) =>
+            m.ready ? (
+              <Link
+                key={m.label}
+                href={m.href}
+                className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm font-semibold hover:shadow-[var(--shadow-card)]"
+              >
+                {m.label}
+              </Link>
+            ) : (
+              <span
+                key={m.label}
+                aria-disabled="true"
+                className="cursor-not-allowed rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] px-4 py-3 text-sm text-[var(--color-ink-muted)]"
+              >
+                {m.label}
+              </span>
+            ),
+          )}
+        </div>
+      </section>
+
+      {/* 確認が必要 */}
       <section aria-labelledby="need-review" className="space-y-3">
         <h2 id="need-review" className="text-base font-bold">
           確認が必要
         </h2>
-        {needsReview === 0 && (
+        {needsReview === 0 && s.pendingHeld === 0 && (
           <p className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-primary-tint)] p-4 text-sm">
             いま確認が必要なものはありません。
           </p>
@@ -90,7 +125,8 @@ export default async function AdminDashboardPage() {
           <ReviewCard
             href="/admin/moderation"
             noun="経験"
-            count={s.pending}
+            count={s.pendingActive}
+            held={s.pendingHeld}
             hint="公開してよい内容か確認してください"
           />
         </div>
@@ -141,34 +177,6 @@ export default async function AdminDashboardPage() {
           </ul>
         </section>
       )}
-
-      {/* 管理メニュー */}
-      <section aria-labelledby="menu" className="space-y-3">
-        <h2 id="menu" className="text-base font-bold">
-          管理メニュー
-        </h2>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {MENU.map((m) =>
-            m.ready ? (
-              <Link
-                key={m.label}
-                href={m.href}
-                className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm font-semibold hover:shadow-[var(--shadow-card)]"
-              >
-                {m.label}
-              </Link>
-            ) : (
-              <span
-                key={m.label}
-                aria-disabled="true"
-                className="cursor-not-allowed rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] px-4 py-3 text-sm text-[var(--color-ink-muted)]"
-              >
-                {m.label}
-              </span>
-            ),
-          )}
-        </div>
-      </section>
     </div>
   );
 }

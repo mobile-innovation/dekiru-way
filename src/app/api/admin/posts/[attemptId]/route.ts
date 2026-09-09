@@ -4,6 +4,7 @@ import { requireAdminApi } from "@/lib/admin/auth";
 import { writeAudit, deriveManualModerationAction } from "@/lib/admin/audit";
 import { postStatusSchema } from "@/lib/admin/validation";
 import { serializeAttempt } from "@/lib/serializers";
+import { bumpRoadUpdatedAt } from "@/lib/moderation";
 
 // PATCH /api/admin/posts/{attemptId} — 公開状態の手動遷移
 //   approved → pending  : 公開中の投稿を取り下げてレビューに戻す (unpublish)
@@ -33,6 +34,11 @@ export const PATCH = handle(async (req, ctx) => {
       ...(note !== undefined ? { moderationNote: note || null } : {}),
     },
   });
+
+  // 再公開 (→ approved) なら、その道を検索の並びで浮上させる。
+  if (moderationStatus === "approved") {
+    await bumpRoadUpdatedAt(updated.roadId);
+  }
 
   const action = deriveManualModerationAction(current.moderationStatus, moderationStatus);
 

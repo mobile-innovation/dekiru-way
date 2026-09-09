@@ -136,6 +136,39 @@ describe("公開 → AI不明で保留 → 管理者が許可 の一連", () => 
     expect(row?.moderationNote).toBe("個人名が含まれる");
   });
 
+  it("管理者が許可すると、その道の updatedAt が進む（検索で上に浮上させるため）", async () => {
+    asUser(userId);
+    // @updatedAt を迂回して updated_at を過去にする
+    const past = new Date(Date.now() - 60 * 60 * 1000);
+    await prisma.$executeRaw`UPDATE "roads" SET "updated_at" = ${past} WHERE "id" = ${roadId}::uuid`;
+    const readUpdatedAt = async () =>
+      (await prisma.road.findUniqueOrThrow({ where: { id: roadId } })).updatedAt.getTime();
+
+    const created = await createAttempt(
+      new Request(`http://localhost/api/v1/roads/${roadId}/attempts`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ method: `${MARK} 浮上テスト`, result: "success", isPublished: true }),
+      }),
+      { params: Promise.resolve({ roadId }) },
+    );
+    const dto = (await created.json()) as { id: string };
+
+    // 作成時点（AI 不明 → pending）ではまだ浮上させない
+    expect(await readUpdatedAt()).toBe(past.getTime());
+
+    await moderate(
+      new Request(`http://localhost/api/admin/moderation/${dto.id}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "approve" }),
+      }),
+      { params: Promise.resolve({ attemptId: dto.id }) },
+    );
+
+    expect(await readUpdatedAt()).toBeGreaterThan(past.getTime());
+  });
+
   it("公開中の投稿の本文を編集すると再審査され pending に戻る", async () => {
     asUser(userId);
     // approved 状態の attempt を用意

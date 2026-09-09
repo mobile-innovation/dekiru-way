@@ -111,13 +111,18 @@ test("「経験を探す」のカードは方法別ではなく道（困りご�
   await page.goto("/experiences");
   await expect(page.getByRole("heading", { name: /いろいろな道/ })).toBeVisible();
 
-  // 1 枚目のカード = 一人の道。その中に複数の「試したこと」がまとまっている。
-  const card = page.locator("article").first();
+  // カード = 一人の道。その中に複数の「試したこと」がまとまっている。
+  // 直前の他テストが作った 1 メソッドの道が先頭に来ても影響されないよう、
+  // 「試したこと（2 以上）」を持つ道カード（シードの道）を対象にする。
+  const card = page
+    .locator("article")
+    .filter({ hasText: /試したこと（(?!1）)\d+）/ })
+    .first();
   await expect(card.getByText("だれかの道")).toBeVisible();
   const methodsLabel = card.getByText(/試したこと（\d+）/);
   await expect(methodsLabel).toBeVisible();
   const count = Number((await methodsLabel.textContent())!.match(/（(\d+)）/)![1]);
-  expect(count).toBeGreaterThanOrEqual(2); // シードの道は複数の方法を持つ
+  expect(count).toBeGreaterThanOrEqual(2);
 
   // カードから、その道の枝分かれ詳細へ進める
   await card.getByRole("link", { name: /この道を見る/ }).click();

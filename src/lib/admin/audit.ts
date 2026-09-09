@@ -10,6 +10,8 @@ export type AdminAction =
   | "login"
   | "approve"
   | "reject"
+  | "hold" // 確認待ち → 保留（公開できない記録として脇に置く。moderationStatus は変えない）
+  | "unhold" // 保留を解除して確認待ちに戻す
   | "unpublish" // 公開中 → pending に戻す (取り下げ)
   | "republish" // rejected → approved (やっぱり公開する)
   | "requeue" // rejected → pending (確認待ちに戻す)

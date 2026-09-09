@@ -7,6 +7,9 @@
     `conflict` (409) / `payload_too_large` (413) / `unsupported_media_type` (415) /
     `rate_limited` (429) / `internal` (500)
 - 認証: JWT セッション Cookie（Auth.js）。所有者チェックはすべてサーバー側。
+- **書き込み（`POST` / `PUT` / `PATCH` / `DELETE`）は同一オリジンからのみ**（CSRF 対策・二重防御）。
+  `Sec-Fetch-Site` が `cross-site`／`none`、または `Origin` が自オリジンと不一致なら `403`（`forbidden`）。
+  どちらのヘッダも無いリクエスト（サーバ間・CLI・テスト）は従来どおり通す。`GET` は対象外。
 - 公開 GET（`/experiences*`, `/tags*`）は認証不要だが**無制限ではない**（追加指示書 v1）:
   - IP 単位のレート/バースト制限、`page` の高速連続巡回・同一クエリ連打の検知 → `429`（`Retry-After` 付き、悪質時は一時ブロック）
   - `limit ≤ 50`、`page ≤ 100`、かつ `(page-1)*limit < 500`（超過は `400`）。全件取得 API は無い
@@ -280,7 +283,7 @@ SNS からの流入者が、1 件の「試したこと」だけを最小入力�
 | --- | --- | --- |
 | POST | `/api/admin/login` | `{ email, password }` → cookie 発行。IP 単位のレート制限あり。 |
 | POST | `/api/admin/logout` | cookie 破棄。204。 |
-| POST | `/api/admin/moderation/{attemptId}` | `{ action: "approve"｜"reject", note? }`。保留投稿の許可 / 却下。 |
+| POST | `/api/admin/moderation/{attemptId}` | `{ action: "approve"｜"reject"｜"hold"｜"unhold", note? }`。確認待ち経験の許可 / 却下、または「保留」の設定 / 解除（`hold`/`unhold` は `moderationStatus` を変えない）。 |
 | PATCH | `/api/admin/posts/{attemptId}` | `{ moderationStatus, note? }`。公開の取り下げ / 再公開など手動遷移。 |
 | POST | `/api/admin/posts/{attemptId}/recheck` | 投稿の AI 審査だけ再実行（`moderationStatus` は変えない）。 |
 

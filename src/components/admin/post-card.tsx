@@ -34,6 +34,8 @@ const ACTION_LABEL: Record<string, string> = {
   login: "ログイン",
   approve: "公開する",
   reject: "公開しない",
+  hold: "保留する",
+  unhold: "保留を解除",
   unpublish: "公開を停止",
   republish: "やっぱり公開する",
   requeue: "確認待ちに戻す",
@@ -78,15 +80,21 @@ export interface AdminPostCardData {
   aiCategories: string[];
   aiCheckedAt: Date | null;
   moderationNote: string | null;
+  moderationHeld: boolean;
   createdAt: Date;
   road: { id: string; difficulty: string | null; goal: string | null };
 }
 
 export function AdminPostCard({ post }: { post: AdminPostCardData }) {
   return (
-    <article className="rounded-[var(--radius-lg)] border border-[var(--color-border)] p-4">
+    <article className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge status={post.moderationStatus} />
+        {post.moderationHeld && (
+          <span className="inline-flex rounded-[var(--radius-pill)] border border-[var(--color-neutral)] px-2 py-0.5 text-xs font-bold text-[var(--color-ink-muted)]">
+            保留中
+          </span>
+        )}
         <VerdictBadge verdict={post.aiVerdict} />
         <span className="text-xs text-[var(--color-ink-muted)]">
           {post.createdAt.toISOString().slice(0, 10)}
