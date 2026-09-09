@@ -54,7 +54,6 @@ export function serializeRoad(road: RoadFull) {
     .map(serializeAttempt);
   return {
     id: road.id,
-    title: road.title,
     previouslyAble: road.previouslyAble,
     difficulty: road.difficulty,
     goal: road.goal,
@@ -64,10 +63,6 @@ export function serializeRoad(road: RoadFull) {
     status: road.status,
     progress: road.progress,
     nextAction: road.nextAction,
-    visibility: road.visibility,
-    // 道の内容モデレーション (本人ビュー用)。approved でない間は、この道の経験は公開面に出ない。
-    moderationStatus: road.moderationStatus,
-    aiReason: road.aiReason,
     tags: roadTagNames(road),
     attempts,
     attemptCount: road.attempts ? attempts.length : undefined,

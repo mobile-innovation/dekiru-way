@@ -6,8 +6,6 @@ import { roadCreateSchema } from "@/lib/validation";
 import { serializeRoad } from "@/lib/serializers";
 import { syncRoadTags } from "@/lib/tags";
 import { toDbDate } from "@/lib/dates";
-import { generateRoadTitle } from "@/lib/ai/local";
-import { applyRoadModeration } from "@/lib/moderation";
 
 const roadInclude = {
   roadTags: { include: { tag: true } },
@@ -38,23 +36,12 @@ export const POST = handle(async (req) => {
       userId,
       ...rest,
       startedAt: toDbDate(startedAt) ?? null,
-      // 道のページは初期は公開。非公開にしたい場合は道の詳細画面で切り替えられる。
-      visibility: input.visibility ?? "public",
     },
   });
   await syncRoadTags(road.id, tags);
 
-  // タイトル未入力なら「できなくなったこと」からローカル AI で見出しを補う。
-  // 生成は補助レイヤー: 失敗・タイムアウト・未設定なら title は null のまま (指示書 ローカルAI v1)。
-  if (!road.title && road.difficulty) {
-    const generated = await generateRoadTitle(road.difficulty);
-    if (generated) {
-      await prisma.road.update({ where: { id: road.id }, data: { title: generated } });
-    }
-  }
-
-  // 道の内容を AI 審査する。NG/不明なら pending になり、この道の経験は公開面に出ない。
-  await applyRoadModeration(road.id);
+  // 道そのものは審査しない。道が公開面に出るかは、その道で「経験として公開」した
+  // 試したことが AI 審査を通って承認されるかで決まる (applyModerationOnPublish)。
 
   const full = await prisma.road.findUniqueOrThrow({
     where: { id: road.id },

@@ -92,28 +92,6 @@ export const env = {
   },
 
   /**
-   * 自ホストのローカル LLM (Ollama 互換 HTTP API)。Road タイトル自動生成に使う補助レイヤー。
-   * - 内部ネットワーク限定。外部から到達可能にしない (指示書 ローカルAI v1 §10)。
-   * - `LOCAL_AI_MODEL` 未設定なら丸ごと無効 = 生成をスキップ (アプリは従来どおり動く)。
-   * - 認証情報・個人情報は一切渡さない。呼び出しは difficulty など「本文」のみ。
-   */
-  localAi: {
-    get url() {
-      return optional("LOCAL_AI_URL", "http://127.0.0.1:11434");
-    },
-    get model() {
-      return optional("LOCAL_AI_MODEL");
-    },
-    get timeoutMs() {
-      const n = Number(optional("LOCAL_AI_TIMEOUT_MS", "3500"));
-      return Number.isFinite(n) && n > 0 ? n : 3500;
-    },
-    get enabled() {
-      return Boolean(process.env.LOCAL_AI_MODEL);
-    },
-  },
-
-  /**
    * E2E / ローカル開発用モックログインを許可するか。
    * `E2E_TEST_LOGIN=true` を明示的に設定したときのみ有効。
    * 本番デプロイでは絶対にこの変数を設定しないこと (README に明記)。

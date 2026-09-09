@@ -42,11 +42,6 @@ export default async function AdminAuditPage({
                   対象の経験 →
                 </Link>
               )}
-              {a.roadId && (
-                <Link href={`/admin/roads/${a.roadId}`} className="ml-auto text-xs underline">
-                  対象の道 →
-                </Link>
-              )}
             </li>
           ))}
         </ul>

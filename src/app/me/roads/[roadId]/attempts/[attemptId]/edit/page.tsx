@@ -25,7 +25,7 @@ export default async function EditAttemptPage({
       <div className="space-y-3">
         <p className="text-sm">
           <Link href={`/me/roads/${roadId}`}>
-            ← {road.title ?? road.difficulty ?? "道"} へ戻る
+            ← {road.difficulty ?? "道"} へ戻る
           </Link>
         </p>
         <h1 className="flex items-start gap-2 text-xl font-bold">

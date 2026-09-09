@@ -1,26 +1,9 @@
 import { ModerationStatus, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
-import {
-  moderateAttemptContent,
-  moderateRoadContent,
-  type ModerationVerdict,
-} from "@/lib/ai/moderation";
+import { moderateAttemptContent, type ModerationVerdict } from "@/lib/ai/moderation";
 
 export { publishStateOf, PUBLISH_STATE_LABEL, type PublishState } from "@/lib/publish-state";
-
-/** 道の内容モデレーションで見る項目。編集でこれらが変わったら再審査する。 */
-export const ROAD_MODERATED_FIELDS = [
-  "title",
-  "difficulty",
-  "goal",
-  "situation",
-  "previouslyAble",
-  "progress",
-  "nextAction",
-  "memo",
-  "status",
-] as const;
 
 /**
  * 投稿 (Attempt) を公開しようとしたタイミングで AI 審査を走らせ、結果を Attempt に反映する。
@@ -53,7 +36,13 @@ export async function applyModerationOnPublish(attemptId: string): Promise<Moder
       stateAfter: true,
       nextAction: true,
       road: {
-        select: { difficulty: true, goal: true, situation: true, previouslyAble: true },
+        select: {
+          difficulty: true,
+          goal: true,
+          situation: true,
+          previouslyAble: true,
+          roadTags: { select: { tag: { select: { name: true } } } },
+        },
       },
     },
   });
@@ -67,7 +56,15 @@ export async function applyModerationOnPublish(attemptId: string): Promise<Moder
     feeling: attempt.feeling,
     stateAfter: attempt.stateAfter,
     nextAction: attempt.nextAction,
-    road: attempt.road,
+    road: attempt.road
+      ? {
+          difficulty: attempt.road.difficulty,
+          goal: attempt.road.goal,
+          situation: attempt.road.situation,
+          previouslyAble: attempt.road.previouslyAble,
+          tags: attempt.road.roadTags.map((rt) => rt.tag.name),
+        }
+      : null,
   });
 
   const data: Prisma.AttemptUpdateInput = {
@@ -83,60 +80,5 @@ export async function applyModerationOnPublish(attemptId: string): Promise<Moder
   };
 
   await prisma.attempt.update({ where: { id: attemptId }, data });
-  return result;
-}
-
-/**
- * 道 (Road) を登録 / 編集したタイミングで AI 審査を走らせ、結果を Road に反映する。
- * ng/unknown なら moderationStatus = pending。承認済みでない道の経験は公開面に出さない
- * (`PUBLIC_ATTEMPT_WHERE` が親 Road の承認も要求する)。
- */
-export async function applyRoadModeration(roadId: string): Promise<ModerationVerdict> {
-  if (!env.ai.moderationEnabled) {
-    await prisma.road.update({
-      where: { id: roadId },
-      data: { moderationStatus: ModerationStatus.approved },
-    });
-    return { verdict: "ok", reason: "モデレーションは無効化されています", categories: [] };
-  }
-
-  const road = await prisma.road.findUnique({
-    where: { id: roadId },
-    select: {
-      title: true,
-      difficulty: true,
-      goal: true,
-      situation: true,
-      previouslyAble: true,
-      progress: true,
-      nextAction: true,
-      memo: true,
-      status: true,
-      roadTags: { select: { tag: { select: { name: true } } } },
-    },
-  });
-  if (!road) {
-    return { verdict: "unknown", reason: "対象の道が見つかりませんでした。", categories: [] };
-  }
-
-  // タグも公開面 (経験のタグ一覧・タグ検索) に出るため、他の記述項目と同じく審査対象に含める。
-  const result = await moderateRoadContent({
-    ...road,
-    tags: road.roadTags.map((rt) => rt.tag.name),
-  });
-
-  await prisma.road.update({
-    where: { id: roadId },
-    data: {
-      aiVerdict: result.verdict,
-      aiReason: result.reason,
-      aiCategories: result.categories,
-      aiCheckedAt: new Date(),
-      moderationStatus:
-        result.verdict === "ok" ? ModerationStatus.approved : ModerationStatus.pending,
-      moderatedByAdmin: { disconnect: true },
-      moderatedAt: null,
-    } satisfies Prisma.RoadUpdateInput,
-  });
   return result;
 }

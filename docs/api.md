@@ -48,15 +48,14 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
 | GET | `/roads` | 自分の道一覧 `{ items: Road[] }`（新しい更新順） |
 | POST | `/roads` | 道を作成。201。 |
 | GET | `/roads/{roadId}` | 道の詳細（attempts / tags 込み）。他人は 403、無ければ 404。 |
-| PATCH | `/roads/{roadId}` | 部分更新。空ボディは 400。`title` と `difficulty` は一度値が入ると変更不可（別の値を送ると `409`。同値・省略は許可）。記述項目を変えると道の内容が再 AI 審査される。 |
+| PATCH | `/roads/{roadId}` | 部分更新。空ボディは 400。`difficulty` は一度値が入ると変更不可（別の値を送ると `409`。同値・省略は許可）。 |
 | DELETE | `/roads/{roadId}` | 削除（attempts は cascade）。204。 |
 
 ### Road 作成 / 更新ボディ
 ```jsonc
 {
-  "title": "string|null",          // 一覧の見出し
   "previouslyAble": "string|null", // 以前できていた
-  "difficulty": "string|null",     // できなくなった
+  "difficulty": "string|null",     // できなくなった（一覧の見出しにも使う）
   "goal": "string|null",           // やりたいこと
   "startedAt": "YYYY-MM-DD|null",
   "situation": "string|null",
@@ -64,20 +63,18 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
   "status": "string|null",
   "progress": "string|null",
   "nextAction": "string|null",
-  "visibility": "private|public",  // 既定 public（省略時）
   "tags": ["string", ...]          // 指定時のみ同期。Tag は自動 upsert
 }
 ```
 更新はすべて optional。`tags` を省略するとタグは変更されない。
-`title` / `difficulty` は「まだ空なら初回だけ設定可、値が入ったら以後は変更不可」（道の同一性を保つため）。
+`difficulty` は「まだ空なら初回だけ設定可、値が入ったら以後は変更不可」（道の同一性を保つため）。
 
-#### 道の内容 AI モデレーション
+#### 道の公開について
 
-道を作成/編集すると、その記述（`title` / `difficulty` / `goal` / `situation` / `previouslyAble` /
-`progress` / `nextAction` / `memo` / `status`）が AI 審査される（`AI_MODERATION_ENABLED=false` なら即承認）。
-レスポンスの Road には `moderationStatus`（`pending|approved|rejected`）と `aiReason` が含まれる。
-`ng` / `unknown`（キー未設定含む）なら `pending` になり、**その道で「経験として公開」された記録も
-公開検索 (`/experiences*`, `/tags*`) には出ない**（投稿と道の両方が `approved` である必要がある）。
+道 (Road) 自体はモデレーション状態を持たない。道が公開検索 (`/experiences*`, `/tags*`) に
+出るかは、**その道で「経験として公開」した Attempt が AI 審査を通って `approved` になるか**
+だけで決まる。経験公開時の AI 審査本文には、その道の記述（`difficulty` / `goal` /
+`situation` / `previouslyAble`）・タグも含まれる。
 
 ---
 
@@ -286,9 +283,6 @@ SNS からの流入者が、1 件の「試したこと」だけを最小入力�
 | POST | `/api/admin/moderation/{attemptId}` | `{ action: "approve"｜"reject", note? }`。保留投稿の許可 / 却下。 |
 | PATCH | `/api/admin/posts/{attemptId}` | `{ moderationStatus, note? }`。公開の取り下げ / 再公開など手動遷移。 |
 | POST | `/api/admin/posts/{attemptId}/recheck` | 投稿の AI 審査だけ再実行（`moderationStatus` は変えない）。 |
-| POST | `/api/admin/roads/{roadId}/moderate` | `{ action: "approve"｜"reject", note? }`。保留中の道の許可 / 却下。 |
-| PATCH | `/api/admin/roads/{roadId}` | `{ moderationStatus, note? }`。道の公開状態の手動遷移。 |
-| POST | `/api/admin/roads/{roadId}/recheck` | 道の AI 審査だけ再実行。 |
 
 ---
 

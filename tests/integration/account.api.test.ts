@@ -27,10 +27,8 @@ async function makeUserWithData(suffix: string) {
   const road = await prisma.road.create({
     data: {
       userId: user.id,
-      title: `${MARK}-${suffix}`,
       difficulty: `${MARK} ${suffix} こまりごと`,
       goal: "できるように",
-      moderationStatus: "approved",
       roadTags: { create: { tag: { create: { name: `${MARK}-tag-${suffix}` } } } },
     },
     include: { roadTags: true },

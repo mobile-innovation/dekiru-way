@@ -79,7 +79,7 @@ export interface AdminPostCardData {
   aiCheckedAt: Date | null;
   moderationNote: string | null;
   createdAt: Date;
-  road: { id: string; title: string | null; difficulty: string | null; goal: string | null };
+  road: { id: string; difficulty: string | null; goal: string | null };
 }
 
 export function AdminPostCard({ post }: { post: AdminPostCardData }) {
@@ -103,10 +103,6 @@ export function AdminPostCard({ post }: { post: AdminPostCardData }) {
         <p className="mt-2 inline-block rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] px-2 py-0.5 text-xs font-semibold text-[var(--color-ink-muted)]">
           {post.moderationNote}
         </p>
-      )}
-
-      {post.road.title && (
-        <p className="mt-2 text-xs text-[var(--color-ink-muted)]">道「{post.road.title}」より</p>
       )}
 
       {/* 困ったこと → 試したこと → 結果 の順で読める */}
@@ -143,73 +139,6 @@ export function AdminPostCard({ post }: { post: AdminPostCardData }) {
       {post.aiCategories.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-1">
           {post.aiCategories.map((c) => (
-            <li
-              key={c}
-              className="rounded-[var(--radius-pill)] border border-[var(--color-danger)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-danger)]"
-            >
-              {CATEGORY_LABEL[c] ?? c}
-            </li>
-          ))}
-        </ul>
-      )}
-    </article>
-  );
-}
-
-export interface AdminRoadCardData {
-  id: string;
-  title: string | null;
-  difficulty: string | null;
-  goal: string | null;
-  situation: string | null;
-  moderationStatus: string;
-  aiVerdict: string | null;
-  aiReason: string | null;
-  aiCategories: string[];
-  createdAt: Date;
-  _count: { attempts: number };
-}
-
-export function AdminRoadCard({ road }: { road: AdminRoadCardData }) {
-  return (
-    <article className="rounded-[var(--radius-lg)] border border-[var(--color-border)] p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <StatusBadge status={road.moderationStatus} />
-        <VerdictBadge verdict={road.aiVerdict} />
-        <span className="text-xs text-[var(--color-ink-muted)]">
-          {road.createdAt.toISOString().slice(0, 10)} · この道で公開しようとしている経験 {road._count.attempts} 件
-        </span>
-        <Link href={`/admin/roads/${road.id}`} className="ml-auto text-sm font-semibold underline">
-          内容を見る
-        </Link>
-      </div>
-
-      <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-sm font-medium">
-        {road.title ?? road.difficulty ?? "（無題の道）"}
-      </p>
-      <dl className="mt-1 space-y-1 text-xs">
-        {road.difficulty && (
-          <div>
-            <dt className="font-bold text-[var(--color-ink-muted)]">できなくなったこと</dt>
-            <dd className="line-clamp-2 whitespace-pre-wrap">{road.difficulty}</dd>
-          </div>
-        )}
-        {road.goal && (
-          <div>
-            <dt className="font-bold text-[var(--color-ink-muted)]">やりたいこと</dt>
-            <dd className="line-clamp-2 whitespace-pre-wrap">{road.goal}</dd>
-          </div>
-        )}
-      </dl>
-
-      {road.aiReason && (
-        <p className="mt-2 rounded-[var(--radius-sm)] bg-[var(--color-surface-sunken)] p-2 text-xs">
-          {road.aiReason}
-        </p>
-      )}
-      {road.aiCategories.length > 0 && (
-        <ul className="mt-2 flex flex-wrap gap-1">
-          {road.aiCategories.map((c) => (
             <li
               key={c}
               className="rounded-[var(--radius-pill)] border border-[var(--color-danger)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-danger)]"

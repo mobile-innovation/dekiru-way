@@ -36,10 +36,8 @@ beforeAll(async () => {
   const road = await prisma.road.create({
     data: {
       userId,
-      title: MARK,
       difficulty: `${ROAD_WORD} で困っている`,
       goal: "自分でできるようになりたい",
-      moderationStatus: "approved",
       attempts: {
         create: [
           {
@@ -60,10 +58,8 @@ beforeAll(async () => {
   const deepRoad = await prisma.road.create({
     data: {
       userId,
-      title: `${MARK}-deep`,
       difficulty: `${MARK} 長い道`,
       goal: "区切りたい",
-      moderationStatus: "approved",
       attempts: {
         create: Array.from({ length: 12 }, (_, i) => ({
           method: i === 11 ? `${DEEP_WORD} を試した（12件目）` : `${MARK} 方法 ${i + 1}`,
@@ -82,10 +78,8 @@ beforeAll(async () => {
   await prisma.road.create({
     data: {
       userId,
-      title: `${MARK}-many-methods`,
       difficulty: `${MARK} たくさんの方法がある道`,
       goal: "いろいろ試したい",
-      moderationStatus: "approved",
       attempts: {
         create: Array.from({ length: 25 }, (_, i) => ({
           method: `${PAGE_WORD} その${i + 1}`,

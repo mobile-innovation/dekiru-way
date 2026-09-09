@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requirePageUserId } from "@/lib/session";
 import { getMyRoads } from "@/lib/queries";
-import { EmptyState, LinkButton, ResultBadge } from "@/components/ui";
+import { Callout, EmptyState, LinkButton, ResultBadge } from "@/components/ui";
 import { IconFootprints, IconSprout } from "@/components/icons";
 
 export const metadata: Metadata = { title: "自分の道" };
@@ -11,12 +11,32 @@ export default async function MyRoadsPage() {
   const userId = await requirePageUserId();
   const roads = await getMyRoads(userId);
 
+  // まだ「試したこと」を 1 件も記録していない道。これらは公開する経験がない。
+  const roadsWithoutAttempts = roads.filter((r) => r.attempts.length === 0);
+
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-[var(--color-primary-hover)]">自分の道</h1>
         <LinkButton href="/me/roads/new">道を作る</LinkButton>
       </div>
+
+      {roadsWithoutAttempts.length > 0 && (
+        <Callout tone="info" title="試したことを記録すると、経験として公開されます">
+          <p>
+            道は「試したこと」を記録して公開すると、同じことで困っている人の検索に出ます。
+            まだ試したことのない道（{roadsWithoutAttempts.length} 件）は、公開されません。
+          </p>
+          <p className="mt-2">
+            <Link
+              href={`/me/roads/${roadsWithoutAttempts[0].id}/attempts/new`}
+              className="font-semibold underline"
+            >
+              「{roadsWithoutAttempts[0].difficulty ?? "道"}」に試したことを記録する →
+            </Link>
+          </p>
+        </Callout>
+      )}
 
       {roads.length === 0 ? (
         <EmptyState icon={IconSprout} title="まだ道がありません">
@@ -47,14 +67,9 @@ export default async function MyRoadsPage() {
                         className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-primary)]"
                       />
                       <span className="underline underline-offset-2">
-                        {road.title ?? road.difficulty ?? "（無題の道）"}
+                        {road.difficulty ?? "（無題の道）"}
                       </span>
                     </p>
-                    {road.difficulty && road.title && (
-                      <p className="mt-0.5 text-sm text-[var(--color-ink-muted)]">
-                        {road.difficulty}
-                      </p>
-                    )}
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--color-primary-hover)]">
                       <span>試したこと {road.attempts.length} 件</span>
                       <span aria-hidden="true">・</span>
@@ -62,21 +77,55 @@ export default async function MyRoadsPage() {
                         公開中 {published} 件
                         {reviewing > 0 && `（確認中 ${reviewing} 件）`}
                       </span>
-                      <span aria-hidden="true">・</span>
-                      {road.visibility === "public" ? (
-                        <span className="font-semibold text-[var(--color-accent)]">道は公開</span>
-                      ) : (
-                        <span>道は非公開</span>
-                      )}
                     </div>
+
+                    {/* 検索の道カード（RoadCard）と同じ見せ方: 縦線＋方法テキスト＋結果。時系列で先頭 3 件。 */}
                     {road.attempts.length > 0 && (
-                      <ul className="mt-3 flex flex-wrap gap-1.5">
-                        {road.attempts.slice(-4).map((a) => (
-                          <li key={a.id}>
-                            <ResultBadge result={a.result} size="sm" />
-                          </li>
-                        ))}
-                      </ul>
+                      <>
+                        <ol className="relative mt-3 space-y-2.5 pl-4">
+                          <span
+                            aria-hidden="true"
+                            className="road-guide absolute bottom-2 left-1 top-2"
+                          />
+                          {road.attempts.slice(0, 3).map((a) => (
+                            <li key={a.id} className="relative">
+                              <span
+                                aria-hidden="true"
+                                className="road-dot absolute -left-4 top-1.5 ring-2 ring-[var(--color-surface)]"
+                              />
+                              <div className="flex items-start gap-2">
+                                <span className="line-clamp-3 min-w-0 flex-1 text-sm text-[var(--color-ink)]">
+                                  {a.method}
+                                </span>
+                                {/* 方法の右に、その試したことの公開状態を出す */}
+                                <span
+                                  className={`shrink-0 text-[11px] font-bold ${
+                                    a.publishState === "published"
+                                      ? "text-[var(--color-accent-strong)]"
+                                      : "text-[var(--color-ink-muted)]"
+                                  }`}
+                                >
+                                  {a.publishState === "published"
+                                    ? "公開中"
+                                    : a.publishState === "reviewing"
+                                      ? "確認中"
+                                      : a.publishState === "rejected"
+                                        ? "見送り"
+                                        : "非公開"}
+                                </span>
+                              </div>
+                              <div className="mt-0.5">
+                                <ResultBadge result={a.result} size="sm" />
+                              </div>
+                            </li>
+                          ))}
+                        </ol>
+                        {road.attempts.length > 3 && (
+                          <p className="mt-2 pl-4 text-xs text-[var(--color-ink-muted)]">
+                            ほかに {road.attempts.length - 3} 件の方法
+                          </p>
+                        )}
+                      </>
                     )}
                   </Link>
                 </article>

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { ModerationStatus } from "@prisma/client";
-import { moderateAttemptContent, moderateRoadContent } from "@/lib/ai/moderation";
+import { moderateAttemptContent } from "@/lib/ai/moderation";
 import { publishStateOf, PUBLISH_STATE_LABEL } from "@/lib/publish-state";
 import { deriveManualModerationAction } from "@/lib/admin/audit";
 
@@ -21,19 +21,20 @@ describe("モデレーション (AIキー未設定)", () => {
     expect(res.reason).toBeTruthy();
   });
 
-  it("道: キーが無ければ verdict=unknown を返す", async () => {
-    const res = await moderateRoadContent({ difficulty: "ボタンがとめにくい", goal: "自分でとめたい" });
+  it("投稿: 方法本文が空でも道の記述・タグがあれば審査対象になる (キー無しで unknown)", async () => {
+    const res = await moderateAttemptContent({
+      method: "  ",
+      road: { difficulty: "ボタンをとめられない", tags: ["個人情報っぽいタグ"] },
+    });
     expect(res.verdict).toBe("unknown");
   });
 
-  it("道: 審査対象の本文が空なら AI を呼ばず ok", async () => {
-    const res = await moderateRoadContent({ difficulty: "  ", goal: null, memo: "" });
+  it("投稿: 方法本文も道の情報もすべて空なら AI を呼ばず ok", async () => {
+    const res = await moderateAttemptContent({
+      method: "  ",
+      road: { difficulty: "", goal: null, tags: [] },
+    });
     expect(res.verdict).toBe("ok");
-  });
-
-  it("道: 他の項目が空でもタグだけあれば審査対象になる (キー無しで unknown)", async () => {
-    const res = await moderateRoadContent({ tags: ["個人情報っぽいタグ"] });
-    expect(res.verdict).toBe("unknown");
   });
 });
 

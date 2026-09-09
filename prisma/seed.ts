@@ -11,7 +11,7 @@ try {
   /* .env が無くても続行 */
 }
 
-import { PrismaClient, type AttemptResult, type Visibility } from "@prisma/client";
+import { PrismaClient, type AttemptResult } from "@prisma/client";
 import { hashPassword } from "../src/lib/admin/password";
 
 const prisma = new PrismaClient();
@@ -35,7 +35,6 @@ type AttemptSeed = {
 
 type RoadSeed = {
   owner: string;
-  title: string;
   previouslyAble?: string;
   difficulty: string;
   goal: string;
@@ -43,7 +42,6 @@ type RoadSeed = {
   situation?: string;
   progress?: string;
   nextAction?: string;
-  visibility?: Visibility;
   tags: string[];
   attempts: AttemptSeed[];
 };
@@ -51,7 +49,6 @@ type RoadSeed = {
 const ROADS: RoadSeed[] = [
   {
     owner: "seed:hana",
-    title: "シャツのボタンがとめにくい",
     previouslyAble: "以前は何も考えずにボタンをとめられた",
     difficulty: "指先に力が入りにくく、小さいボタンが自分でとめられない",
     goal: "朝、自分で着替えを済ませたい",
@@ -86,7 +83,6 @@ const ROADS: RoadSeed[] = [
   },
   {
     owner: "seed:taro",
-    title: "つめが切りにくくなった",
     previouslyAble: "普通のつめ切りで問題なく切れていた",
     difficulty: "つめ切りをしっかり握れず、狙った位置で切れない",
     goal: "自分で安全につめの手入れをしたい",
@@ -124,7 +120,6 @@ const ROADS: RoadSeed[] = [
   },
   {
     owner: "seed:hana",
-    title: "ペットボトルのふたが開けにくい",
     difficulty: "ふたを回す力が足りず、飲み物が自分で開けられない",
     goal: "外出先でも自分で水分をとれるようにしたい",
     startedAt: "2025-10-20",
@@ -158,7 +153,6 @@ const ROADS: RoadSeed[] = [
   },
   {
     owner: "seed:taro",
-    title: "階段の上り下りがこわい",
     previouslyAble: "手すりなしで普通に上り下りしていた",
     difficulty: "片足に体重を乗せるのがこわくて、駅の階段で時間がかかる",
     goal: "通院で使う駅の階段を落ち着いて使いたい",
@@ -166,7 +160,6 @@ const ROADS: RoadSeed[] = [
     situation: "人が多い時間帯の駅。後ろから来る人が気になる。",
     progress: "時間をずらす+杖でだいぶ楽になった",
     nextAction: "エレベーターの場所を事前に調べる",
-    visibility: "public",
     tags: ["移動", "外出", "こわさ"],
     attempts: [
       {
@@ -201,7 +194,6 @@ const ROADS: RoadSeed[] = [
   },
   {
     owner: "seed:mika",
-    title: "料理の火加減がわからなくなった",
     previouslyAble: "音や匂いで火加減を調整できていた",
     difficulty: "見え方が変わり、鍋の中の様子と炎の大きさが分かりにくい",
     goal: "簡単な煮物と炒め物を自分で作りたい",
@@ -258,7 +250,6 @@ const ROADS: RoadSeed[] = [
   },
   {
     owner: "seed:mika",
-    title: "薬の飲み忘れが増えた",
     difficulty: "毎食後の薬を飲んだかどうか自分で思い出せない",
     goal: "飲み忘れ・二重飲みをなくしたい",
     startedAt: "2025-12-01",
@@ -317,7 +308,6 @@ async function main() {
     const road = await prisma.road.create({
       data: {
         userId: users.get(r.owner)!,
-        title: r.title,
         previouslyAble: r.previouslyAble ?? null,
         difficulty: r.difficulty,
         goal: r.goal,
@@ -325,10 +315,6 @@ async function main() {
         situation: r.situation ?? null,
         progress: r.progress ?? null,
         nextAction: r.nextAction ?? null,
-        visibility: r.visibility ?? "private",
-        // 道の内容モデレーションが承認済みでないと、その道の経験は公開面に出ない。
-        // seed の道は公開デモ用なので明示的に approved にする（未指定だと既定 pending）。
-        moderationStatus: "approved",
       },
     });
 

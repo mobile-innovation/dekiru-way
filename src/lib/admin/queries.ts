@@ -9,44 +9,29 @@ const PAGE_SIZE = 20;
 
 export async function dashboardStats() {
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
-  const [
-    pending,
-    approved,
-    rejected,
-    roadPending,
-    roadRejected,
-    users,
-    roads,
-    publishedAttempts,
-    recentApproved,
-  ] = await Promise.all([
-    prisma.attempt.count({ where: { isPublished: true, moderationStatus: ModerationStatus.pending } }),
-    prisma.attempt.count({ where: { isPublished: true, moderationStatus: ModerationStatus.approved } }),
-    prisma.attempt.count({ where: { isPublished: true, moderationStatus: ModerationStatus.rejected } }),
-    prisma.road.count({ where: { moderationStatus: ModerationStatus.pending } }),
-    prisma.road.count({ where: { moderationStatus: ModerationStatus.rejected } }),
-    prisma.user.count(),
-    prisma.road.count(),
-    prisma.attempt.count({ where: { isPublished: true } }),
-    prisma.attempt.count({
-      where: {
-        isPublished: true,
-        moderationStatus: ModerationStatus.approved,
-        updatedAt: { gte: weekAgo },
-      },
-    }),
-  ]);
-  return {
-    pending,
-    approved,
-    rejected,
-    roadPending,
-    roadRejected,
-    users,
-    roads,
-    publishedAttempts,
-    recentApproved,
-  };
+  const [pending, approved, rejected, users, roads, publishedAttempts, recentApproved] =
+    await Promise.all([
+      prisma.attempt.count({
+        where: { isPublished: true, moderationStatus: ModerationStatus.pending },
+      }),
+      prisma.attempt.count({
+        where: { isPublished: true, moderationStatus: ModerationStatus.approved },
+      }),
+      prisma.attempt.count({
+        where: { isPublished: true, moderationStatus: ModerationStatus.rejected },
+      }),
+      prisma.user.count(),
+      prisma.road.count(),
+      prisma.attempt.count({ where: { isPublished: true } }),
+      prisma.attempt.count({
+        where: {
+          isPublished: true,
+          moderationStatus: ModerationStatus.approved,
+          updatedAt: { gte: weekAgo },
+        },
+      }),
+    ]);
+  return { pending, approved, rejected, users, roads, publishedAttempts, recentApproved };
 }
 
 /**
@@ -58,7 +43,7 @@ export async function recentActivity(limit = 8) {
     prisma.road.findMany({
       orderBy: { createdAt: "desc" },
       take: limit,
-      select: { id: true, title: true, difficulty: true, createdAt: true },
+      select: { id: true, difficulty: true, createdAt: true },
     }),
     prisma.attempt.findMany({
       where: { isPublished: true },
@@ -71,7 +56,7 @@ export async function recentActivity(limit = 8) {
         aiCheckedAt: true,
         moderatedAt: true,
         moderationStatus: true,
-        road: { select: { title: true, difficulty: true } },
+        road: { select: { difficulty: true } },
       },
     }),
   ]);
@@ -84,12 +69,12 @@ export async function recentActivity(limit = 8) {
     ...roads.map((r) => ({
       kind: "road_created" as const,
       at: r.createdAt,
-      text: `道が作られました：${clip(r.title ?? r.difficulty ?? "（無題の道）")}`,
-      href: `/admin/roads/${r.id}`,
+      text: `道が作られました：${clip(r.difficulty ?? "（無題の道）")}`,
+      href: `/admin/posts?q=${encodeURIComponent(r.difficulty ?? "")}`,
     })),
     ...attempts.map((a) => {
       const at = a.moderatedAt ?? a.aiCheckedAt ?? a.updatedAt;
-      const name = clip(a.road.title ?? a.road.difficulty ?? a.method);
+      const name = clip(a.road.difficulty ?? a.method);
       const text =
         a.moderationStatus === ModerationStatus.approved
           ? `経験が公開されました：${name}`
@@ -118,7 +103,7 @@ const attemptCardSelect = {
   moderationNote: true,
   createdAt: true,
   updatedAt: true,
-  road: { select: { id: true, title: true, difficulty: true, goal: true } },
+  road: { select: { id: true, difficulty: true, goal: true } },
 } satisfies Prisma.AttemptSelect;
 
 export async function moderationQueue(opts: { verdict?: "ng" | "unknown"; page?: number } = {}) {
@@ -190,95 +175,6 @@ export async function postDetail(attemptId: string) {
     include: { admin: { select: { email: true, displayName: true } } },
   });
   return { attempt, audit };
-}
-
-// ---- 道 (Road) のモデレーション ----
-
-const roadCardSelect = {
-  id: true,
-  title: true,
-  difficulty: true,
-  goal: true,
-  situation: true,
-  moderationStatus: true,
-  aiVerdict: true,
-  aiReason: true,
-  aiCategories: true,
-  aiCheckedAt: true,
-  moderatedAt: true,
-  moderationNote: true,
-  createdAt: true,
-  updatedAt: true,
-  _count: { select: { attempts: { where: { isPublished: true } } } },
-} satisfies Prisma.RoadSelect;
-
-export async function roadModerationQueue(
-  opts: { verdict?: "ng" | "unknown"; page?: number } = {},
-) {
-  const page = Math.max(1, opts.page ?? 1);
-  const where: Prisma.RoadWhereInput = {
-    moderationStatus: ModerationStatus.pending,
-    ...(opts.verdict ? { aiVerdict: opts.verdict } : {}),
-  };
-  const [total, items] = await Promise.all([
-    prisma.road.count({ where }),
-    prisma.road.findMany({
-      where,
-      select: roadCardSelect,
-      orderBy: { updatedAt: "asc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
-  ]);
-  return { items, total, page, pageSize: PAGE_SIZE, hasMore: page * PAGE_SIZE < total };
-}
-
-export async function roadList(opts: { status?: string; q?: string; page?: number } = {}) {
-  const page = Math.max(1, opts.page ?? 1);
-  const and: Prisma.RoadWhereInput[] = [];
-  if (opts.status && STATUS_VALUES.has(opts.status)) {
-    and.push({ moderationStatus: opts.status as ModerationStatus });
-  }
-  const term = opts.q?.trim();
-  if (term) {
-    const contains = { contains: term, mode: "insensitive" as const };
-    and.push({
-      OR: [{ title: contains }, { difficulty: contains }, { goal: contains }, { situation: contains }],
-    });
-  }
-  const where: Prisma.RoadWhereInput = and.length ? { AND: and } : {};
-  const [total, items] = await Promise.all([
-    prisma.road.count({ where }),
-    prisma.road.findMany({
-      where,
-      select: roadCardSelect,
-      orderBy: { updatedAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
-  ]);
-  return { items, total, page, pageSize: PAGE_SIZE, hasMore: page * PAGE_SIZE < total };
-}
-
-export async function roadDetail(roadId: string) {
-  const road = await prisma.road.findUnique({
-    where: { id: roadId },
-    include: {
-      roadTags: { include: { tag: true } },
-      attempts: {
-        select: { id: true, method: true, result: true, isPublished: true, moderationStatus: true },
-        orderBy: { createdAt: "asc" },
-      },
-      moderatedByAdmin: { select: { id: true, email: true, displayName: true } },
-    },
-  });
-  if (!road) return null;
-  const audit = await prisma.adminAuditLog.findMany({
-    where: { roadId },
-    orderBy: { createdAt: "desc" },
-    include: { admin: { select: { email: true, displayName: true } } },
-  });
-  return { road, audit };
 }
 
 export async function auditLog(opts: { page?: number } = {}) {

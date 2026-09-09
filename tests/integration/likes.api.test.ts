@@ -49,10 +49,8 @@ beforeAll(async () => {
   const road = await prisma.road.create({
     data: {
       userId: ownerId,
-      title: MARK,
       difficulty: `${MARK} こまりごと`,
       goal: "できるように",
-      moderationStatus: "approved",
     },
   });
   const pub = await prisma.attempt.create({

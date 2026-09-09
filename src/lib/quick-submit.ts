@@ -54,9 +54,6 @@ export async function createQuickSubmission(
     data: {
       userId: submitter.id,
       difficulty: input.difficulty,
-      moderationStatus: ModerationStatus.approved,
-      // 匿名の受け皿の道。道ページとしての公開はしない (経験の公開ゲートは Attempt 承認のみ)。
-      visibility: "private",
     },
     select: { id: true },
   });

@@ -4,8 +4,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { TextField, TextAreaField } from "@/components/form";
-import { Callout } from "@/components/ui";
-import { IconLightbulb, IconMapPin, IconRoute, IconSprout } from "@/components/icons";
+import { IconLightbulb, IconMapPin, IconRoute } from "@/components/icons";
 import { FIELD_MAX } from "@/lib/constants";
 import { api, ClientApiError } from "@/lib/client/api";
 import type { RoadDTO } from "@/lib/serializers";
@@ -33,14 +32,12 @@ function Section({
 
 export function RoadEditForm({ road }: { road: RoadDTO }) {
   const router = useRouter();
-  // タイトルと「できなくなったこと」は、一度設定すると変更できない (道の同一性を保つため)。
-  const titleLocked = Boolean(road.title);
+  // 「できなくなったこと」は、一度設定すると変更できない (道の同一性を保つため)。
   const difficultyLocked = Boolean(road.difficulty);
   // 確定済みなら「変更できません」、まだ空なら「保存後は変更できません」と先に知らせる。
   const lockHint = (locked: boolean) =>
     locked ? "一度設定したため、変更できません" : "保存すると、あとから変更できません";
   const [v, setV] = useState({
-    title: road.title ?? "",
     previouslyAble: road.previouslyAble ?? "",
     difficulty: road.difficulty ?? "",
     goal: road.goal ?? "",
@@ -70,7 +67,6 @@ export function RoadEditForm({ road }: { road: RoadDTO }) {
     try {
       await api.patch(`/api/v1/roads/${road.id}`, {
         // 確定済みの項目は送らない (サーバー側でも変更を拒否する)
-        ...(titleLocked ? {} : { title: v.title || null }),
         previouslyAble: v.previouslyAble || null,
         ...(difficultyLocked ? {} : { difficulty: v.difficulty || null }),
         goal: v.goal || null,
@@ -113,34 +109,9 @@ export function RoadEditForm({ road }: { road: RoadDTO }) {
         </p>
       )}
 
-      <Callout tone="info" title="変更できない項目があります">
-        <p>
-          <strong>「タイトル」</strong>と<strong>「できなくなったこと」</strong>は、
-          あとから見た経験がずれないよう、<strong>一度保存すると変更できません</strong>。
-          {(titleLocked || difficultyLocked) && "（設定済みの項目は編集できません。）"}
-          それ以外の項目はいつでも直せます。
-        </p>
-      </Callout>
-
-      {/* ① 道の基本 */}
-      <Section icon={IconSprout} title="道の基本">
-        <TextField
-          label="タイトル（一覧での見出し）"
-          {...bind("title")}
-          readOnly={titleLocked}
-          hint={lockHint(titleLocked)}
-          error={fieldErrors.title}
-          maxLength={FIELD_MAX.title}
-        />
-      </Section>
-
-      {/* ② この道について */}
+      {/* ① この道について。「できなくなったこと」= 道の見出し・確定項目なので先頭に置く。
+          「変更できません」は各項目の hint（lockHint）で個別に伝えるため、まとめ Callout は出さない。 */}
       <Section icon={IconRoute} title="この道について">
-        <TextAreaField
-          label="以前できていたこと"
-          {...bind("previouslyAble")}
-          maxLength={FIELD_MAX.text}
-        />
         <TextAreaField
           label="できなくなったこと"
           {...bind("difficulty")}
@@ -149,10 +120,15 @@ export function RoadEditForm({ road }: { road: RoadDTO }) {
           error={fieldErrors.difficulty}
           maxLength={FIELD_MAX.text}
         />
+        <TextAreaField
+          label="以前できていたこと"
+          {...bind("previouslyAble")}
+          maxLength={FIELD_MAX.text}
+        />
         <TextAreaField label="やりたいこと・目標" {...bind("goal")} maxLength={FIELD_MAX.text} />
       </Section>
 
-      {/* ③ 今の状態 */}
+      {/* ② 今の状態 */}
       <Section icon={IconMapPin} title="今の状態">
         <TextField
           label="いつ頃から難しくなったか"
@@ -169,7 +145,7 @@ export function RoadEditForm({ road }: { road: RoadDTO }) {
         <TextAreaField label="いまの進捗" {...bind("progress")} maxLength={FIELD_MAX.text} />
       </Section>
 
-      {/* ④ 次の一歩・記録 */}
+      {/* ③ 次の一歩・記録 */}
       <Section icon={IconLightbulb} title="次の一歩・記録">
         <TextAreaField label="次に試すこと" {...bind("nextAction")} maxLength={FIELD_MAX.text} />
         <TextAreaField label="メモ" {...bind("memo")} maxLength={FIELD_MAX.longText} />

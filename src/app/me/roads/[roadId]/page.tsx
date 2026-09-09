@@ -9,7 +9,6 @@ import {
   AttemptPublishToggle,
   DeleteAttemptButton,
   DeleteRoadButton,
-  RoadVisibilityToggle,
 } from "@/components/road-actions";
 
 export const metadata: Metadata = { title: "自分の道" };
@@ -48,10 +47,9 @@ export default async function MyRoadPage({ params }: { params: Promise<{ roadId:
                 aria-hidden="true"
                 className="mt-1 h-5 w-5 shrink-0 text-[var(--color-primary)]"
               />
-              {road.title ?? road.difficulty ?? "（無題の道）"}
+              {road.difficulty ?? "（無題の道）"}
             </h1>
             <div className="ml-auto flex flex-wrap items-center gap-2">
-              <RoadVisibilityToggle roadId={road.id} initial={road.visibility} />
               <LinkButton href={`/me/roads/${road.id}/edit`}>
                 <IconPencil aria-hidden="true" className="h-4 w-4 shrink-0" />
                 道を編集
@@ -75,23 +73,6 @@ export default async function MyRoadPage({ params }: { params: Promise<{ roadId:
 
       {/* 本文セクション。ヘッダーのボタン行との間は詰め（mt-4）、セクション間は space-y-6。 */}
       <div className="mt-4 space-y-6">
-        {road.moderationStatus !== "approved" && (
-          <Callout
-            tone="warn"
-            title={
-              road.moderationStatus === "rejected"
-                ? "この道は公開が見送られました"
-                : "この道の内容を確認しています"
-            }
-          >
-            <p>
-              {road.moderationStatus === "rejected"
-                ? "運営がこの道の内容の公開を見送りました。「道を編集」で内容を直すと、もう一度確認されます。"
-                : "運営がこの道の内容を確認しています。確認できるまで、この道で「経験として公開」した記録は、みんなの検索結果には出ません。"}
-            </p>
-          </Callout>
-        )}
-
         {overview.length > 0 && (
           <section className={`${CARD} bg-[var(--color-surface)] p-5`}>
             <h2 className="mb-4 flex items-center gap-2 text-base font-bold">

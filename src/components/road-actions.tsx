@@ -107,65 +107,6 @@ export function AttemptPublishToggle({
   );
 }
 
-/* 道全体の公開/非公開。押したときの表示変更は AttemptPublishToggle と同じにそろえる
-   （公開中はオレンジの下地＋枠、非公開はグレー、操作後に状態メッセージを出す）。 */
-export function RoadVisibilityToggle({
-  roadId,
-  initial,
-}: {
-  roadId: string;
-  initial: "private" | "public";
-}) {
-  const router = useRouter();
-  const [vis, setVis] = useState(initial);
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  async function toggle() {
-    const next = vis === "public" ? "private" : "public";
-    setBusy(true);
-    setMsg(null);
-    try {
-      await api.patch(`/api/v1/roads/${roadId}`, { visibility: next });
-      setVis(next);
-      setMsg(next === "public" ? "公開しました" : "公開をやめました");
-      router.refresh();
-    } catch (e) {
-      setMsg(e instanceof ClientApiError ? e.message : "変更できませんでした");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const on = vis === "public";
-  return (
-    <span className="inline-flex items-center gap-2">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        onClick={toggle}
-        disabled={busy}
-        className={`tap-target inline-flex items-center gap-2 rounded-[var(--radius-pill)] border px-3 py-1.5 text-sm font-semibold disabled:opacity-60 ${
-          on
-            ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
-            : "border-[var(--color-neutral)] bg-[var(--color-neutral-soft)] text-[var(--color-ink-muted)]"
-        }`}
-      >
-        {on ? (
-          <IconGlobe aria-hidden="true" className="h-4 w-4 shrink-0" />
-        ) : (
-          <IconLock aria-hidden="true" className="h-4 w-4 shrink-0" />
-        )}
-        {on ? "道のページを公開中" : "道のページは非公開"}
-      </button>
-      <span role="status" aria-live="polite" className="text-xs text-[var(--color-ink-muted)]">
-        {msg}
-      </span>
-    </span>
-  );
-}
-
 export function DeleteAttemptButton({ attemptId }: { attemptId: string }) {
   const router = useRouter();
   const [pending, start] = useTransition();

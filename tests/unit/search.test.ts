@@ -7,12 +7,11 @@ import {
 } from "@/lib/search";
 
 describe("buildExperienceWhere", () => {
-  it("公開かつ Attempt も親 Road も承認済みに限定する", () => {
+  it("公開かつ Attempt が承認済みに限定する（道自体の承認は問わない）", () => {
     const where = buildExperienceWhere({});
     expect(where.AND).toContainEqual({
       isPublished: true,
       moderationStatus: "approved",
-      road: { is: { moderationStatus: "approved" } },
     });
   });
 
@@ -59,6 +58,15 @@ describe("readFilterWhere（既読 / 未読の絞り込み）", () => {
     // 未ログインなら反映しない
     const anon = buildExperienceWhere({ read: "unread" });
     expect((anon.AND as any[]).some((c) => c.NOT || c.reads)).toBe(false);
+  });
+});
+
+describe("buildRoadLevelSearchWhere", () => {
+  it("「承認済みの公開経験を 1 つ以上持つ道」に限定し、道自体の承認状態は条件にしない", () => {
+    const where = buildRoadLevelSearchWhere({});
+    const clause = (where.AND as any[]).find((c) => c.attempts?.some);
+    expect(clause.attempts.some).toMatchObject({ isPublished: true, moderationStatus: "approved" });
+    expect((where.AND as any[]).some((c) => "moderationStatus" in c)).toBe(false);
   });
 });
 

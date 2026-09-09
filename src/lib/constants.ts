@@ -12,7 +12,6 @@ export type AttemptResultValue = (typeof ATTEMPT_RESULTS)[number];
  * 片方だけずれることを防ぐ。
  */
 export const FIELD_MAX = {
-  title: 120,
   statusLabel: 60,
   tagName: 30,
   text: 2000,
@@ -72,9 +71,6 @@ export const RESULT_META: Record<AttemptResultValue, ResultMeta> = {
 export function resultMeta(value: string): ResultMeta {
   return RESULT_META[value as AttemptResultValue] ?? RESULT_META.ongoing;
 }
-
-export const VISIBILITY = ["private", "public"] as const;
-export type VisibilityValue = (typeof VISIBILITY)[number];
 
 export const EXPERIENCE_SORTS = ["recent", "helpful", "tried"] as const;
 export type ExperienceSort = (typeof EXPERIENCE_SORTS)[number];

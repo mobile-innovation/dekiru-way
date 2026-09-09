@@ -44,6 +44,13 @@ test("長い「できなくなったこと」でも道を作成でき、作っ�
   await expect(page).toHaveURL(/\/me\/roads\/[0-9a-f-]{36}$/);
   await expect(page.getByText("まだ記録がありません")).toBeVisible();
   await expect(page.getByText(long).first()).toBeVisible();
+
+  // 試したことが無い道があると、「自分の道」に公開されない旨のカードが出る
+  await page.goto("/me");
+  await expect(
+    page.getByText("試したことを記録すると、経験として公開されます"),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: /試したことを記録する →/ })).toBeVisible();
 });
 
 test("送信ボタンは連打しても道は 1 件しか作られない", async ({ page }) => {

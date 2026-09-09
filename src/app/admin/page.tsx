@@ -61,7 +61,6 @@ function StatCard({ value, label }: { value: number; label: string }) {
 
 const MENU: { href: string; label: string; ready: boolean }[] = [
   { href: "/admin/moderation", label: "経験を確認する", ready: true },
-  { href: "/admin/roads", label: "道を確認する", ready: true },
   { href: "/admin/posts", label: "公開されている経験を見る", ready: true },
   { href: "/admin/audit", label: "操作ログを見る", ready: true },
   { href: "", label: "利用者を見る（準備中）", ready: false },
@@ -71,7 +70,7 @@ const MENU: { href: string; label: string; ready: boolean }[] = [
 export default async function AdminDashboardPage() {
   await requireAdmin();
   const [s, activity] = await Promise.all([dashboardStats(), recentActivity()]);
-  const needsReview = s.pending + s.roadPending;
+  const needsReview = s.pending;
 
   return (
     <div className="space-y-8">
@@ -87,13 +86,7 @@ export default async function AdminDashboardPage() {
             いま確認が必要なものはありません。
           </p>
         )}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <ReviewCard
-            href="/admin/roads"
-            noun="道"
-            count={s.roadPending}
-            hint="道の内容が公開してよいか確認してください"
-          />
+        <div className="grid gap-3">
           <ReviewCard
             href="/admin/moderation"
             noun="経験"
@@ -114,15 +107,11 @@ export default async function AdminDashboardPage() {
           <StatCard value={s.approved} label="公開されている経験" />
           <StatCard value={s.recentApproved} label="直近7日に公開・更新" />
         </div>
-        {(s.rejected > 0 || s.roadRejected > 0) && (
+        {s.rejected > 0 && (
           <p className="text-xs text-[var(--color-ink-muted)]">
-            公開を停止した経験 {s.rejected} 件 ・ 道 {s.roadRejected} 件（
+            公開を停止した経験 {s.rejected} 件（
             <Link href="/admin/posts?status=rejected" className="underline">
-              経験
-            </Link>{" "}
-            /{" "}
-            <Link href="/admin/roads?status=rejected" className="underline">
-              道
+              一覧を見る
             </Link>
             ）
           </p>

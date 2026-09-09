@@ -16,12 +16,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// 公開範囲。Road 全体を他人が閲覧できるか。初期値は public（あとから非公開に切り替え可）。
-enum Visibility {
-  private
-  public
-}
-
 /// 試したことの結果。必ずこの 5 分類のいずれか。
 ///   success   = できるようになった
 ///   partial   = 少しできた
@@ -67,7 +61,6 @@ model User {
 model Road {
   id            String     @id @default(uuid()) @db.Uuid
   userId        String     @map("user_id") @db.Uuid
-  title         String?
   /// 以前できていたこと
   previouslyAble String?   @map("previously_able")
   /// 何ができなくて困っているか
@@ -85,30 +78,19 @@ model Road {
   progress      String?
   /// 次に試すこと
   nextAction    String?    @map("next_action")
-  visibility    Visibility @default(public)
-  /// 道の内容モデレーション。承認済みでないと、この道の経験は公開面に出さない。
-  /// 新規行は pending。既存の道はマイグレーションで approved にバックフィルする。
-  moderationStatus   ModerationStatus @default(pending) @map("moderation_status")
-  aiVerdict          String?          @map("ai_verdict")
-  aiReason           String?          @map("ai_reason")
-  aiCategories       String[]         @map("ai_categories")
-  aiCheckedAt        DateTime?        @map("ai_checked_at")
-  moderatedByAdminId String?          @map("moderated_by_admin_id") @db.Uuid
-  moderatedAt        DateTime?        @map("moderated_at")
-  moderationNote     String?          @map("moderation_note")
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  // 道そのものにはモデレーション状態を持たない。道が公開面に出るかは
+  // 「承認済みの公開経験 (Attempt) を 1 つ以上持つか」だけで決まる (PUBLIC_ATTEMPT_WHERE)。
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   attempts Attempt[]
   roadTags RoadTag[]
-  moderatedByAdmin AdminUser? @relation("AdminModeratedRoads", fields: [moderatedByAdminId], references: [id], onDelete: SetNull)
 
   @@index([userId])
-  @@index([visibility])
   @@index([createdAt])
   @@index([updatedAt])
-  @@index([moderationStatus])
   @@map("roads")
 }
 
@@ -201,7 +183,6 @@ model AdminUser {
 
   auditLogs         AdminAuditLog[]
   moderatedAttempts Attempt[]
-  moderatedRoads    Road[]          @relation("AdminModeratedRoads")
 
   @@map("admin_users")
 }
@@ -214,8 +195,6 @@ model AdminAuditLog {
   action    String
   /// 対象の投稿 (Attempt) id。操作によっては無い。
   attemptId String?  @map("attempt_id") @db.Uuid
-  /// 対象の道 (Road) id。操作によっては無い。
-  roadId    String?  @map("road_id") @db.Uuid
   detail    Json?
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -223,7 +202,6 @@ model AdminAuditLog {
 
   @@index([createdAt])
   @@index([attemptId])
-  @@index([roadId])
   @@map("admin_audit_logs")
 }
 

@@ -22,10 +22,7 @@ import { hashPassword } from "@/lib/admin/password";
 import { resetBotGuard } from "@/lib/bot-guard";
 import { POST as createAttempt } from "@/app/api/v1/roads/[roadId]/attempts/route";
 import { PATCH as patchAttempt } from "@/app/api/v1/attempts/[attemptId]/route";
-import { POST as createRoad } from "@/app/api/v1/roads/route";
-import { PATCH as patchRoad } from "@/app/api/v1/roads/[roadId]/route";
 import { POST as moderate } from "@/app/api/admin/moderation/[attemptId]/route";
-import { POST as moderateRoad } from "@/app/api/admin/roads/[roadId]/moderate/route";
 import { GET as listExperiences } from "@/app/api/v1/experiences/route";
 
 const MARK = `modflow-${Date.now()}`;
@@ -43,14 +40,11 @@ beforeAll(async () => {
 
   const user = await prisma.user.create({ data: { googleSub: `${MARK}:owner` } });
   userId = user.id;
-  // 投稿チェックの検証用の道は承認済みにしておく (道チェックは別 describe で検証)
   const road = await prisma.road.create({
     data: {
       userId,
-      title: MARK,
       difficulty: `${MARK} こまりごと`,
       goal: "できるように",
-      moderationStatus: "approved",
     },
   });
   roadId = road.id;
@@ -167,142 +161,5 @@ describe("公開 → AI不明で保留 → 管理者が許可 の一連", () => 
     const dto = (await res.json()) as { moderationStatus: string };
     expect(dto.moderationStatus).toBe("pending");
     expect(await publicMethods()).not.toContain(`${MARK} あとから書き換えた本文`);
-  });
-});
-
-describe("道の登録も公開チェックされる", () => {
-  it("登録した道は AI 不明で pending。その道の承認済み投稿も公開検索に出ない", async () => {
-    asUser(userId);
-    const word = `${MARK}ミチトウロク`;
-    const res = await createRoad(
-      new Request("http://localhost/api/v1/roads", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ difficulty: `${word} で困っている`, goal: "できるように" }),
-      }),
-      { params: Promise.resolve({}) },
-    );
-    expect(res.status).toBe(201);
-    const road = (await res.json()) as { id: string; moderationStatus: string };
-    expect(road.moderationStatus).toBe("pending");
-
-    // その道に承認済みの公開投稿を直接用意しても、道が pending なので公開面に出ない
-    await prisma.attempt.create({
-      data: {
-        roadId: road.id,
-        method: `${word} を試した`,
-        result: "success",
-        isPublished: true,
-        moderationStatus: "approved",
-      },
-    });
-    const hidden = await listExperiences(
-      new Request(`http://localhost/api/v1/experiences?q=${encodeURIComponent(word)}&limit=50`),
-      { params: Promise.resolve({}) },
-    );
-    expect(((await hidden.json()) as { items: unknown[] }).items).toHaveLength(0);
-
-    // 管理者が道を許可 → 経験が公開面に出る
-    const mod = await moderateRoad(
-      new Request(`http://localhost/api/admin/roads/${road.id}/moderate`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "approve" }),
-      }),
-      { params: Promise.resolve({ roadId: road.id }) },
-    );
-    expect(mod.status).toBe(200);
-    const shown = await listExperiences(
-      new Request(`http://localhost/api/v1/experiences?q=${encodeURIComponent(word)}&limit=50`),
-      { params: Promise.resolve({}) },
-    );
-    expect(((await shown.json()) as { items: { method: string }[] }).items.map((i) => i.method)).toContain(
-      `${word} を試した`,
-    );
-
-    const audit = await prisma.adminAuditLog.findFirst({
-      where: { roadId: road.id, action: "approve" },
-    });
-    expect(audit).toBeTruthy();
-  });
-
-  it("承認済みの道の本文を編集すると再審査され pending に戻る", async () => {
-    asUser(userId);
-    const word = `${MARK}ミチヘンシュウ`;
-    const road = await prisma.road.create({
-      data: {
-        userId,
-        difficulty: `${word} で困っている`,
-        goal: "g",
-        moderationStatus: "approved",
-      },
-    });
-
-    const res = await patchRoad(
-      new Request(`http://localhost/api/v1/roads/${road.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ situation: `${word} あとから追記した場面` }),
-      }),
-      { params: Promise.resolve({ roadId: road.id }) },
-    );
-    const dto = (await res.json()) as { moderationStatus: string };
-    expect(dto.moderationStatus).toBe("pending");
-  });
-
-  it("承認済みの道で本文はそのままタグだけ変えても再審査され pending に戻る", async () => {
-    asUser(userId);
-    const word = `${MARK}ミチタグ`;
-    const road = await prisma.road.create({
-      data: {
-        userId,
-        difficulty: `${word} で困っている`,
-        goal: "g",
-        moderationStatus: "approved",
-      },
-    });
-
-    const res = await patchRoad(
-      new Request(`http://localhost/api/v1/roads/${road.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tags: [`${word}タグ`] }),
-      }),
-      { params: Promise.resolve({ roadId: road.id }) },
-    );
-    const dto = (await res.json()) as { moderationStatus: string };
-    expect(dto.moderationStatus).toBe("pending");
-  });
-
-  it("タグを元の内容と同じ集合に送り直しても再審査は走らない (無駄なAI呼び出しをしない)", async () => {
-    asUser(userId);
-    const word = `${MARK}ミチタグドウイツ`;
-    // タグ名は FIELD_MAX.tagName (30文字) 制限があるため、MARK を含めない短い名前にする。
-    const tagName = `tg${Date.now()}`;
-    const road = await prisma.road.create({
-      data: {
-        userId,
-        difficulty: `${word} で困っている`,
-        goal: "g",
-        moderationStatus: "approved",
-        roadTags: {
-          create: {
-            tag: { connectOrCreate: { where: { name: tagName }, create: { name: tagName } } },
-          },
-        },
-      },
-    });
-
-    const res = await patchRoad(
-      new Request(`http://localhost/api/v1/roads/${road.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tags: [tagName] }),
-      }),
-      { params: Promise.resolve({ roadId: road.id }) },
-    );
-    const dto = (await res.json()) as { moderationStatus: string };
-    // 内容は変わっていないので approved のまま (pending に落ちない)
-    expect(dto.moderationStatus).toBe("approved");
   });
 });

@@ -65,6 +65,16 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
     await expect(page.getByText("マグネット式のバッグ留めに替えた")).toBeVisible();
     await expect(page.getByText("うまくいかなかった").first()).toBeVisible();
     await expect(page.getByText("できるようになった").first()).toBeVisible();
+
+    // --- 「自分の道」一覧のカード内にも、検索の道カードと同じく試したことのテキストが出る ---
+    await page.goto("/me");
+    const card = page.locator("article").filter({ hasText: "エコバッグの結び目がほどけない" });
+    await expect(card).toBeVisible();
+    await expect(card.getByText("試したこと 2 件")).toBeVisible();
+    await expect(card.getByText("片手で結ぼうとした")).toBeVisible();
+    await expect(card.getByText("マグネット式のバッグ留めに替えた")).toBeVisible();
+    // 各方法の右に公開状態（E2E は AI 審査オフなので公開済み → 公開中）
+    await expect(card.getByText("公開中", { exact: true })).toHaveCount(2);
   } finally {
     // 公開トグルが既定 ON になったため、この道の経験が公開一覧に残らないよう削除する。
     await page.request.delete(`/api/v1/roads/${roadId}`);

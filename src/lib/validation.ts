@@ -6,7 +6,6 @@ import {
   EXPERIENCE_READ_VALUES,
   EXPERIENCE_SORTS,
   FIELD_MAX,
-  VISIBILITY,
 } from "@/lib/constants";
 
 /**
@@ -45,7 +44,6 @@ const tagNameList = z
 // ---- Road ----
 
 export const roadCreateSchema = z.object({
-  title: trimmedOptional(FIELD_MAX.title),
   previouslyAble: trimmedOptional(FIELD_MAX.text),
   difficulty: trimmedOptional(FIELD_MAX.text),
   goal: trimmedOptional(FIELD_MAX.text),
@@ -55,7 +53,6 @@ export const roadCreateSchema = z.object({
   status: trimmedOptional(FIELD_MAX.statusLabel),
   progress: trimmedOptional(FIELD_MAX.text),
   nextAction: trimmedOptional(FIELD_MAX.text),
-  visibility: z.enum(VISIBILITY).optional(),
   tags: tagNameList,
 });
 

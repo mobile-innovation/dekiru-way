@@ -59,10 +59,6 @@ describe("roadCreateSchema", () => {
     expect(r.goal).toBe("歩きたい");
   });
 
-  it("visibility は private/public のみ", () => {
-    expect(roadCreateSchema.safeParse({ visibility: "secret" }).success).toBe(false);
-  });
-
   it("タグは最大 10 個", () => {
     const tags = Array.from({ length: 11 }, (_, i) => `t${i}`);
     expect(roadCreateSchema.safeParse({ tags }).success).toBe(false);

@@ -25,7 +25,7 @@
 
 | 用語 | 実体 | 説明 |
 | --- | --- | --- |
-| **道**（Road） | `roads` | 一人の「困りごと・目標」から始まる試行錯誤のまとまり。タイトル／以前できていたこと／できなくなったこと／やりたいこと／場面／進捗／次に試すこと／メモ／タグ など |
+| **道**（Road） | `roads` | 一人の「困りごと・目標」から始まる試行錯誤のまとまり。以前できていたこと／できなくなったこと／やりたいこと／場面／進捗／次に試すこと／メモ／タグ など。一覧の見出しは「できなくなったこと」 |
 | **試したこと**（Attempt） | `attempts` | 道の中で試した 1 つの方法と結果。方法・結果（5 分類）・時期・気づき・できた％・気持ち・その後の状態・次に試すこと・前に試した方法（因果） |
 | **経験**（Experience） | 独立テーブルなし | 「公開された Attempt」を経験と呼ぶ。他ユーザーはこれを検索・閲覧する |
 
@@ -80,11 +80,11 @@
 
 | パス | 内容 |
 | --- | --- |
-| `/me` | 自分の道の一覧。各道の公開中／確認中の件数、道の公開・非公開 |
+| `/me` | 自分の道の一覧。カード内に検索の道カードと同じく試したこと（先頭 3 件・方法テキスト＋結果）を表示。各方法の右に公開状態（公開中／確認中／見送り／非公開）。試したことが 1 件も無い道があるときは「試したことを記録すると経験として公開されます」のカードを上部に出す。各道の公開中／確認中の件数 |
 | `/me/account` | **アカウント設定**。あなたのデータ（自分の道／試したこと／公開した経験 の件数）＋アカウント削除。プロフィール編集項目は持たない |
 | `/me/roads/new` | 道を作る（段階入力可） |
 | `/me/roads/[roadId]` | 道の詳細（本人ビュー）。試したことの一覧、公開トグル、道の公開設定、編集、削除 |
-| `/me/roads/[roadId]/edit` | 道を編集。**タイトル・できなくなったことは一度値が入ると変更不可** |
+| `/me/roads/[roadId]/edit` | 道を編集。**できなくなったことは一度値が入ると変更不可** |
 | `/me/roads/[roadId]/attempts/new` | 試したことを記録（音声入力対応、タグ、**公開トグルは新規で既定 ON**） |
 | `/me/roads/[roadId]/attempts/[attemptId]/edit` | 記録を編集 |
 
@@ -97,8 +97,6 @@
 | `/admin` | ダッシュボード。「確認が必要」→「現在の状況」→「最近の動き」→「管理メニュー」 |
 | `/admin/login` | 運営者ログイン（メール＋パスワード、10 回失敗で約 1 分ロック） |
 | `/admin/moderation` | 確認待ちの**経験**キュー（古い順）。困ったこと→試したこと→結果／AI の理由・カテゴリ／SNS 簡易登録の運営メモ。公開する／公開しない |
-| `/admin/roads` | 確認待ちの**道**キュー（状態フィルタ・検索） |
-| `/admin/roads/[roadId]` | 道の全項目＋AI 判定＋この道の経験一覧＋操作ログ |
 | `/admin/posts` | 全経験の一覧（状態フィルタ・キーワード検索）。公開停止・再公開・AI 再チェック |
 | `/admin/posts/[attemptId]` | 経験の全項目＋AI 判定＋操作ログ |
 | `/admin/audit` | 全操作ログ（誰が・いつ・何を・どの対象に） |
@@ -109,11 +107,13 @@
 
 ### 5.1 経験の記録と公開
 
-1. `/me/roads/new` で道を作る。作成時に「できなくなったこと」から**ローカル AI**（任意）でタイトルを補える。
+1. `/me/roads/new` で道を作る。「できなくなったこと」が一覧の見出しになる（別途タイトルは持たない）。
 2. 道に「試したこと」を追加。結果は 5 分類から選ぶ。
 3. 公開トグル（新規は既定 ON）で「経験として公開」する。
-4. 道の公開範囲（`visibility`）は**既定 public**。道の詳細画面でいつでも非公開に切り替え可能。
-5. タイトル・できなくなったことは一度確定すると変更不可（道の同一性を保つため）。
+4. できなくなったことは一度確定すると変更不可（道の同一性を保つため）。
+
+道そのものに公開 / 非公開の設定は無い（**道は公開前提**）。公開面に出るかどうかは、その道で
+「経験として公開」した Attempt が承認済みかどうかだけで決まる。
 
 ### 5.2 経験の検索・閲覧
 
@@ -130,21 +130,23 @@
 **目的**: 運営が不適切な内容（個人情報・医療的断定・誹謗中傷・宣伝・公序良俗違反）を止める。
 
 - **経験の公開**（Attempt を `isPublished=true` で作成／公開中の本文を編集）→ AI 審査。
-- **道の登録・編集**（審査対象項目が変わったとき）→ AI 審査。
+  審査本文には、その経験が属する道の記述（できなくなったこと／やりたいこと／場面／
+  以前できていたこと）・タグも含める（道の公開テキストも 1 回はチェックされる）。
 - 判定: `ok` → 自動的に **公開（approved）** ／ `ng`・`unknown`（`ANTHROPIC_API_KEY` 未設定を含む）
   → **確認待ち（pending）** になり運営レビューへ。
 - **公開ゲートは 1 箇所に集約**（`src/lib/search.ts#PUBLIC_ATTEMPT_WHERE`）:
-  公開面に出るのは「Attempt が `isPublished` かつ `approved`」**かつ**「その親 Road も `approved`」のときだけ。
+  公開面に出るのは「Attempt が `isPublished` かつ `approved`」のときだけ。**道 (Road) 自体は
+  モデレーション状態を持たない**。道が公開面に出るかは「承認済みの公開経験を 1 つ以上持つか」で決まる。
 - `AI_MODERATION_ENABLED=false` で審査を無効化（AI を呼ばず即 approved）。E2E は自動で false。
 - 運営が手動で `approved` / `rejected` にした後は、AI 再チェックを通さない限り状態は変わらない。
-- 状態は `pending` / `approved` / `rejected` の 3 値。`Attempt` と `Road` の両方に持つ。
+- 状態は `pending` / `approved` / `rejected` の 3 値。`Attempt` のみが持つ。
 
 ### 5.4 SNS 向け簡易登録（`/try`）
 
 - ログイン不要。氏名・連絡先などの個人情報フィールドは持たない。
 - 入力は困っていたこと／試したこと（各 400 字以内・trim・制御文字除去・空白畳み込み）／結果の 3 つ。
 - 保存: 匿名の受け皿となるシステム利用者（Google ログイン不可・公開面に出ない）が所有する
-  `Road`（`difficulty` のみ・`visibility=private`・`moderationStatus=approved`）＋
+  `Road`（`difficulty` のみ）＋
   `Attempt`（`isPublished=true` だが **`moderationStatus=pending` 固定**。AI 判定に関わらず自動公開しない）。
 - 通常の書き込み（60/分）より厳しい **6/分・IP 単位** のレート制限。
 - 運営が `/admin/moderation` で確認して公開する。運営メモに「SNSからの簡易登録（未ログイン）」が付く。
@@ -199,7 +201,6 @@
 - `POST /api/v1/ai/experience-search`（いまの状況から探すヒント）、
   `POST /api/v1/ai/summarize-experiences`（経験の整理）。いずれも補助レイヤーで、
   `ANTHROPIC_API_KEY` 未設定ならスタブ応答。医療的助言・診断はしない。
-- ローカル AI（Ollama 互換、任意）: 道タイトルの自動生成のみ。`LOCAL_AI_MODEL` 未設定なら無効。
 
 ---
 
@@ -208,7 +209,7 @@
 | テーブル | 主なカラム | 関係・削除 |
 | --- | --- | --- |
 | `users` | `google_sub`(unique), `display_name`, `avatar_url` | → roads / attempt_likes / attempt_reads / notifications（すべて cascade） |
-| `roads` | `user_id`, `title?`, `previously_able?`, `difficulty?`, `goal?`, `started_at?`, `situation?`, `memo?`, `status?`, `progress?`, `next_action?`, `visibility`(既定 **public**), `moderation_status`(既定 pending) ＋ AI 判定・手動判断カラム | `user` cascade。attempts / road_tags は cascade |
+| `roads` | `user_id`, `previously_able?`, `difficulty?`, `goal?`, `started_at?`, `situation?`, `memo?`, `status?`, `progress?`, `next_action?` | `user` cascade。attempts / road_tags は cascade。道自体はモデレーション状態を持たない |
 | `attempts` | `road_id`, `method`, `result`(enum 5), `tried_at?`, `memo?`, `achievement_percent?`, `feeling?`, `state_after?`, `next_action?`, `previous_attempt_id?`, `is_published`(既定 false／フォームは新規 ON), `moderation_status`(既定 pending) ＋ AI 判定・手動判断カラム | `road` cascade。likes / reads / notifications は cascade。`previous_attempt` は SetNull |
 | `tags` | `name`(unique) | 共有マスタ。ユーザー削除では消えない |
 | `road_tags` | `road_id` + `tag_id`（複合 PK） | 両側 cascade |
@@ -219,7 +220,6 @@
 | `notifications` | `user_id`, `type`(`attempt_liked`), `attempt_id?`, `is_read`, `created_at` | user / attempt cascade |
 
 - `ModerationStatus` enum: `pending` / `approved` / `rejected`。
-- `Visibility` enum: `private` / `public`（既定 public）。
 - **`attempt_photos` は廃止済み。** 画像関連カラム・オブジェクトストレージは存在しない。
 
 ---
@@ -240,7 +240,7 @@
 | 既読（本人） | `POST /attempts/{attemptId}/read` |
 | 通知（本人） | `POST /notifications/read` |
 | AI 補助 | `POST /ai/experience-search`, `POST /ai/summarize-experiences` |
-| 管理（運営者） | `POST /api/admin/login`, `POST /api/admin/logout`, `POST /api/admin/moderation/{attemptId}`, `PATCH /api/admin/posts/{attemptId}`, `POST /api/admin/posts/{attemptId}/recheck`, `PATCH /api/admin/roads/{roadId}`, `POST /api/admin/roads/{roadId}/moderate`, `POST /api/admin/roads/{roadId}/recheck` |
+| 管理（運営者） | `POST /api/admin/login`, `POST /api/admin/logout`, `POST /api/admin/moderation/{attemptId}`, `PATCH /api/admin/posts/{attemptId}`, `POST /api/admin/posts/{attemptId}/recheck` |
 | 開発専用 | `POST/DELETE /api/test/login`（`E2E_TEST_LOGIN=true` のときのみ） |
 
 **共通:** エラーは `{ "error": { "code", "message", "details"? } }`。
@@ -274,10 +274,10 @@
 | DB | PostgreSQL 16 + Prisma 6（`@@map`/`@map` でスネークケース物理名） |
 | 認証（利用者） | Auth.js（NextAuth v5）+ Google OAuth、JWT セッション Cookie。DB アダプタは使わず `users` を自前 upsert |
 | 認証（管理者） | `node:crypto` の scrypt パスワード＋HMAC-SHA256 署名トークン（鍵は `AUTH_SECRET`） |
-| AI | Anthropic Claude（`@anthropic-ai/sdk`）。キー未設定時はスタブ。ローカル AI は Ollama 互換（任意） |
+| AI | Anthropic Claude（`@anthropic-ai/sdk`）。キー未設定時はスタブ |
 | スタイル | Tailwind v4（`@theme` のデザイントークン `src/styles/tokens.css`） |
 | 画像・写真 | ユーザー投稿なし。`next/image` はサイト内静的アセットのみ |
-| テスト | Vitest（unit / integration、実 DB）、Playwright + axe-core（E2E / a11y）。現況: Vitest 203 / Playwright 106 |
+| テスト | Vitest（unit / integration、実 DB）、Playwright + axe-core（E2E / a11y）。現況: Vitest 201 / Playwright 106 |
 | インフラ（開発） | docker compose（PostgreSQL のみ、ホスト側ポート 5433） |
 | 本番ホスティング | 未確定（標準 PostgreSQL + Prisma なので移行容易） |
 
@@ -295,7 +295,6 @@
 | `AI_MODERATION_ENABLED` | ✕ | `false` で公開時の AI 審査を無効化（即 approved）。既定 true。E2E は自動で false |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | ✕ | 初期管理者ブートストラップ用（`db:seed` / `admin:create` のみ参照） |
 | `ADMIN_SESSION_TTL_HOURS` | ✕ | 管理セッション有効時間（既定 8） |
-| `LOCAL_AI_URL` / `LOCAL_AI_MODEL` / `LOCAL_AI_TIMEOUT_MS` | ✕ | ローカル AI（道タイトル自動生成）。`LOCAL_AI_MODEL` 空で無効 |
 | `ADS_ENABLED` | ✕ | `true` で検索一覧・道詳細に広告スロットを描画（既定 false。プロバイダ未接続時はプレースホルダのみ） |
 | `BLOCKED_IPS` | ✕ | 手動ブロックする IP（カンマ区切り） |
 | `ACCESS_LOG_SALT` | ✕ | アクセスログの識別子匿名化ソルト |
@@ -310,6 +309,5 @@
 - いいね・広告費用による検索順位の操作
 - ポップアップ広告・画面全体を覆う広告、トップ画面への広告
 - 「アカウントだけ削除して公開経験を匿名で残す」方式
-- 他人向けの「道ページ」公開 URL（`road.visibility` はフラグとしては保持）
 - 類似検索・全文検索・ベクトル検索（検索は部分一致 `ILIKE`）
 - 個人情報・ユーザー識別情報を広告ターゲティングへ渡す設計

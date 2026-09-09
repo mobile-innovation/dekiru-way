@@ -28,7 +28,7 @@ beforeAll(async () => {
   ownerId = owner.id;
   strangerId = stranger.id;
   const road = await prisma.road.create({
-    data: { userId: ownerId, title: MARK, difficulty: "x", goal: "y" },
+    data: { userId: ownerId, difficulty: "x", goal: "y" },
   });
   ownerRoadId = road.id;
 });
@@ -53,30 +53,6 @@ describe("Road の所有者チェック (指示書 10)", () => {
       ctx,
     );
     expect(res.status).toBe(401);
-  });
-
-  it("道の公開範囲は作成時 既定 public。visibility を明示すればそれに従う", async () => {
-    asUser(ownerId);
-    const def = await createRoad(
-      new Request("http://localhost/api/v1/roads", {
-        method: "POST",
-        body: JSON.stringify({ difficulty: `${MARK} vis-default` }),
-        headers: { "content-type": "application/json" },
-      }),
-      ctx,
-    );
-    expect(def.status).toBe(201);
-    expect((await def.json()).visibility).toBe("public");
-
-    const priv = await createRoad(
-      new Request("http://localhost/api/v1/roads", {
-        method: "POST",
-        body: JSON.stringify({ difficulty: `${MARK} vis-private`, visibility: "private" }),
-        headers: { "content-type": "application/json" },
-      }),
-      ctx,
-    );
-    expect((await priv.json()).visibility).toBe("private");
   });
 
   it("未ログインは他人の Road を取得できない (401)", async () => {
@@ -155,7 +131,7 @@ describe("Road の所有者チェック (指示書 10)", () => {
   });
 });
 
-describe("Road のタイトル・できなくなったことは一度設定すると変更不可", () => {
+describe("Road の「できなくなったこと」は一度設定すると変更不可", () => {
   const patch = (roadId: string, body: unknown) =>
     patchRoad(
       new Request("http://localhost", {
@@ -166,15 +142,7 @@ describe("Road のタイトル・できなくなったことは一度設定す�
       ctxFor(roadId),
     );
 
-  it("設定済みの title を別の値に変えようとすると 409 で、値は変わらない", async () => {
-    asUser(ownerId);
-    const res = await patch(ownerRoadId, { title: "べつのタイトル" });
-    expect(res.status).toBe(409);
-    const road = await prisma.road.findUnique({ where: { id: ownerRoadId } });
-    expect(road?.title).toBe(MARK);
-  });
-
-  it("設定済みの difficulty を変えようとすると 409", async () => {
+  it("設定済みの difficulty を別の値に変えようとすると 409 で、値は変わらない", async () => {
     asUser(ownerId);
     const res = await patch(ownerRoadId, { difficulty: "ちがう困りごと" });
     expect(res.status).toBe(409);
@@ -184,7 +152,7 @@ describe("Road のタイトル・できなくなったことは一度設定す�
 
   it("同じ値の再送信・省略は許可され、他の項目は更新できる", async () => {
     asUser(ownerId);
-    const res = await patch(ownerRoadId, { title: MARK, difficulty: "x", memo: "追記" });
+    const res = await patch(ownerRoadId, { difficulty: "x", memo: "追記" });
     expect(res.status).toBe(200);
     const road = await prisma.road.findUnique({ where: { id: ownerRoadId } });
     expect(road?.memo).toBe("追記");
@@ -194,16 +162,15 @@ describe("Road のタイトル・できなくなったことは一度設定す�
     asUser(ownerId);
     const blank = await prisma.road.create({ data: { userId: ownerId, goal: "g" } });
 
-    const first = await patch(blank.id, { title: "はじめてのタイトル", difficulty: "はじめての困りごと" });
+    const first = await patch(blank.id, { difficulty: "はじめての困りごと" });
     expect(first.status).toBe(200);
     let road = await prisma.road.findUnique({ where: { id: blank.id } });
-    expect(road?.title).toBe("はじめてのタイトル");
     expect(road?.difficulty).toBe("はじめての困りごと");
 
-    const second = await patch(blank.id, { title: "書き換え" });
+    const second = await patch(blank.id, { difficulty: "書き換え" });
     expect(second.status).toBe(409);
     road = await prisma.road.findUnique({ where: { id: blank.id } });
-    expect(road?.title).toBe("はじめてのタイトル");
+    expect(road?.difficulty).toBe("はじめての困りごと");
   });
 
   it("同時に別の値で初回設定しようとすると、片方だけ成功し値が混ざらない (競合)", async () => {
@@ -211,19 +178,19 @@ describe("Road のタイトル・できなくなったことは一度設定す�
     const blank = await prisma.road.create({ data: { userId: ownerId, goal: "g" } });
 
     const [a, b] = await Promise.all([
-      patch(blank.id, { title: "Aが送った値" }),
-      patch(blank.id, { title: "Bが送った値" }),
+      patch(blank.id, { difficulty: "Aが送った値" }),
+      patch(blank.id, { difficulty: "Bが送った値" }),
     ]);
     const statuses = [a.status, b.status].sort();
     // どちらか一方だけ成功し、もう一方は競合として拒否される (両方 200 は不可)
     expect(statuses).toEqual([200, 409]);
 
     const road = await prisma.road.findUnique({ where: { id: blank.id } });
-    expect(["Aが送った値", "Bが送った値"]).toContain(road?.title);
+    expect(["Aが送った値", "Bが送った値"]).toContain(road?.difficulty);
 
     // 成功した方のレスポンスにも、実際にDBへ書き込まれた値と同じ値が返っている
     const winner = a.status === 200 ? a : b;
-    const winnerBody = (await winner.json()) as { title: string | null };
-    expect(winnerBody.title).toBe(road?.title);
+    const winnerBody = (await winner.json()) as { difficulty: string | null };
+    expect(winnerBody.difficulty).toBe(road?.difficulty);
   });
 });

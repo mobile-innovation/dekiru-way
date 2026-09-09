@@ -94,34 +94,19 @@ export function AdminLoginForm() {
   );
 }
 
-type Target = "post" | "road";
-const endpoints = (target: Target, id: string) =>
-  target === "road"
-    ? {
-        moderate: `/api/admin/roads/${id}/moderate`,
-        status: `/api/admin/roads/${id}`,
-        recheck: `/api/admin/roads/${id}/recheck`,
-        noun: "道",
-      }
-    : {
-        moderate: `/api/admin/moderation/${id}`,
-        status: `/api/admin/posts/${id}`,
-        recheck: `/api/admin/posts/${id}/recheck`,
-        noun: "経験",
-      };
+const endpoints = (id: string) => ({
+  moderate: `/api/admin/moderation/${id}`,
+  status: `/api/admin/posts/${id}`,
+  recheck: `/api/admin/posts/${id}/recheck`,
+  noun: "経験",
+});
 
-/** 確認キュー / 詳細の「公開する / 公開しない」。target で経験・道を切り替える。 */
-export function ModerationDecisionButtons({
-  id,
-  target = "post",
-}: {
-  id: string;
-  target?: Target;
-}) {
+/** 確認キュー / 詳細の「公開する / 公開しない」。 */
+export function ModerationDecisionButtons({ id }: { id: string }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
-  const ep = endpoints(target, id);
+  const ep = endpoints(id);
 
   function decide(action: "approve" | "reject") {
     if (action === "reject" && !confirm(`この${ep.noun}は公開しない、でよろしいですか？`)) return;
@@ -150,20 +135,18 @@ export function ModerationDecisionButtons({
   );
 }
 
-/** 詳細の「取り下げ / 再公開 / AI 再チェック」。target で経験・道を切り替える。 */
+/** 詳細の「取り下げ / 再公開 / AI 再チェック」。 */
 export function PostAdminControls({
   id,
-  target = "post",
   moderationStatus,
 }: {
   id: string;
-  target?: Target;
   moderationStatus: "pending" | "approved" | "rejected";
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
-  const ep = endpoints(target, id);
+  const ep = endpoints(id);
 
   function setStatus(next: "pending" | "approved" | "rejected", confirmText?: string) {
     if (confirmText && !confirm(confirmText)) return;

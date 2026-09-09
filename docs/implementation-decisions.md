@@ -39,17 +39,17 @@
 - `/api/v1/experiences/{id}` の `id` は **Attempt の id**。
 - 一覧・詳細・タグ・paths はすべて公開 Attempt を起点に組み立てる。
 
-### 2.3 公開単位は Attempt（指示書 14）／road.visibility との関係
-- 検索・経験詳細に出るのは **`is_published = true` の Attempt だけ**。
+### 2.3 公開単位は Attempt（指示書 14）
+- 検索・経験詳細に出るのは **`is_published = true` かつ `moderation_status = approved` の Attempt だけ**。
+  道 (Road) 自体はモデレーション状態を持たない（2026-09-09 に廃止）。道が公開面に出るかは
+  「承認済みの公開 Attempt を 1 つ以上持つか」で決まる。
 - 経験詳細では親 Road の記述フィールド（`previously_able` / `difficulty` / `goal` /
   `situation` / `progress` / `next_action` / タグ）を**文脈として一緒に表示する**。
   これは「困ったこと → 試したこと → 結果 → 現在 → 次」を追うために必要（指示書 6-③）。
 - ただし **同じ Road の非公開 Attempt は一切露出しない**（`experiences/{id}` の `siblings` も
   `is_published = true` に限定）。
-- `road.visibility`（private / public、**初期値 public**・道の詳細画面で切替可）は「自分の道ページ全体を他人が閲覧できるか」を
-  制御する**別概念**。MVP では公開経験の閲覧導線は Attempt 単位のみで完結しており、
-  `road.visibility = public` は将来の「本人の道ページ公開」用のフラグとして保持している
-  （現状 UI からトグルはできるが、他人向けの道ページ URL は未実装）。
+- **道そのものに公開 / 非公開の設定は無い（道は公開前提）**。`road.visibility` は 2026-09-09 に廃止。
+  公開面に出るかどうかは Attempt の公開＋承認だけで決まる。
 
 ### 2.4 個人特定情報（指示書 14）
 `users` は指示書 4 の通り氏名・年齢・病名等を必須にしていない（`display_name` は任意）。
@@ -598,6 +598,10 @@ NG / 不明は保留して運営が管理画面で許可 / 却下する。
 
 ### 道 (Road) の内容モデレーション（管理画面指示・追補）
 
+> ⚠️ この節は 2026-09-09 に**撤回**した（§8 の変更ログ参照）。道はモデレーション状態を持たず、
+> 道が公開面に出るかは「承認済みの公開経験を 1 つ以上持つか」だけで決まる。道のタイトル・タグは
+> 経験公開時の AI 審査本文に含めて担保する。以下は当時の記録。
+
 投稿だけでなく **道の登録・編集も公開チェック**する。道の記述（difficulty / goal / situation /
 previouslyAble / progress / nextAction / memo / status / title）は公開経験詳細
 (`/experiences/{id}`) に文脈として出るため、投稿と同じゲートに載せる。
@@ -774,6 +778,73 @@ SNS 的な人気競争にしないことを最優先に置く。
 - 影響範囲:
 - 将来への影響:
 ```
+
+### 2026-09-09 道 (Road) の `title` を廃止（見出しは「できなくなったこと」に一本化）
+- 変更前: `Road.title`（本人向けの一覧見出し。公開面には出ない）。作成フォームでは入力させず、
+  作成時に `difficulty` からローカル LLM（`src/lib/ai/local.ts#generateRoadTitle`、Ollama 互換）で
+  自動生成。編集フォームでのみ手入力できた。PATCH `/roads/{id}` では `title` も「設定済みは変更不可」。
+- 変更後: `Road.title` カラムを DROP（マイグレーション `remove_road_title`）。いま
+  `road.title ?? road.difficulty` としていた本人ビュー（`/me`・道詳細・attempt の戻りリンク）・
+  管理画面（`AdminPostCard` の「道『…』より」は削除、`recentActivity`）は `difficulty ?? "（無題の道）"`
+  に統一。`serializeRoad` / `roadCreateSchema` / `FIELD_MAX.title` から `title` を削除。PATCH の
+  ロック・競合ガードは `difficulty` だけに。
+- ローカル AI サブシステムも撤去: `src/lib/ai/local.ts`（title 生成専用・他用途なし）、
+  `env.localAi`、`LOCAL_AI_URL` / `LOCAL_AI_MODEL` / `LOCAL_AI_TIMEOUT_MS`、`.env.example` の該当節、
+  `playwright.config.ts` の `LOCAL_AI_MODEL`、関連テスト（`local-ai.test.ts` / `road-title-ai.test.ts`）。
+- 理由: ユーザー要望「タイトルは使わなくして、現在使っている場所は『できなくなったこと』を使う」。
+  title は公開面に出ず、自動生成した見出しの価値も低かった。
+- 影響範囲: schema / migration / `serializers.ts` / `validation.ts` / `constants.ts` /
+  `roads/route.ts`・`roads/[roadId]/route.ts` / `me/**` / `road-edit-form.tsx`（「道の基本」Section 削除）/
+  `admin/post-card.tsx` / `admin/queries.ts` / `ai/moderation.ts`・`moderation.ts`（道タイトルの審査を戻す）/
+  seed / docs / tests。
+- 将来への影響: 「本人が道に付ける自由な見出し」が必要になったら別途フィールドを足す（自動生成は
+  復活させない前提）。
+
+### 2026-09-09 道 (Road) のモデレーションを廃止（公開可否は経験に一本化）
+- 変更前: 道にも独自の `moderationStatus`（pending/approved/rejected）＋ AI 判定フィールドがあり、
+  `PUBLIC_ATTEMPT_WHERE` は「投稿が承認済み **かつ** 親 Road も承認済み」を要求。管理画面に
+  「道を確認」キュー（`/admin/roads`）があった。
+- 変更後: **道はモデレーション状態を持たない**。道が公開面に出るかは「承認済みの公開経験
+  (Attempt) を 1 つ以上持つか」だけで決まる。`PUBLIC_ROAD_WHERE` を撤去し、`PUBLIC_ATTEMPT_WHERE`
+  は `{ isPublished, moderationStatus: approved }` のみに。`applyRoadModeration` /
+  `moderateRoadContent` / `ROAD_MODERATED_FIELDS` / `/admin/roads` 一式 / `/api/admin/roads/*` /
+  `AdminRoadCard` / `AdminAuditLog.roadId` を削除（マイグレーション `remove_road_moderation`
+  ＝道の 8 カラムと監査ログの `road_id` を DROP、道あて監査行は削除）。
+- 審査カバレッジの担保: 廃止で審査対象から外れるのは道の **タイトル** と **タグ** だけなので、
+  その 2 つを `moderateAttemptContent` の審査本文に追加（`applyModerationOnPublish` が
+  `attempt.road.title` とタグ名を渡す）。道の中核テキスト（difficulty / goal / situation /
+  previouslyAble）は従来どおり投稿審査に含まれる。
+- 理由: ユーザー要望「道の情報では公開・非公開を扱わない。公開・非公開は経験の公開情報に準ずる」。
+  公開単位は元々 Attempt なので、道の承認は二重ゲートで運用も分かりにくかった。
+- 影響範囲: schema / migration / `src/lib/search.ts` / `src/lib/moderation.ts` /
+  `src/lib/ai/moderation.ts` / `src/app/api/v1/roads/**` / `src/lib/serializers.ts`（`serializeRoad`
+  から `moderationStatus` / `aiReason` 削除）/ `src/app/me/roads/[roadId]/page.tsx`（道の確認中
+  Callout 削除）/ 管理画面一式 / `src/lib/quick-submit.ts` / seed / docs / tests。
+  §7-novies「道 (Road) の内容モデレーション」節はこの変更で撤回済み。
+
+### 2026-09-09 道 (Road) の公開 / 非公開設定（visibility）を廃止
+- 変更前: `Road.visibility`（private/public）＋道の詳細画面の「道のページを公開中 / 非公開」トグル。
+- 変更後: **道は公開前提**。`roads.visibility` カラム・`Visibility` enum・`RoadVisibilityToggle`・
+  `VISIBILITY` 定数・`roadCreateSchema` の `visibility` を撤去（マイグレーション
+  `remove_road_visibility`＝インデックス・カラム・enum を DROP。既存値は捨てる）。
+- 理由: `visibility` はどの公開ゲートにも使われておらず（公開面は `moderation_status` が担う）、
+  トグルはあるが機能していないダミー設定だった。将来の「本人の道ページ公開 URL」は別途設計する。
+- 影響範囲: schema / migration / `constants.ts` / `validation.ts` / `serializers.ts`（`RoadDTO` から
+  `visibility` を削除）/ `roads/route.ts` / `quick-submit.ts` / `road-actions.tsx` /
+  `me/roads/[roadId]/page.tsx` / `me/page.tsx`（「道は公開/非公開」表示を削除）/ `seed.ts` / docs / tests。
+
+### 2026-09-09 「自分の道」に「試したことを記録すると公開されます」の案内カード
+- `/me` で `attempts.length === 0` の道が 1 件以上あるとき、一覧の上部に `Callout`（info）を出す。
+  「道は試したことを記録して公開すると検索に出る。試したことのない道（N 件）は公開されない」旨と、
+  先頭の該当道の `…/attempts/new` へのリンク。該当が無ければ出さない。
+- 影響範囲: `src/app/me/page.tsx` のみ。
+
+### 2026-09-09 「自分の道」一覧のカードにも試したことを表示（検索の道カードと同じ見せ方）
+- 変更前: `/me` のカードは結果バッジ（末尾 4 件）だけで、方法テキストは出していなかった。
+- 変更後: 検索の `RoadCard` と同じ「縦線（road-guide/road-dot）＋方法テキスト（line-clamp-1）＋
+  結果バッジ」を、時系列で先頭 3 件表示。4 件目以降は「ほかに N 件の方法」。本人ビューなので
+  各行に非公開/確認中/見送りの小さな印を付ける（`publishState !== "published"` のとき）。
+- 影響範囲: `src/app/me/page.tsx` のみ。データは `getMyRoads`（既存）のまま。
 
 ### 2026-09-09 検索に「既読 / 未読」の絞り込みを追加
 - 追加: `?read=read` / `?read=unread`（未指定 = すべて）。ログイン中のみ有効・表示（未ログインは無視）。
@@ -1316,6 +1387,10 @@ SNS 的な人気競争にしないことを最優先に置く。
 - 将来への影響: 新しいテキスト項目も `maxLength={FIELD_MAX.*}` を渡すだけで表示が付く
 
 ### 2026-09-04 ローカル AI で Road タイトルを自動生成（補助レイヤー・外部 API 非依存）
+
+> ⚠️ この機能は 2026-09-09 に**撤回**した（`Road.title` の廃止に伴い `src/lib/ai/local.ts` と
+> `LOCAL_AI_*` を丸ごと削除）。§8 の変更ログを参照。以下は当時の記録。
+
 - 変更前: Road 作成時に `title` が未入力なら `null` のまま保存。一覧・詳細は `title ?? difficulty ?? "（無題の道）"` で表示。
 - 変更後: `title` 未入力かつ `difficulty` があるとき、サーバ側で自ホストの LLM（Ollama 互換 HTTP API）に
   「できなくなったこと」の説明文を渡して短い見出しを 1 つ生成し、取れたら `title` に保存する。

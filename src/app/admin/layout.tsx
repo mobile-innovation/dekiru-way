@@ -11,7 +11,6 @@ export const metadata: Metadata = {
 const NAV = [
   { href: "/admin", label: "ダッシュボード" },
   { href: "/admin/moderation", label: "経験を確認" },
-  { href: "/admin/roads", label: "道を確認" },
   { href: "/admin/posts", label: "公開されている経験" },
   { href: "/admin/audit", label: "操作ログ" },
 ];

@@ -16,8 +16,8 @@ export type AdminAction =
   | "recheck"; // AI 再チェック
 
 /**
- * PATCH .../{id}（手動での moderationStatus 遷移）の監査ログ action を、
- * 遷移前後の状態から一意に決める。投稿・道どちらの手動遷移ルートからも共通で使う。
+ * PATCH /api/admin/posts/{id}（手動での moderationStatus 遷移）の監査ログ action を、
+ * 遷移前後の状態から一意に決める。
  */
 export function deriveManualModerationAction(
   from: ModerationStatus,
@@ -38,7 +38,6 @@ export async function writeAudit(
   action: AdminAction,
   opts: {
     attemptId?: string | null;
-    roadId?: string | null;
     detail?: Prisma.InputJsonValue;
   } = {},
 ): Promise<void> {
@@ -48,7 +47,6 @@ export async function writeAudit(
         adminId,
         action,
         attemptId: opts.attemptId ?? null,
-        roadId: opts.roadId ?? null,
         detail: opts.detail,
       },
     });

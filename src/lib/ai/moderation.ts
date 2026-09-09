@@ -85,7 +85,7 @@ const FALLBACK: ModerationVerdict = {
  * 組み立てた本文 (label: value 形式) を審査する共通処理。
  * 本文が空なら AI を呼ばず ok（審査対象なし）。
  */
-async function runModeration(kind: "投稿" | "道", body: string): Promise<ModerationVerdict> {
+async function runModeration(kind: "投稿", body: string): Promise<ModerationVerdict> {
   if (body.trim().length === 0) {
     return { verdict: "ok", reason: "審査対象の本文がありません。", categories: [] };
   }
@@ -136,12 +136,15 @@ export interface AttemptModerationInput {
     goal?: string | null;
     situation?: string | null;
     previouslyAble?: string | null;
+    /** その道のタグ名。タグも公開経験と一緒に表示されるため審査本文に含める。 */
+    tags?: string[] | null;
   } | null;
 }
 /** @deprecated 旧名。`AttemptModerationInput` を使う。 */
 export type ModerationInput = AttemptModerationInput;
 
 export function moderateAttemptContent(input: AttemptModerationInput): Promise<ModerationVerdict> {
+  const roadTags = input.road?.tags?.filter((t) => t.trim().length > 0) ?? [];
   const body =
     block("試したこと", input.method) +
     block("気づき", input.memo) +
@@ -151,39 +154,9 @@ export function moderateAttemptContent(input: AttemptModerationInput): Promise<M
     block("困っていること", input.road?.difficulty) +
     block("やりたいこと", input.road?.goal) +
     block("困っている場面", input.road?.situation) +
-    block("以前できていたこと", input.road?.previouslyAble);
+    block("以前できていたこと", input.road?.previouslyAble) +
+    block("タグ", roadTags.length > 0 ? roadTags.join("、") : null);
   return runModeration("投稿", body);
-}
-
-// ---- 道 (Road) ----
-
-export interface RoadModerationInput {
-  title?: string | null;
-  previouslyAble?: string | null;
-  difficulty?: string | null;
-  goal?: string | null;
-  situation?: string | null;
-  progress?: string | null;
-  nextAction?: string | null;
-  memo?: string | null;
-  status?: string | null;
-  /** タグは公開経験のタグ一覧・検索に出るため、他の記述項目と同様に審査対象に含める。 */
-  tags?: string[] | null;
-}
-
-export function moderateRoadContent(input: RoadModerationInput): Promise<ModerationVerdict> {
-  const body =
-    block("タイトル", input.title) +
-    block("以前できていたこと", input.previouslyAble) +
-    block("できなくなったこと", input.difficulty) +
-    block("やりたいこと", input.goal) +
-    block("困っている場面", input.situation) +
-    block("いまの進捗", input.progress) +
-    block("次に試すこと", input.nextAction) +
-    block("状態", input.status) +
-    block("メモ", input.memo) +
-    block("タグ", input.tags && input.tags.length > 0 ? input.tags.join("、") : null);
-  return runModeration("道", body);
 }
 
 export { DISCLAIMER };
