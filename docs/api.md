@@ -120,7 +120,8 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
 ```jsonc
 {
   "moderationStatus": "pending|approved|rejected",
-  "publishState": "private|reviewing|published|rejected", // 本人向けの表示状態
+  "moderationHeld": false,                               // 運営が「保留」にしたか（管理画面だけの区別）
+  "publishState": "private|reviewing|published|rejected", // 本人向けの表示状態（保留中も reviewing）
   "aiVerdict": "ok|ng|unknown|null",
   "aiReason": "string|null"
 }

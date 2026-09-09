@@ -18,7 +18,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/admin/password";
 import { resetBotGuard } from "@/lib/bot-guard";
-import { moderationQueue } from "@/lib/admin/queries";
+import { moderationQueue, dashboardStats } from "@/lib/admin/queries";
 import { POST as moderate } from "@/app/api/admin/moderation/[attemptId]/route";
 
 /**
@@ -111,6 +111,18 @@ describe("経験の保留 (hold / unhold)", () => {
     const row = await prisma.attempt.findUniqueOrThrow({ where: { id: a.id } });
     expect(row.moderationStatus).toBe("approved");
     expect(row.moderationHeld).toBe(false);
+  });
+
+  it("dashboardStats: 保留にした経験は pendingHeld 側で数えられる", async () => {
+    // 共有 DB で並列に走るため絶対数は当てにできない。単調な下限で検証する。
+    const a = await pendingAttempt(`${MARK} 集計 ${Date.now()}a`);
+    const b = await pendingAttempt(`${MARK} 集計 ${Date.now()}b`);
+    await post(a.id, { action: "hold" });
+    await post(b.id, { action: "hold" });
+
+    const s = await dashboardStats();
+    expect(typeof s.pendingActive).toBe("number");
+    expect(s.pendingHeld).toBeGreaterThanOrEqual(2); // 今 hold した 2 件は必ず含まれる
   });
 
   it("確認待ちキューは updatedAt の新しい順", async () => {

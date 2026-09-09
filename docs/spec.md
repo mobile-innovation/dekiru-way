@@ -80,10 +80,10 @@
 
 | パス | 内容 |
 | --- | --- |
-| `/me` | 自分の道の一覧。カード内に検索の道カードと同じく試したこと（先頭 3 件・方法テキスト＋結果）を表示。各方法の右に公開状態（公開中／確認中／見送り／非公開）。試したことが 1 件も無い道があるときは「試したことを記録すると経験として公開されます」のカードを上部に出す。各道の公開中／確認中の件数 |
+| `/me` | 自分の道の一覧。カード内に検索の道カードと同じく試したこと（先頭 3 件・方法テキスト＝最大 3 行＋結果）を表示。各方法の右に公開状態（公開中／確認中／見送り／非公開）。カード右上に「公開表示」ボタン（検索で見える経験詳細 `/experiences/{id}` を開く。公開中の経験が 1 件以上あるときだけ押せる）。試したことが 1 件も無い道があるときは「試したことを記録すると経験として公開されます」のカードを上部に出す。各道の公開中／確認中の件数 |
 | `/me/account` | **アカウント設定**。あなたのデータ（自分の道／試したこと／公開した経験 の件数）＋アカウント削除。プロフィール編集項目は持たない |
 | `/me/roads/new` | 道を作る（段階入力可） |
-| `/me/roads/[roadId]` | 道の詳細（本人ビュー）。試したことの一覧、公開トグル、道の公開設定、編集、削除 |
+| `/me/roads/[roadId]` | 道の詳細（本人ビュー）。試したことの一覧、各試したことの公開トグル、道の編集、削除 |
 | `/me/roads/[roadId]/edit` | 道を編集。**できなくなったことは一度値が入ると変更不可** |
 | `/me/roads/[roadId]/attempts/new` | 試したことを記録（音声入力対応、タグ、**公開トグルは新規で既定 ON**） |
 | `/me/roads/[roadId]/attempts/[attemptId]/edit` | 記録を編集 |
@@ -211,7 +211,7 @@
 | --- | --- | --- |
 | `users` | `google_sub`(unique), `display_name`, `avatar_url` | → roads / attempt_likes / attempt_reads / notifications（すべて cascade） |
 | `roads` | `user_id`, `previously_able?`, `difficulty?`, `goal?`, `started_at?`, `situation?`, `memo?`, `status?`, `progress?`, `next_action?` | `user` cascade。attempts / road_tags は cascade。道自体はモデレーション状態を持たない |
-| `attempts` | `road_id`, `method`, `result`(enum 5), `tried_at?`, `memo?`, `achievement_percent?`, `feeling?`, `state_after?`, `next_action?`, `previous_attempt_id?`, `is_published`(既定 false／フォームは新規 ON), `moderation_status`(既定 pending) ＋ AI 判定・手動判断カラム | `road` cascade。likes / reads / notifications は cascade。`previous_attempt` は SetNull |
+| `attempts` | `road_id`, `method`, `result`(enum 5), `tried_at?`, `memo?`, `achievement_percent?`, `feeling?`, `state_after?`, `next_action?`, `previous_attempt_id?`, `is_published`(既定 false／フォームは新規 ON), `moderation_status`(既定 pending), `moderation_held`(既定 false／運営の「保留」。公開ゲートには無関係) ＋ AI 判定・手動判断カラム | `road` cascade。likes / reads / notifications は cascade。`previous_attempt` は SetNull |
 | `tags` | `name`(unique) | 共有マスタ。ユーザー削除では消えない |
 | `road_tags` | `road_id` + `tag_id`（複合 PK） | 両側 cascade |
 | `admin_users` | `email`(unique), `password_hash`(scrypt), `display_name?`, `is_active`, `last_login_at?` | 利用者とは無関係 |
@@ -278,7 +278,7 @@
 | AI | Anthropic Claude（`@anthropic-ai/sdk`）。キー未設定時はスタブ |
 | スタイル | Tailwind v4（`@theme` のデザイントークン `src/styles/tokens.css`） |
 | 画像・写真 | ユーザー投稿なし。`next/image` はサイト内静的アセットのみ |
-| テスト | Vitest（unit / integration、実 DB）、Playwright + axe-core（E2E / a11y）。現況: Vitest 201 / Playwright 106 |
+| テスト | Vitest（unit / integration、実 DB）、Playwright + axe-core（E2E / a11y）。現況: Vitest 194 / Playwright 106 |
 | インフラ（開発） | docker compose（PostgreSQL のみ、ホスト側ポート 5433） |
 | 本番ホスティング | 未確定（標準 PostgreSQL + Prisma なので移行容易） |
 

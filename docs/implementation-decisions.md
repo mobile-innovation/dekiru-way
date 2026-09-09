@@ -779,6 +779,19 @@ SNS 的な人気競争にしないことを最優先に置く。
 - 将来への影響:
 ```
 
+### 2026-09-09 「自分の道」一覧に「公開表示」ボタン ＋ 細かな見た目調整
+- **`/me` カード右上に「公開表示」ボタン**（`src/app/me/page.tsx`）。押すと、検索した人が見るのと
+  同じ経験詳細 `/experiences/{id}` へ。`id` は「時系列で最初の“公開中”の試したこと」＝検索の道カードの
+  入口（`entryId`）と同じ。**公開中の経験が 1 件も無い道では無効表示**（`aria-disabled`・リンクにしない）。
+  カード全体をくるむ `<Link>` の兄弟として `absolute right-3 top-3 z-10` で重ね、`<a>` の入れ子を避ける。
+- `/me` カードの方法テキストを 1 行 → **最大 3 行**（`line-clamp-3`）。
+- 道の編集フォーム（`road-edit-form.tsx`）: 「できなくなったこと」を「この道について」の先頭に移動
+  （道の見出し・確定項目のため）。冗長だった「変更できない項目があります」の Callout を削除
+  （変更不可は各項目の hint で個別に表示）。
+- Google ログインボタンをサービスの緑（`--color-primary`）塗り＋白文字に。
+- 入力欄にカーソルを入れたときのフォーカス枠を、アクセント（コーラル）→ 道と同じ濃い緑
+  （`--color-primary`）に（`globals.css`、input/select/textarea のみ）。
+
 ### 2026-09-09 経験の確認画面: 新しい順 ＋「保留」状態と切り替え表示
 - 変更前: `/admin/moderation` は `moderationStatus=pending` の経験を `updatedAt asc`（古い順）で表示。
   判断は「公開する / 公開しない」の 2 択のみ。
@@ -791,9 +804,19 @@ SNS 的な人気競争にしないことを最優先に置く。
   - `POST /api/admin/moderation/{id}` の `action` に `hold` / `unhold` を追加（`moderationStatus` 不変）。
     `approve` / `reject` は最終判断時に `moderationHeld:false` も合わせてクリア。監査ログに `hold`/`unhold`。
   - 決定ボタン行の右端（`ml-auto`）に第 3 ボタン「保留」／保留一覧では「保留を解除」。
+  - 2 つの絞り込み（保留トグル・AI 判定）を 1 枚の淡い緑カードにまとめ、選択中は塗りピルに。
+    経験カード（`AdminPostCard`）は背景を白に。
+  - `dashboardStats()` の `pending` を `pendingActive`（保留していない）と `pendingHeld`（保留中）に分割。
+    管理トップの「経験の確認」カードは `pendingActive` を主表示、`（保留中 N 件）` を小さく添える。
+  - 管理トップのセクション順を「管理メニュー → 確認が必要 → 現在の状況 → 最近の動き」に（メニューを先頭へ）。
 - 公開ゲートは不変（`moderationHeld` は `PUBLIC_ATTEMPT_WHERE` に関与しない。保留中は元々 pending なので非公開）。
   `serializeAttempt` に `moderationHeld` を追加（管理 UI・型合わせ用。本人ビューの `publishState` は
   reviewing のままで挙動不変）。
+- テスト: `tests/integration/admin-hold.test.ts`（hold/unhold・キュー出し分け・updatedAt 順・
+  dashboardStats の pendingHeld）、`admin.spec.ts` に保留フロー、`road-create.spec.ts` に
+  「公開中の経験が無い道は『公開表示』が押せない」。共有 DB の並列走行で `search-split.test.ts` の
+  横断クエリが cascade 削除と競合し `Inconsistent query result` を稀に投げるため、同ファイルに
+  一過性リトライを追加。
 
 ### 2026-09-09 道の検索順: 公開経験が付いた道を浮上させる（`road.updatedAt` を bump）
 - 変更前: 「道だけ」検索の既定並び（`sort=recent`）は `roads.updatedAt` desc。だが試したことの

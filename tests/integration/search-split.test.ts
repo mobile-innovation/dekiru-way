@@ -1,7 +1,30 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/db";
-import { searchRoads, searchMethods } from "@/lib/queries";
+import {
+  searchRoads as _searchRoads,
+  searchMethods as _searchMethods,
+} from "@/lib/queries";
 import type { ExperienceQuery } from "@/lib/validation";
+
+/**
+ * これらの検索は公開 Attempt を横断で読む（road を include）。共有 DB で他テストの
+ * cascade 削除と重なると Prisma が一過性の
+ *   "Inconsistent query result: Field road is required to return data, got `null`"
+ * を投げることがある。その場合だけ数回リトライする（挙動の検証には影響しない）。
+ */
+async function retryRace<T>(fn: () => Promise<T>, tries = 5): Promise<T> {
+  for (let i = 0; ; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (i >= tries - 1 || !msg.includes("Inconsistent query result")) throw e;
+      await new Promise((r) => setTimeout(r, 40 * (i + 1)));
+    }
+  }
+}
+const searchRoads = (arg: ExperienceQuery) => retryRace(() => _searchRoads(arg));
+const searchMethods = (arg: ExperienceQuery) => retryRace(() => _searchMethods(arg));
 
 /**
  * 検索語の当たり場所で結果カードを出し分ける (指示)。
