@@ -28,7 +28,7 @@ export default async function AccountPage() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
       <p className="text-sm">
         <Link href="/me">← 自分の道の一覧へ戻る</Link>
       </p>
