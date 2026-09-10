@@ -23,7 +23,15 @@
 制約: 非パーソナライズ配信のみ（行動追跡なし・文脈広告）。EEA/UK は CMP 未導入のため
 配信が絞られる可能性（将来課題）。表示は検索一覧・道詳細の 2 枠だけ。
 
-### 本番ホスティング — 未確定
+### 本番ホスティング
 
-標準的な PostgreSQL 16 + Prisma なので移行は容易。さくら VPS（Ubuntu）+ Docker が候補。
-`E2E_TEST_LOGIN` は本番で絶対に設定しない。マイグレーションは `prisma migrate deploy`。
+さくら VPS（Ubuntu、mycarenote スタックと相乗り）に**既にデプロイ済み**。
+Docker ではなく systemd `dekirumichi.service` が `next start -p 4000` を直接起動し、
+nginx が `dekirumichi.net` を `localhost:4000` へプロキシ。DB だけコンテナ（`dekiru-db`、`localhost:5433`）。
+デプロイ配置は `/var/www/dekirumichi/dekiru-way`、ブランチは `feat/mvp-foundation` を直接使用。
+
+**開発 → Git → VPS の更新手順は [`docs/deployment.md`](docs/deployment.md)。** 要点:
+VPS のコマンドは 1 行ずつ / `npm ci` は package-lock 変更時のみ（全消しで OOM 事故あり）/
+Prisma は `node_modules/.bin/prisma`（`npx prisma` は RC を掴む）/ `next build` はスワップ必須・
+`NODE_OPTIONS=--max-old-space-size=768` / ビルド成功後にのみ `systemctl restart`。
+`E2E_TEST_LOGIN` は本番で絶対に設定しない。
