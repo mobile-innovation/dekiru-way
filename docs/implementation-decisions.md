@@ -1682,3 +1682,27 @@ SNS 的な人気競争にしないことを最優先に置く。
 - サーバー側フィルタ（`page.tsx` は `force-dynamic` の Server Component、タブは `<Link>`。JS 不要）。`listSeedData({ page, published })` に `published?: boolean` を追加し、`counts:{ all, private, published }` も返す。
 - `GET /api/admin/seed-data` に `?state=private|published|all`（既定 private）を追加。
 - 各行の操作（編集／公開・非公開にする／削除）は従来どおり変更なし。
+
+### 2026-09-10 管理ダッシュボード（/admin）の整理
+- 並びを「確認が必要なもの → 現在の状況 → 最近の動き → 管理メニュー」に（管理メニューを最下部へ）。
+- 「利用者を見る（準備中）」「通報・対応を見る（準備中）」をダッシュボードから削除（上部ナビには元から無し）。
+- 管理メニューは 4 項目（経験を確認する／公開されている経験／仮データを管理する／操作ログを見る）を 2×2 カードに。`ready` フラグは廃止。
+- 「確認が必要なもの」：確認待ち 0 件なら緑の 1 カード。件数があれば代表 3 件（`moderationQueue({page:1})` の先頭）＋「経験を確認する →」ボタン。従来の重複した空状態カード（`ReviewCard` の「今はありません」）は撤去。
+- 「現在の状況」：`dashboardStats()` の値をそのまま（利用者 / 道 / 公開経験 / 最近の更新 = `recentApproved`）。集計ロジックは変更なし。「公開停止 N 件」の補足は削除。
+- 「最近の動き」：`postList({status:"approved"})` と `auditLog()` の先頭 5 件を 2 ブロックで表示。空なら「現在ありません」。`recentActivity()` は不使用に（定義は残置）。
+- 新規 API・DB・権限・ログ仕様は追加なし。`src/app/admin/page.tsx` のみ変更。
+
+### 2026-09-10 管理メニューを上部ナビに一本化
+- ダッシュボード下部の「管理メニュー」セクション（2×2 カード）を **完全に削除**。管理トップは「確認が必要なもの → 現在の状況 → 最近の動き」で終了。
+- 上部ナビを `src/components/admin/admin-nav.tsx`（client, `usePathname`）に切り出し、現在ページを `aria-current="page"` ＋ 太字 ＋ 淡い背景（`--color-primary-soft`）で表示（色だけに依存しない）。`exact` は `/admin` のみ、他はサブパスも親をアクティブ扱い。
+- `layout.tsx` ヘッダー: 「できる道 管理」（左）→ ナビ → 運営名・ログアウト（右 `ml-auto`）。`border-b` ＋ `py-3` ＋ `mb-8`。`flex-wrap` で狭幅は折り返し（横スクロールなし）。
+- ルーティング・データ取得・各画面は変更なし。`src/app/admin/page.tsx` / `layout.tsx` ＋ 新規 `admin-nav.tsx` のみ。
+
+### 2026-09-10 管理画面ログインをカード型に整える（見た目のみ）
+- `/admin/login`：淡い背景 → 白いログインカード（`--color-surface` ＋ `border` ＋ `--shadow-card` ＋ `max-w-sm`）に。カード上に控えめなブランド表示「できる道 / 管理画面」。
+- カード内：見出し「管理画面ログイン」＋ 説明「できる道の運営・管理者専用です。アプリ利用者の Google ログインとは別のアカウントを使用します。」
+- 入力欄（`AdminLoginForm`）：`text-base`（iOS 自動ズーム回避）＋ 少し大きめのパディング ＋ フォーカスで枠色＋リング。
+- ログインボタン：オレンジ枠 → **グリーンの塗り**（`--color-primary` / `hover:--color-primary-hover`）、`w-full`、`disabled` で二重送信防止（`useTransition`）。
+- エラー：`role="alert"` ＋ 枠線付きボックス（色だけに依存しない）。
+- 縦位置は `py-10 sm:py-16` の自然配置（`100vh` 中央寄せはしない＝モバイルのキーボード表示でも操作可）。
+- 認証処理・成功後の遷移（`/admin` へ replace）・ラベル文言・`id`/`autoComplete` は変更なし。`src/app/admin/login/page.tsx` と `AdminLoginForm` のみ。

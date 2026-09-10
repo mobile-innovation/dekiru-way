@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/auth";
-import { dashboardStats, recentActivity } from "@/lib/admin/queries";
+import { dashboardStats, moderationQueue, postList, auditLog } from "@/lib/admin/queries";
+import { ACTION_LABEL } from "@/components/admin/post-card";
 
 export const dynamic = "force-dynamic";
 
@@ -8,53 +9,8 @@ function mmdd(d: Date) {
   return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** 「確認が必要」カード: 件数 + 何の件数か + 操作 をひとまとめにする。 */
-function ReviewCard({
-  href,
-  noun,
-  count,
-  held = 0,
-  hint,
-}: {
-  href: string;
-  noun: string;
-  count: number;
-  /** カッコで小さく添える「保留中」件数 */
-  held?: number;
-  hint: string;
-}) {
-  const has = count > 0;
-  const heldNote = held > 0 && (
-    <span className="ml-1 text-sm text-[var(--color-ink-muted)]">（保留中 {held} 件）</span>
-  );
-  return (
-    <Link
-      href={href}
-      className={`block rounded-[var(--radius-lg)] border p-4 transition-shadow hover:shadow-[var(--shadow-card)] ${
-        has
-          ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
-          : "border-[var(--color-border)] bg-[var(--color-surface)]"
-      }`}
-    >
-      <p className="text-sm font-bold">{noun}の確認</p>
-      {has ? (
-        <p className="mt-1 text-base">
-          <span className="text-2xl font-bold">{count}</span> 件あります
-          {heldNote}
-        </p>
-      ) : (
-        <p className="mt-1 text-sm text-[var(--color-ink-muted)]">今はありません{heldNote}</p>
-      )}
-      <p className="mt-1 text-sm text-[var(--color-ink-muted)]">{hint}</p>
-      <p
-        className={`mt-2 text-sm font-semibold ${
-          has ? "text-[var(--color-accent-strong)]" : "text-[var(--color-ink-muted)]"
-        }`}
-      >
-        {has ? "確認する →" : "一覧を見る →"}
-      </p>
-    </Link>
-  );
+function clip(s: string, n = 24) {
+  return s.length > n ? `${s.slice(0, n)}…` : s;
 }
 
 function StatCard({ value, label }: { value: number; label: string }) {
@@ -66,74 +22,97 @@ function StatCard({ value, label }: { value: number; label: string }) {
   );
 }
 
-const MENU: { href: string; label: string; ready: boolean }[] = [
-  { href: "/admin/moderation", label: "経験を確認する", ready: true },
-  { href: "/admin/posts", label: "公開されている経験を見る", ready: true },
-  { href: "/admin/seed-data", label: "仮データを管理する", ready: true },
-  { href: "/admin/audit", label: "操作ログを見る", ready: true },
-  { href: "", label: "利用者を見る（準備中）", ready: false },
-  { href: "", label: "通報・対応を見る（準備中）", ready: false },
-];
+/** 「最近の動き」の 1 ブロック。中身が無ければ「現在ありません」。 */
+function RecentBlock({
+  title,
+  moreHref,
+  empty,
+  children,
+}: {
+  title: string;
+  moreHref: string;
+  empty: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-sm font-bold">{title}</p>
+        {!empty && (
+          <Link href={moreHref} className="text-xs text-[var(--color-ink-muted)] underline">
+            すべて見る →
+          </Link>
+        )}
+      </div>
+      {empty ? (
+        <p className="mt-2 text-sm text-[var(--color-ink-muted)]">現在ありません</p>
+      ) : (
+        <ul className="mt-2 space-y-1.5">{children}</ul>
+      )}
+    </div>
+  );
+}
 
 export default async function AdminDashboardPage() {
   await requireAdmin();
-  const [s, activity] = await Promise.all([dashboardStats(), recentActivity()]);
+  const [s, queue, published, audit] = await Promise.all([
+    dashboardStats(),
+    moderationQueue({ page: 1 }),
+    postList({ status: "approved", page: 1 }),
+    auditLog({ page: 1 }),
+  ]);
+
   const needsReview = s.pendingActive;
+  const reviewSample = queue.items.slice(0, 3);
+  const recentPublished = published.items.slice(0, 5);
+  const recentAudit = audit.items.slice(0, 5);
 
   return (
     <div className="space-y-8">
       <h1 className="text-lg font-bold">できる道 管理</h1>
 
-      {/* 管理メニュー — 最初に置く */}
-      <section aria-labelledby="menu" className="space-y-3">
-        <h2 id="menu" className="text-base font-bold">
-          管理メニュー
-        </h2>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {MENU.map((m) =>
-            m.ready ? (
-              <Link
-                key={m.label}
-                href={m.href}
-                className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm font-semibold hover:shadow-[var(--shadow-card)]"
-              >
-                {m.label}
-              </Link>
-            ) : (
-              <span
-                key={m.label}
-                aria-disabled="true"
-                className="cursor-not-allowed rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] px-4 py-3 text-sm text-[var(--color-ink-muted)]"
-              >
-                {m.label}
-              </span>
-            ),
-          )}
-        </div>
-      </section>
-
-      {/* 確認が必要 */}
+      {/* 1. 確認が必要なもの */}
       <section aria-labelledby="need-review" className="space-y-3">
         <h2 id="need-review" className="text-base font-bold">
-          確認が必要
+          確認が必要なもの
         </h2>
-        {needsReview === 0 && s.pendingHeld === 0 && (
-          <p className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-primary-tint)] p-4 text-sm">
-            いま確認が必要なものはありません。
-          </p>
+
+        {needsReview === 0 ? (
+          <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-primary-tint)] p-4 text-sm">
+            <span aria-hidden="true">✓ </span>
+            現在、確認が必要な経験はありません。
+            {s.pendingHeld > 0 && (
+              <span className="ml-1 text-[var(--color-ink-muted)]">（保留中 {s.pendingHeld} 件）</span>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-[var(--radius-lg)] border border-[var(--color-accent)] bg-[var(--color-accent-soft)] p-4">
+            <p className="text-base">
+              <span className="text-2xl font-bold">{needsReview}</span> 件の経験があります
+              {s.pendingHeld > 0 && (
+                <span className="ml-1 text-sm text-[var(--color-ink-muted)]">
+                  （保留中 {s.pendingHeld} 件）
+                </span>
+              )}
+            </p>
+            {reviewSample.length > 0 && (
+              <ul className="mt-2 space-y-1 text-sm">
+                {reviewSample.map((p) => (
+                  <li key={p.id}>・「{clip(p.road.difficulty ?? p.road.goal ?? "（無題）")}」</li>
+                ))}
+              </ul>
+            )}
+            <Link
+              href="/admin/moderation"
+              className="tap-target mt-3 inline-flex items-center rounded-[var(--radius-pill)] bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary-ink)] no-underline"
+            >
+              経験を確認する →
+            </Link>
+          </div>
         )}
-        <div className="grid gap-3">
-          <ReviewCard
-            href="/admin/moderation"
-            noun="経験"
-            count={s.pendingActive}
-            held={s.pendingHeld}
-            hint="公開してよい内容か確認してください"
-          />
-        </div>
       </section>
 
-      {/* 現在の状況 */}
+      {/* 2. 現在の状況 */}
       <section aria-labelledby="status" className="space-y-3">
         <h2 id="status" className="text-base font-bold">
           現在の状況
@@ -141,43 +120,56 @@ export default async function AdminDashboardPage() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard value={s.users} label="利用者" />
           <StatCard value={s.roads} label="道" />
-          <StatCard value={s.approved} label="公開されている経験" />
-          <StatCard value={s.recentApproved} label="直近7日に公開・更新" />
+          <StatCard value={s.approved} label="公開経験" />
+          <StatCard value={s.recentApproved} label="最近の更新" />
         </div>
-        {s.rejected > 0 && (
-          <p className="text-xs text-[var(--color-ink-muted)]">
-            公開を停止した経験 {s.rejected} 件（
-            <Link href="/admin/posts?status=rejected" className="underline">
-              一覧を見る
-            </Link>
-            ）
-          </p>
-        )}
       </section>
 
-      {/* 最近の動き（実データがあるときだけ） */}
-      {activity.length > 0 && (
-        <section aria-labelledby="recent" className="space-y-3">
-          <h2 id="recent" className="text-base font-bold">
-            最近の動き
-          </h2>
-          <ul className="divide-y divide-[var(--color-border)] rounded-[var(--radius-lg)] border border-[var(--color-border)]">
-            {activity.map((a, i) => (
-              <li key={i}>
-                <Link
-                  href={a.href}
-                  className="flex items-baseline gap-x-3 p-3 text-sm hover:bg-[var(--color-surface-sunken)]"
-                >
-                  <span className="shrink-0 text-xs tabular-nums text-[var(--color-ink-muted)]">
-                    {mmdd(a.at)}
-                  </span>
-                  <span className="line-clamp-1">{a.text}</span>
+      {/* 3. 最近の動き */}
+      <section aria-labelledby="recent" className="space-y-3">
+        <h2 id="recent" className="text-base font-bold">
+          最近の動き
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <RecentBlock
+            title="最近公開された経験"
+            moreHref="/admin/posts?status=approved"
+            empty={recentPublished.length === 0}
+          >
+            {recentPublished.map((a) => (
+              <li key={a.id} className="flex items-baseline gap-x-2 text-sm">
+                <span className="shrink-0 text-xs tabular-nums text-[var(--color-ink-muted)]">
+                  {mmdd(a.updatedAt)}
+                </span>
+                <Link href={`/admin/posts/${a.id}`} className="line-clamp-1">
+                  {clip(a.road.difficulty ?? a.road.goal ?? a.method, 28)}
                 </Link>
               </li>
             ))}
-          </ul>
-        </section>
-      )}
+          </RecentBlock>
+
+          <RecentBlock
+            title="最近の管理操作"
+            moreHref="/admin/audit"
+            empty={recentAudit.length === 0}
+          >
+            {recentAudit.map((x) => (
+              <li key={x.id} className="flex items-baseline gap-x-2 text-sm">
+                <span className="shrink-0 text-xs tabular-nums text-[var(--color-ink-muted)]">
+                  {mmdd(x.createdAt)}
+                </span>
+                <span className="line-clamp-1">
+                  <span className="font-semibold">{ACTION_LABEL[x.action] ?? x.action}</span>
+                  <span className="text-[var(--color-ink-muted)]">
+                    {" · "}
+                    {x.admin.displayName ?? x.admin.email}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </RecentBlock>
+        </div>
+      </section>
     </div>
   );
 }

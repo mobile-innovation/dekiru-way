@@ -10,6 +10,10 @@ const BTN_PRIMARY = `${BTN} border-[var(--color-accent)] bg-[var(--color-accent-
 const BTN_DANGER = `${BTN} border-[var(--color-danger)] bg-[var(--color-surface)] text-[var(--color-danger)]`;
 const BTN_PLAIN = `${BTN} border-[var(--color-neutral)] bg-[var(--color-neutral-soft)] text-[var(--color-ink-muted)]`;
 
+// 管理ログインの入力欄。16px（iOS の自動ズーム回避）＋ フォーカスで枠色とリング。
+const LOGIN_INPUT =
+  "w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2.5 text-base transition-colors focus-visible:border-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-soft)]";
+
 export function AdminLogoutButton() {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -54,7 +58,7 @@ export function AdminLoginForm() {
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <label htmlFor="admin-email" className="block text-sm font-semibold">
           メールアドレス
         </label>
@@ -65,10 +69,10 @@ export function AdminLoginForm() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 py-2"
+          className={LOGIN_INPUT}
         />
       </div>
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <label htmlFor="admin-password" className="block text-sm font-semibold">
           パスワード
         </label>
@@ -79,15 +83,22 @@ export function AdminLoginForm() {
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 py-2"
+          className={LOGIN_INPUT}
         />
       </div>
       {err && (
-        <p role="alert" className="text-sm text-[var(--color-danger)]">
+        <p
+          role="alert"
+          className="rounded-[var(--radius-md)] border border-[var(--color-danger)] bg-[var(--color-surface)] px-3 py-2 text-sm font-semibold text-[var(--color-danger)]"
+        >
           {err}
         </p>
       )}
-      <button type="submit" disabled={pending} className={`${BTN_PRIMARY} w-full`}>
+      <button
+        type="submit"
+        disabled={pending}
+        className="tap-target mt-1 flex w-full items-center justify-center rounded-[var(--radius-pill)] bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--color-primary-ink)] transition-colors hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+      >
         {pending ? "確認中…" : "ログイン"}
       </button>
     </form>
