@@ -1,13 +1,16 @@
 import type { MetadataRoute } from "next";
+import { env } from "@/lib/env";
 
 /**
- * robots.txt (追加指示書 v1 §8)。
- *   - 一般クローラー: 公開ページの巡回は許可、ただし /api/ と本人用ページは不可
- *   - 収集目的が明確な AI クローラー: サイト全体を不可
+ * robots.txt。
+ *   - 一般クローラー: ページの巡回は許可（`/api/` と管理系だけ Disallow）。
+ *     検索結果からの除外は robots.txt ではなく各ページの `noindex`（meta ＋ X-Robots-Tag）で行う。
+ *     robots.txt でページをブロックすると、クローラーが `noindex` を読めず登録が残ることがあるため
+ *     本人ページ・ログインは *あえて* Disallow しない（露出制御指示書 §10 / §13）。
+ *   - 収集目的が明確な AI クローラー: サイト全体を不可。
  *
- * robots.txt は「お願い」であり、これだけを防御にしない (§8)。
- * 実際の制限は middleware + bot-guard + Rate Limit が担う。
- * 対象 Bot 名はサービス公開時点の状況で更新すること。
+ * robots.txt は「お願い」であり、これだけを防御にしない。
+ * 実際の制限は middleware + bot-guard + Rate Limit + 各ページの認証・認可 が担う。
  */
 
 const AI_CRAWLERS = [
@@ -47,9 +50,12 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/api/", "/me/", "/me", "/login", "/admin/", "/admin"],
+        // ページ (HTML) は巡回可 → 各ページの noindex を読ませる。
+        // JSON API と管理系だけ Disallow（管理系は別途 BASIC 認証＋noindex）。
+        disallow: ["/api/", "/admin/", "/admin"],
       },
       ...AI_CRAWLERS.map((ua) => ({ userAgent: ua, disallow: "/" })),
     ],
+    sitemap: `${env.site.url}/sitemap.xml`,
   };
 }

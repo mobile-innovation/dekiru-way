@@ -1706,3 +1706,21 @@ SNS 的な人気競争にしないことを最優先に置く。
 - エラー：`role="alert"` ＋ 枠線付きボックス（色だけに依存しない）。
 - 縦位置は `py-10 sm:py-16` の自然配置（`100vh` 中央寄せはしない＝モバイルのキーボード表示でも操作可）。
 - 認証処理・成功後の遷移（`/admin` へ replace）・ラベル文言・`id`/`autoComplete` は変更なし。`src/app/admin/login/page.tsx` と `AdminLoginForm` のみ。
+
+### 2026-09-10 管理機能・ログインの露出対策
+- ログイン画面（`/admin/login`）から「管理画面／管理者／運営者」の語を撤去。ブランド「できる道」＋見出し「ログイン」＋フォームのみ。説明段落は削除。ページ metadata で `<title>` を「ログイン」に、`robots: { index:false, follow:false, noarchive:true, nocache:true }`。
+- 管理レイアウト metadata の `robots` に `noarchive` / `nocache` を追加。`title` は「管理画面」→「管理」。
+- `src/middleware.ts`：`/admin` 配下のレスポンスに `X-Robots-Tag: noindex,nofollow,noarchive,noai,noimageai` と `Cache-Control: no-store,no-cache,must-revalidate,private` を付与（BFCache・戻る操作で管理情報を残さない）。
+- 調査で確認済み（変更不要）: 公開ページから `/admin` へのリンク無し／sitemap 無し／`robots.ts` は既に `/admin` を Disallow／`POST /api/admin/login` は IP 単位 10/分ロック＋ダミーハッシュ検証＋汎用エラー／全管理ページ `requireAdmin()`・全管理 API `requireAdminApi()` でサーバー側認証＋認可（`AdminUser` を DB 参照・`isActive` 確認）／管理セッションは利用者 Auth と別 Cookie・別テーブル。
+- **URL 変更は見送り**：認証・認可がサーバー側で完結しており、`/admin` の秘匿化は指示書自身が「防御にしない」としている一方、変更の影響範囲（ルーティング／API／middleware／既存管理者）が大きく費用対効果が低いため。必要なら別作業。
+
+### 2026-09-10 検索エンジン露出方針：トップだけ index / それ以外は noindex
+- ルート layout の metadata に `robots: { index: false, follow: true }` を追加（既定＝登録しない）。
+- `app/page.tsx`（トップ）だけ `robots: { index: true, follow: true }` で上書き。
+- `/login` と `/me/*`（`me/layout.tsx`）は `robots: { index: false, follow: false }`（nofollow も）。`/admin/*` は既存どおり。
+- `src/middleware.ts`：`X-Robots-Tag` をパス別に付与（トップ index,follow ／ 本人・ログイン noindex,nofollow ／ 管理 noindex,nofollow,noarchive ／ その他 noindex,follow。すべて `noai, noimageai` を維持）。管理系は `Cache-Control: no-store`。matcher の除外に `sitemap.xml` を追加。
+- `src/app/robots.ts`：`*` の Disallow を `/api/` `/admin/` `/admin` だけに（`/me` `/login` を外す＝クローラーに noindex を読ませる。指示書 §10 / §13）。AI クローラー全体不可は維持。`Sitemap:` 行を追加。
+- `src/app/sitemap.ts`（新規）：トップ URL 1 件のみ。
+- 管理画面の BASIC 認証（nginx）は `docs/deployment.md` §3-補足2 に手順を追加（ops で適用。認証情報は Git に置かない）。
+- `/admin` の URL リネームは**見送り**（ユーザー確認済み）。認証・認可がサーバー側で完結しており、URL 秘匿は防御にしない方針、かつ変更の影響範囲が大きいため。
+- 既存の OGP 設定・アプリ機能・API・DB は変更なし。

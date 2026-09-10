@@ -16,6 +16,9 @@ export const metadata: Metadata = {
   },
   description:
     "「できない」を終点にしない。できなくなったことを一つ入力したら、同じことで困った誰かの経験が見つかります。",
+  // 既定は「検索エンジンに登録しない」。トップページ (app/page.tsx) だけが index を許可する。
+  // リンクの追跡自体は塞がない (noindex, follow)。本人ページ・ログイン・管理は各所で nofollow も付ける。
+  robots: { index: false, follow: true },
 };
 
 export const viewport: Viewport = {

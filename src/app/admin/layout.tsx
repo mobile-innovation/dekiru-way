@@ -4,8 +4,9 @@ import { AdminLogoutButton } from "@/components/admin/admin-actions";
 import { AdminNav } from "@/components/admin/admin-nav";
 
 export const metadata: Metadata = {
-  title: "管理画面",
-  robots: { index: false, follow: false },
+  title: "管理",
+  // 管理系ページは検索エンジンに登録・キャッシュさせない（login ページは自前 metadata で上書き）。
+  robots: { index: false, follow: false, noarchive: true, nocache: true },
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

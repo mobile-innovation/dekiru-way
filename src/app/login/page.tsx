@@ -7,7 +7,10 @@ import { Card, Callout } from "@/components/ui";
 import { GoogleSigninButton } from "@/components/google-signin";
 import { DevLogin } from "@/components/dev-login";
 
-export const metadata: Metadata = { title: "ログイン" };
+export const metadata: Metadata = {
+  title: "ログイン",
+  robots: { index: false, follow: false },
+};
 
 export default async function LoginPage() {
   const session = await auth();

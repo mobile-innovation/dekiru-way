@@ -299,6 +299,7 @@
 | スクレイピング対策 | `src/middleware.ts`（IP ブロックリスト・AI クローラー UA 遮断）＋ `src/lib/bot-guard.ts`（巡回・バースト検知）＋ ページング上限＋ `robots.txt`（`/api/` `/me/` `/login` `/admin/` `/try` を Disallow、AI クローラーは全体不可） |
 | 個人情報 | ユーザー属性は最小限。公開経験に氏名・アバターを含めない。画像投稿なし。AI 審査・広告カテゴリ変換に個人識別情報を渡さない。アクセスログの識別子は匿名化 |
 | モデレーション独立性 | 管理者セッションは利用者と別 Cookie・別テーブル。ガードは middleware ではなく Server Component layout ＋ API ハンドラ |
+| 管理機能の露出低減 | 公開ページから `/admin` へリンクしない。sitemap 無し。ログイン画面に「管理画面／管理者／運営者」の語を出さない（`<title>` も「ログイン」）。`/admin/*` は layout metadata ＋ middleware で `noindex,nofollow,noarchive` ＋ `Cache-Control: no-store`。ログインは IP 単位 10/分でロック、失敗メッセージは「メールアドレスまたはパスワードが違います」で存在を漏らさない（ダミーハッシュ検証でタイミング差も抑制）。※URL 秘匿は防御にしない — 認証・認可が本体 |
 | 監査 | 管理操作は `admin_audit_logs` に記録。消せない |
 
 ---

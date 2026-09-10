@@ -92,6 +92,50 @@ NODE_OPTIONS=--max-old-space-size=768 npm run build   # NEXT_PUBLIC_* はビル�
 sudo systemctl restart dekirumichi
 ```
 
+### 3-補足2：管理画面（`/admin`）に BASIC 認証をかける（nginx 側・任意の追加防御）
+
+アプリ側は既に「未認証は `/admin/login` へ」「全管理ページ `requireAdmin()`／全管理 API `requireAdminApi()` でサーバー側認証＋認可」「管理系は `noindex` ＋ `Cache-Control: no-store`」になっている。
+BASIC 認証は**その手前に置く追加の露出低減**であり、認証情報はリポジトリに置かない。
+
+```bash
+# 1. パスワードファイルを作る（初回のみ。ユーザー名は任意）
+sudo apt-get install -y apache2-utils   # htpasswd コマンド
+sudo htpasswd -c /etc/nginx/.htpasswd-dekiru admin   # 対話でパスワード入力
+
+# 2. nginx の dekirumichi.net の server ブロックに location を足す
+sudo vi /etc/nginx/sites-available/dekirumichi   # 実ファイル名は環境で確認
+```
+
+```nginx
+# server { ... dekirumichi.net ... } の中に追記
+location /admin/ {
+    auth_basic           "Restricted";
+    auth_basic_user_file  /etc/nginx/.htpasswd-dekiru;
+    proxy_pass            http://localhost:4000;
+    proxy_set_header      Host $host;
+    proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header      X-Forwarded-Proto $scheme;
+}
+# API 側もかけるなら（管理操作を叩けなくするため。任意）
+location /api/admin/ {
+    auth_basic           "Restricted";
+    auth_basic_user_file  /etc/nginx/.htpasswd-dekiru;
+    proxy_pass            http://localhost:4000;
+    proxy_set_header      Host $host;
+    proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header      X-Forwarded-Proto $scheme;
+}
+```
+
+```bash
+# 3. 反映
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+- `.htpasswd-dekiru` は Git 管理下に置かない（`/etc/nginx/` 配下に置く）。
+- BASIC 認証を通っても、そのあと管理者ログイン（メール＋パスワード）＋権限チェックが必須（アプリ側は不変）。
+- 既存の管理者に BASIC の資格情報を別途共有する。
+
 ---
 
 ## 4. 守るルール（今日ハマった点）

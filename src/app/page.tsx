@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { SearchBox } from "@/components/search-box";
@@ -19,6 +20,11 @@ import { getOptionalUserId } from "@/lib/authz";
 import { guardPublicPage } from "@/lib/page-guard";
 import { prisma } from "@/lib/db";
 import { LIKE_NOTIFICATION_TYPE } from "@/lib/likes";
+
+// トップページだけは検索エンジンへの登録を許可する (露出方針: トップ以外は noindex)。
+export const metadata: Metadata = {
+  robots: { index: true, follow: true },
+};
 
 export default async function TopPage() {
   const guard = await guardPublicPage("/");
