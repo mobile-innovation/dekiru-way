@@ -288,6 +288,26 @@ SNS からの流入者が、1 件の「試したこと」だけを最小入力�
 | PATCH | `/api/admin/posts/{attemptId}` | `{ moderationStatus, note? }`。公開の取り下げ / 再公開など手動遷移。 |
 | POST | `/api/admin/posts/{attemptId}/recheck` | 投稿の AI 審査だけ再実行（`moderationStatus` は変えない）。 |
 
+### 仮データ（AI 生成サンプル・運営者のみ）
+
+管理者が検索体験の確認用に作るサンプル。`roads.is_seed_data = true` / `roads.data_origin = "ai_seed"` で
+実ユーザーデータと区別する。1 件 = Road 1 件 + Attempt 1 件。**保存時は必ず非公開**（API から
+公開＝true では作れない）。公開・非公開・削除はすべて 1 件ずつ（一括操作は無い）。
+対象が仮データでない Road を指した操作は `not_found`(404)。
+
+| メソッド | パス | 説明 |
+| --- | --- | --- |
+| POST | `/api/admin/seed-data/generate` | `{ keyword, count(5〜20, 既定10), exclude? }` → 候補配列 `{ drafts, count, priorCount }` を返す。**保存しない**。保存済みの同 `keyword` 仮データ（`seed_keyword` で照合）＋ `exclude`（＝画面に表示中／その回までに生成した候補。キーワードを変えず「再生成」するたびに内容を変えるため）と実質的に重複しない切り口を返す。AI キー未設定時は決定的なスタブ（生成のたびに開始位置をずらす）。 |
+| POST | `/api/admin/seed-data` | `{ keyword?, items: SeedDraft[] }` → すべて非公開で保存（`is_seed_data=true` / `data_origin="ai_seed"` / `seed_keyword=keyword` / Attempt は `is_published=false`・`moderation_status=pending`）。 |
+| GET | `/api/admin/seed-data` | 仮データ一覧（`?page`）。 |
+| GET | `/api/admin/seed-data/{roadId}` | 仮データ 1 件。 |
+| PATCH | `/api/admin/seed-data/{roadId}` | 仮データ 1 件を編集（Road 相当 / Attempt 相当のフィールド）。 |
+| POST | `/api/admin/seed-data/{roadId}/publish` | 仮データ 1 件を公開（`is_published=true` / `moderation_status=approved`。管理者が確認済みのため AI 審査は通さない）。 |
+| POST | `/api/admin/seed-data/{roadId}/unpublish` | 仮データ 1 件を非公開に戻す。 |
+| DELETE | `/api/admin/seed-data/{roadId}` | 仮データ 1 件を削除（Attempt は FK cascade）。204。 |
+
+`SeedDraft` = `{ difficulty?, previouslyAble?, goal?, situation?, startedAt?(YYYY-MM-DD), memo?, status?, progress?, nextAction?, method(必須), result(5分類), triedAt?(YYYY-MM-DD), attemptMemo? }`。
+
 ---
 
 ## その他

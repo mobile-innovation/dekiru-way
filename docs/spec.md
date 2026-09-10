@@ -99,6 +99,9 @@
 | `/admin/moderation` | 確認待ちの**経験**キュー（新しい順）。困ったこと→試したこと→結果／AI の理由・カテゴリ／SNS 簡易登録の運営メモ。公開する／公開しない／**保留**（今は公開できない記録を却下せず脇に置く。上部で「保留していない（既定）／保留している」を切り替え） |
 | `/admin/posts` | 全経験の一覧（状態フィルタ・キーワード検索）。公開停止・再公開・AI 再チェック |
 | `/admin/posts/[attemptId]` | 経験の全項目＋AI 判定＋操作ログ |
+| `/admin/seed-data` | 仮データ管理（一覧・状態・作成日時・AI生成表示／1 件ずつ 編集・公開・非公開・削除） |
+| `/admin/seed-data/generate` | AI 仮データ生成（キーワード＋件数 → 確認・編集 → 非公開で保存） |
+| `/admin/seed-data/[roadId]/edit` | 仮データ 1 件の編集 |
 | `/admin/audit` | 全操作ログ（誰が・いつ・何を・どの対象に） |
 
 ---
@@ -206,6 +209,33 @@
   `POST /api/v1/ai/summarize-experiences`（経験の整理）。いずれも補助レイヤーで、
   `ANTHROPIC_API_KEY` 未設定ならスタブ応答。医療的助言・診断はしない。
 
+### 5.10 仮データ（AI 生成サンプル・管理者専用）
+
+本番で検索・経験カード・道の見える化を確認できるよう、管理者が AI でサンプルを用意する機能（`/admin/seed-data`）。
+
+- **位置づけ:** 実ユーザーの体験の捏造ではない。「テスト・サンプル用の仮データ」。一般ユーザーには生成・管理画面を出さない。
+- **流れ:** キーワード（テーマ）入力 → AI で 5〜20 件（既定 10）生成 → 画面で確認・編集 → **非公開で保存** → 一覧から **1 件ずつ公開**。
+  一括公開・一括削除は無い。1 件 = Road 1 件 + Attempt 1 件。
+- **困りごとの生成:** 入力キーワードは「テーマ（活動・場面）」。そのまま `difficulty` にコピーせず、
+  **そのテーマの中で**「何ができなくて困っているのか」＝具体的な行動・作業が「難しい／できない」形の
+  困りごとを件数分別々に生成する（抽象語だけ・「サンプル1」等の連番・架空人物の体験談は禁止）。
+  テーマから離れた別活動へ広げない（例：「デスクワーク PC」で包丁や階段の困りごとは不可）。
+  AI 出力は分野が別へ寄ったら破棄し、プロンプトで各候補の自己チェックをさせる。`isConcreteDifficulty`
+  で検証し、保存時も zod で連番だけの困りごとを弾く。Road に `title` 列は無く、見出しは `difficulty`。
+- **複数テーマ:** キーワードをスペース（半角/全角）で区切ると複数テーマとして扱い、1 回の生成で
+  全テーマを横断し件数を各テーマにおおよそ均等配分する。件数（5〜20）は変わらず、各 Road は独立。
+- **毎回違う結果:** 同じテーマで生成するたびに、過去に作った仮データ（`seed_keyword` で照合）と
+  実質的に重複しない別の切り口を返す。過去データは AI にプロンプトで渡し、言い換え重複は
+  `nearDuplicate` で検出して捨てる。今回の 10 件どうしも実質的に重複させない。生成件数・非公開保存・
+  1 件ずつの公開/非公開/削除は変えない。
+- **識別:** `roads.is_seed_data = true` / `data_origin = "ai_seed"`。すべての仮データ操作 API は対象が仮データ Road か検証し、
+  そうでなければ 404（実ユーザーデータをこの経路で触れない）。
+- **公開:** 管理者が確認済みのため AI 審査は通さず、直接 `is_published=true` / `moderation_status=approved`。
+  以降は既存の公開ゲート（`PUBLIC_ATTEMPT_WHERE`）に従って検索等に出る。
+- **AI:** 既存の `@/lib/ai/client`（`ANTHROPIC_API_KEY`）を使う。未設定時は決定的なスタブ。
+  診断・治療の断定、「必ず改善する」等の保証表現、危険行為の推奨は生成させない。5 分類以外の結果値は `ongoing` に矯正。
+- **一般ユーザー表示:** 公開された仮データのカード・詳細・道の見える化に小さく「サンプル」と表示（誤認防止・最小限）。
+
 ---
 
 ## 6. データモデル
@@ -213,7 +243,7 @@
 | テーブル | 主なカラム | 関係・削除 |
 | --- | --- | --- |
 | `users` | `google_sub`(unique), `display_name`, `avatar_url` | → roads / attempt_likes / attempt_reads / notifications（すべて cascade） |
-| `roads` | `user_id`, `previously_able?`, `difficulty?`, `goal?`, `started_at?`, `situation?`, `memo?`, `status?`, `progress?`, `next_action?` | `user` cascade。attempts / road_tags は cascade。道自体はモデレーション状態を持たない |
+| `roads` | `user_id`, `previously_able?`, `difficulty?`, `goal?`, `started_at?`, `situation?`, `memo?`, `status?`, `progress?`, `next_action?`, `is_seed_data`(既定 false), `data_origin`(既定 `"user"`／仮データは `"ai_seed"`), `seed_keyword?`(仮データの生成テーマ／再生成の重複回避用) | `user` cascade。attempts / road_tags は cascade。道自体はモデレーション状態を持たない |
 | `attempts` | `road_id`, `method`, `result`(enum 5), `tried_at?`, `memo?`, `achievement_percent?`, `feeling?`, `state_after?`, `next_action?`, `previous_attempt_id?`, `is_published`(既定 false／フォームは新規 ON), `moderation_status`(既定 pending), `moderation_held`(既定 false／運営の「保留」。公開ゲートには無関係) ＋ AI 判定・手動判断カラム | `road` cascade。likes / reads / notifications は cascade。`previous_attempt` は SetNull |
 | `tags` | `name`(unique) | 共有マスタ。ユーザー削除では消えない |
 | `road_tags` | `road_id` + `tag_id`（複合 PK） | 両側 cascade |
@@ -225,6 +255,8 @@
 
 - `ModerationStatus` enum: `pending` / `approved` / `rejected`。
 - **`attempt_photos` は廃止済み。** 画像関連カラム・オブジェクトストレージは存在しない。
+- **仮データ（AI 生成サンプル）:** `roads.is_seed_data = true` / `data_origin = "ai_seed"` の Road（＋その唯一の Attempt）。
+  管理者が検索体験の確認用に作る。実ユーザーデータとはこのフラグだけで判別する。詳細は §5.10。
 
 ---
 
@@ -245,6 +277,7 @@
 | 通知（本人） | `POST /notifications/read` |
 | AI 補助 | `POST /ai/experience-search`, `POST /ai/summarize-experiences` |
 | 管理（運営者） | `POST /api/admin/login`, `POST /api/admin/logout`, `POST /api/admin/moderation/{attemptId}`, `PATCH /api/admin/posts/{attemptId}`, `POST /api/admin/posts/{attemptId}/recheck` |
+| 仮データ（運営者） | `POST /api/admin/seed-data/generate`, `GET/POST /api/admin/seed-data`, `GET/PATCH/DELETE /api/admin/seed-data/{roadId}`, `POST /api/admin/seed-data/{roadId}/publish`, `POST /api/admin/seed-data/{roadId}/unpublish` |
 | 開発専用 | `POST/DELETE /api/test/login`（`E2E_TEST_LOGIN=true` のときのみ） |
 
 **共通:** エラーは `{ "error": { "code", "message", "details"? } }`。

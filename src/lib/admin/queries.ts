@@ -24,7 +24,8 @@ export async function dashboardStats() {
         where: { isPublished: true, moderationStatus: ModerationStatus.rejected },
       }),
       prisma.user.count(),
-      prisma.road.count(),
+      // 実データの「道」だけを数える。仮データ (管理者が作ったサンプル) は含めない。
+      prisma.road.count({ where: { isSeedData: false } }),
       prisma.attempt.count({ where: { isPublished: true } }),
       prisma.attempt.count({
         where: {
@@ -54,6 +55,8 @@ export async function dashboardStats() {
 export async function recentActivity(limit = 8) {
   const [roads, attempts] = await Promise.all([
     prisma.road.findMany({
+      // 仮データの作成は「最近の動き」に出さない (10 件生成で埋まらないように)。
+      where: { isSeedData: false },
       orderBy: { createdAt: "desc" },
       take: limit,
       select: { id: true, difficulty: true, createdAt: true },

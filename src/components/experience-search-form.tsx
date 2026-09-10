@@ -1,9 +1,9 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VoiceInputButton } from "@/components/voice-input-button";
-import { Button } from "@/components/ui";
+import { Button, ClearFieldButton } from "@/components/ui";
 import { IconSearch, IconSlidersHorizontal } from "@/components/icons";
 import {
   ATTEMPT_RESULTS,
@@ -58,6 +58,7 @@ export function ExperienceSearchForm({
   const router = useRouter();
   const inputId = useId();
   const hintId = `${inputId}-hint`;
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const [qText, setQText] = useState(defaultQ);
   const [result, setResult] = useState(defaultResult);
@@ -97,7 +98,7 @@ export function ExperienceSearchForm({
   return (
     <form
       onSubmit={submit}
-      className="space-y-5 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-primary-tint)] p-5 shadow-[var(--shadow-card)] sm:p-6"
+      className="space-y-5 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[var(--shadow-card)] sm:p-6"
       role="search"
       aria-label="経験を探す"
     >
@@ -119,14 +120,24 @@ export function ExperienceSearchForm({
           />
           <input
             id={inputId}
+            ref={inputRef}
             name="q"
             type="search"
             value={qText}
             onChange={(e) => setQText(e.target.value)}
             aria-describedby={hintId}
             placeholder="例：ボタンがとめにくい"
-            className="w-full rounded-[12px] border border-[color-mix(in_srgb,var(--color-primary)_30%,white)] bg-[var(--color-surface)] py-3 pl-11 pr-4 text-base shadow-[0_2px_8px_rgba(46,42,38,0.05)] transition-[border-color,box-shadow] focus-visible:rounded-[12px] focus-visible:border-[var(--color-primary)] focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_28%,white),0_2px_8px_rgba(46,42,38,0.05)]"
+            className="w-full rounded-[12px] border border-[color-mix(in_srgb,var(--color-primary)_30%,white)] bg-[var(--color-surface)] py-3 pl-11 pr-11 text-base shadow-[0_2px_8px_rgba(46,42,38,0.05)] transition-[border-color,box-shadow] focus-visible:rounded-[12px] focus-visible:border-[var(--color-primary)] focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_28%,white),0_2px_8px_rgba(46,42,38,0.05)] [&::-webkit-search-cancel-button]:appearance-none"
           />
+          {qText && (
+            <ClearFieldButton
+              label="困りごとの入力を消す"
+              onClick={() => {
+                setQText("");
+                inputRef.current?.focus();
+              }}
+            />
+          )}
         </div>
         <div className="mt-2">
           <VoiceInputButton onResult={(t) => setQText((v) => (v ? `${v} ${t}` : t))} />

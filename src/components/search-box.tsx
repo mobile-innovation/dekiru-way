@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { VoiceInputButton } from "@/components/voice-input-button";
+import { ClearFieldButton } from "@/components/ui";
 import { IconSearch } from "@/components/icons";
 
 /**
@@ -25,6 +26,7 @@ export function SearchBox({
 }) {
   const router = useRouter();
   const [value, setValue] = useState(defaultValue);
+  const inputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
   const hintId = `${inputId}-hint`;
   const isHero = size === "hero";
@@ -63,6 +65,7 @@ export function SearchBox({
           />
           <input
             id={inputId}
+            ref={inputRef}
             name="q"
             type="search"
             autoFocus={autoFocus}
@@ -70,8 +73,17 @@ export function SearchBox({
             onChange={(e) => setValue(e.target.value)}
             aria-describedby={hintId}
             placeholder="例：ボタンがとめにくい"
-            className="w-full rounded-[12px] border border-[color-mix(in_srgb,var(--color-primary)_30%,white)] bg-[var(--color-surface)] py-3 pl-11 pr-4 text-base shadow-[0_2px_8px_rgba(46,42,38,0.05)] transition-[border-color,box-shadow] focus-visible:rounded-[12px] focus-visible:border-[var(--color-primary)] focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_28%,white),0_2px_8px_rgba(46,42,38,0.05)]"
+            className="w-full rounded-[12px] border border-[color-mix(in_srgb,var(--color-primary)_30%,white)] bg-[var(--color-surface)] py-3 pl-11 pr-11 text-base shadow-[0_2px_8px_rgba(46,42,38,0.05)] transition-[border-color,box-shadow] focus-visible:rounded-[12px] focus-visible:border-[var(--color-primary)] focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_28%,white),0_2px_8px_rgba(46,42,38,0.05)] [&::-webkit-search-cancel-button]:appearance-none"
           />
+          {value && (
+            <ClearFieldButton
+              label="困りごとの入力を消す"
+              onClick={() => {
+                setValue("");
+                inputRef.current?.focus();
+              }}
+            />
+          )}
         </div>
         <button
           type="submit"

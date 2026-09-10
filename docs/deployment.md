@@ -70,6 +70,9 @@ NODE_OPTIONS=--max-old-space-size=768 npm run build
 # 4. マイグレーション（prisma/migrations が変わったときだけ・ローカルバイナリで）
 git diff --name-only HEAD@{1} HEAD | grep -q '^prisma/migrations/' \
   && node_modules/.bin/prisma migrate deploy || echo "migrate スキップ"
+#   ※ 仮データ機能のマイグレーションは roads への ADD COLUMN のみで既存行・既存挙動に影響なし:
+#     20260910063926_add_road_seed_data  … is_seed_data / data_origin（既定値あり）
+#     20260910082354_add_road_seed_keyword … seed_keyword（nullable）
 
 # 5. 再起動（3 が ✓ Compiled successfully で終わってから）
 sudo systemctl restart dekirumichi

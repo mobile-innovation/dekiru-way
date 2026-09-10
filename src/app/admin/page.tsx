@@ -69,6 +69,7 @@ function StatCard({ value, label }: { value: number; label: string }) {
 const MENU: { href: string; label: string; ready: boolean }[] = [
   { href: "/admin/moderation", label: "経験を確認する", ready: true },
   { href: "/admin/posts", label: "公開されている経験を見る", ready: true },
+  { href: "/admin/seed-data", label: "仮データを管理する", ready: true },
   { href: "/admin/audit", label: "操作ログを見る", ready: true },
   { href: "", label: "利用者を見る（準備中）", ready: false },
   { href: "", label: "通報・対応を見る（準備中）", ready: false },

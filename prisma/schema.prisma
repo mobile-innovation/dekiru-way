@@ -78,6 +78,16 @@ model Road {
   progress      String?
   /// 次に試すこと
   nextAction    String?    @map("next_action")
+  /// 管理者が作った仮データ (テスト・サンプル用) か。
+  ///   false = 通常の利用者データ
+  ///   true  = 管理画面「仮データ管理」で作成した仮データ
+  /// 実ユーザーデータと仮データを DB 上で確実に判別するための唯一のフラグ。
+  isSeedData    Boolean    @default(false) @map("is_seed_data")
+  /// データの由来。"user" = 利用者が作成 / "ai_seed" = 管理画面の AI 仮データ生成。
+  dataOrigin    String     @default("user") @map("data_origin")
+  /// AI 仮データ生成時に入力されたテーマ (キーワード)。同じテーマの再生成で
+  /// 既存の仮データと内容が重複しないよう、生成時の参照に使う。利用者データでは null。
+  seedKeyword   String?    @map("seed_keyword")
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
 
@@ -91,6 +101,7 @@ model Road {
   @@index([userId])
   @@index([createdAt])
   @@index([updatedAt])
+  @@index([isSeedData])
   @@map("roads")
 }
 

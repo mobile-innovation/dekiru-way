@@ -766,6 +766,130 @@ SNS 的な人気競争にしないことを最優先に置く。
 
 ---
 
+## 7-decies. 仮データ (AI 生成サンプル) 管理 (実装指示書「AI仮データ生成・管理機能」)
+
+- **目的:** 本番で検索・経験カード・道の見える化を確認するため、管理者が AI でサンプルを生成 →
+  確認 → 非公開で保存 → 1 件ずつ公開できる、管理者専用機能。実ユーザーの体験の捏造ではない。
+
+- **データモデル (最小変更):** `roads` に `is_seed_data BOOLEAN NOT NULL DEFAULT false` と
+  `data_origin TEXT NOT NULL DEFAULT 'user'` を追加（`ai_seed` が AI 生成由来）。`@@index([is_seed_data])`。
+  マイグレーション `20260910063926_add_road_seed_data`。
+  さらに同テーマ再生成の重複回避用に `seed_keyword TEXT`（nullable）を追加
+  （マイグレーション `20260910082354_add_road_seed_keyword`）。
+  - **Attempt には足さない。** 仮 Attempt は必ず仮 Road に属し、Attempt は Road から FK cascade で消える。
+    Road 側フラグだけで「判別」と「実データ保護」に十分。
+  - **1 件 = Road 1 件 + Attempt 1 件**（ユーザー確認済み）。生成 10 件 → Road 10 本、各 1 試行。
+    公開・非公開・削除の単位は「その Road（＋その 1 試行）」。
+  - 仮 Road の所有者は受け皿システム利用者 `googleSub = "system:ai-seed-data"`
+    （`quick-submit.ts` の匿名受け皿と同じ手法。ログインせず公開面に出ない）。
+
+- **公開の分離:** AI 生成 API から `is_published=true` では作れない。保存は必ず
+  `is_seed_data=true` / `data_origin="ai_seed"` / Attempt `is_published=false`・`moderation_status=pending`。
+  公開は管理画面から 1 件ずつ。**一括公開・一括削除は実装しない。**
+
+- **公開時の審査:** 管理者が確認画面で精査済みのため、公開ボタンは AI モデレーション
+  (`applyModerationOnPublish`) を通さず直接 `is_published=true` / `moderation_status=approved`
+  にし `bumpRoadUpdatedAt` する（ユーザー確認済み）。以降は既存の公開ゲート
+  `PUBLIC_ATTEMPT_WHERE`（`is_published && approved`）を素通りして検索等に出るので、検索・詳細・
+  道の見える化・タグ側のクエリ変更は不要。
+
+- **実データ保護:** `src/lib/admin/seed-data.ts` の全 mutating 関数は `requireSeedRoad()`
+  （`where: { id, isSeedData: true }`）を通し、対象が仮データでなければ `ApiError("not_found")`。
+  → 実ユーザーの Road / Attempt はこの API 経路から一切触れない。
+
+- **AI:** 既存 `@/lib/ai/client`（`ANTHROPIC_API_KEY` / `claude-sonnet-5`）を流用。新プロバイダ・
+  新キーは足さない。`src/lib/ai/seed-data.ts` に専用 system プロンプト（実在体験ではなくサンプル／
+  診断・治療の断定禁止／「必ず改善する」等の保証表現禁止／危険行為を推奨しない）と
+  `SEED_METHOD_ANGLES`（方法のバリエーション）を分離。`callJsonArray`（`{"items":[...]}` 期待、
+  失敗時 `[]`）を client.ts に追加。`normalizeDrafts` が壊れた応答を安全化（要素検証・
+  5 分類以外は `ongoing` に矯正・不正日付は null・method / difficulty 完全一致を重複排除・件数で打ち切り）。
+
+- **困りごと(difficulty)の生成ルール（生成ルール修正指示書）:** 入力キーワードは「テーマ」であり、
+  そのまま `difficulty` にコピーしない。テーマから「何ができなくて困っているのか」＝具体的な行動・
+  作業が「難しい／できない」形の困りごとを件数分だけ別々に生成する。
+  - system / user プロンプトに明示（抽象語だけ・キーワードのコピー・「サンプル1」等の連番・
+    架空人物の体験談を禁止／`goal` はキーワードの繰り返し禁止で具体化）。
+  - `isConcreteDifficulty(difficulty, keyword)` で検証：6 文字未満／キーワードそのまま（末尾の
+    「（…）」「について」等を外して突き合わせ）／`サンプル\d+` 等の連番／困りごとの語
+    （難し・つら・こわ・大変・にくい・できな 等）を含まない → 不採用。AI 出力は `normalizeDrafts`
+    でこの検証を通し、落ちた要素は捨てる（全滅ならスタブへフォールバック）。
+  - 保存時の最終防御として `seedDraftSchema.difficulty` を必須化し、`サンプル/テスト/例 + 数字`
+    だけの困りごとを zod で弾く。
+  - Road に `title` 列は無い（削除済み）。見出しは `difficulty` が担うので、difficulty を具体的な
+    一文にすることが「タイトルが連番にならない」ことも兼ねる（新規カラムは足さない）。
+  - `ANTHROPIC_API_KEY` 未設定時のスタブは、テーマを埋め込まず `SEED_DIFFICULTY_ASPECTS`（20 個。
+    日常作業のつまずき）から件ごとに異なる具体的な困りごと・目標・方法を割り当てる。テーマは
+    `situation` に「「<キーワード>」に取り組むときの場面（サンプル）」の形で引用として残す
+    （検索でたどれるように。`buildExperienceWhere` は `road.situation` も対象）。
+  - **テーマから逸脱させない（テーマ逸脱防止指示書）:** difficulty は入力テーマの活動・場面の中で
+    起きる困りごとにする（料理→PC、PC→階段 のような別活動への飛躍は不可）。
+    - プロンプトに「テーマから離れない（最重要）」節と、各候補の自己チェック 4 項目
+      （テーマに直接関係／別活動でない／具体的な困りごと／difficulty・goal・method が一貫）を明示。
+    - `SEED_DOMAINS`（deskwork / cooking / outing / cleaning / laundry。テーマ語＋その分野の困りごと語を
+      拾う正規表現つき）と `seedDomainKey(text)` を追加。
+    - AI 出力の逸脱検知: テーマに分野がある場合、`difficulty + method` が *別分野* に判定される候補は
+      `normalizeDrafts` で捨てる（分野なしテーマでは落としすぎないよう無効）。
+    - スタブ: テーマの分野が分かればその分野の困りごと（例「デスクワーク PC」→ キーボード入力・マウス操作・
+      画面クリック…）、分からなければ `NEUTRAL_ASPECTS`（分野に依らない作業のつまずき）の頭にテーマを
+      引用でつけて出す。どちらもテーマから離れない。
+  - **スペース区切り＝複数テーマ (AND)**（ユーザー確認済み: 「1 バッチで全テーマを横断」）。
+    `parseSeedThemes(keyword)` が半角/全角スペース・タブで分割・トリム・重複排除する。
+    2 個以上なら user プロンプトに「全テーマを取り上げ、生成件数を各テーマにおおよそ均等に配分」を明示。
+    生成件数は変えない（既定 10）。スタブは件ごとにテーマを順番に割り当て、`situation` に各テーマが現れる。
+    保存・公開・削除の単位は従来どおり 1 件（Road）ずつで、複数テーマでも各 Road は独立。
+    `isConcreteDifficulty` はスペース区切りの各テーマそのままも不採用にする。
+
+  - **毎回結果を変える・重複を避ける（追加指示書）:** 同じテーマで生成するたびに違う切り口を出す。
+    - `roads.seed_keyword`（nullable text、マイグレーション `20260910082354_add_road_seed_keyword`）に
+      生成時のテーマを保存。`persistSeedDrafts(drafts, keyword)` で書き、`seedCreateSchema` に
+      任意フィールド `keyword` を追加（generator が送る）。
+    - `listSeedDataForTheme(keyword)`：`seed_keyword` 完全一致 + 部分一致で同テーマの既存
+      仮データ（困りごと / 方法 / 結果）を最大 120 件返す。`generate` エンドポイントが毎回呼ぶ。
+    - `generateSeedDrafts(keyword, count, { existing })`：
+      - AI パス — `buildUserPrompt` に既存リスト（最新 60）＋「同じ・実質的に同じ・言い換え禁止」
+        ＋自己チェック 6 項目＋優先順位「テーマ適合 ＞ 重複回避 ＞ 新しい切り口 ＞ バリエーション」を明示。
+        `normalizeDrafts` が既存および今回採用済みと `nearDuplicate` で照合し、重複を捨てる。
+      - スタブ — 困りごとプールの開始位置を `offset = existing.length` ずらして違う切り口を返す。
+        `NEUTRAL_ASPECTS` を 34 個に増やし、分野ありテーマはプール 42（4 周ぶん）を確保。
+        `existing` と `nearDuplicate` する候補はスキップし、足りなければ最後に重複を許して件数を満たす。
+    - `nearDuplicate(a,b)` / `meaningTokens(s)`：助詞・記号を落とし、同義語（軽量→軽、変更/見直し→変、
+      「こまめに休憩」「休憩を増やす」等→定期休憩 …）を畳んでカタカナ語・漢字語の集合にし、
+      Jaccard ≥ 0.6 か「小さい側が丸ごと含まれる」で「実質的に同じ」と判定。完璧ではなく、
+      最終判断は AI の自己チェックと管理者の確認に委ねる安全網。
+    - **保存せず「再生成」しても毎回変える（再生成指示書）:** キーワードはそのままで
+      「別の候補をもう一度生成する」を押すたび内容を変える。
+      - `seedGenerateSchema` に `exclude`（画面に表示中＋その回までに生成した候補、最大 200）を追加。
+      - `generate` ルートが `listSeedDataForTheme`（保存済み）＋ `exclude`（未保存の表示分）を
+        まとめて `existing` として `generateSeedDrafts` に渡す。
+      - クライアント（`seed-data-generator.tsx`）は同一キーワードの生成結果を `historyRef` に累積して
+        毎回 `exclude` で送る。キーワードが変わったら履歴をリセット。生成後はボタンが
+        「別の候補をもう一度生成する」に変わる。
+    - 生成件数・非公開保存・1 件ずつの公開/非公開/削除・テーマ逸脱防止は変えない。
+
+- **API (`/api/admin/seed-data*`):** `generate`（保存しない・`RATE_PRESETS.ai`）/ `POST`（非公開保存）/
+  `GET` 一覧 / `GET|PATCH|DELETE {roadId}` / `POST {roadId}/publish|unpublish`。
+  すべて `handle()` + `requireAdminApi()`。監査ログ action:
+  `seed_create|seed_edit|seed_publish|seed_unpublish|seed_delete`。
+
+- **一般ユーザー表示:** 公開された仮データは既存の経験カード・詳細・道の見える化に出るが、
+  誤認防止に小さな「サンプル」ピル（`SampleBadge`、`src/components/ui.tsx`）のみ足す。
+  `RoadCardDTO` / `MethodCardDTO` / `ExperienceDTO.road` / `getPathClusters` に `isSeed` を伝播。
+
+- **ダッシュボード:** `dashboardStats().roads` と `recentActivity` の Road 集計から
+  `isSeedData: false` で仮データを除外（実データと混同しない／10 件生成で「最近の動き」が埋まらない）。
+
+- **本番マイグレーション:** VPS で `node_modules/.bin/prisma migrate deploy` を 1 行で流す
+  （`docs/deployment.md`）。`ADD COLUMN ... DEFAULT` のみで既存行・既存挙動に影響なし。
+
+- **テスト:** `tests/unit/seed-data.test.ts`（`coerceResult` / `isConcreteDifficulty` / `seedDomainKey` /
+  `parseSeedThemes` / `normalizeDrafts` / `localStubDrafts` — テーマ→具体化、キーワードそのまま不可、
+  連番不可、10 件が十分に異なる、result は 5 分類、架空人物にしない、**指示書の 3 ケース**
+  〔デスクワーク PC / 料理を作る / 外出〕でテーマから逸脱しない、AI 逸脱候補は捨てる）、
+  `tests/integration/seed-data.test.ts`（生成 10 件・difficulty 具体化・非全件一致・5 分類のみ／
+  非公開保存＋フラグ（Road 10 + Attempt 10）／非公開時は検索に出ない／1 件公開で 1 件だけ出る／
+  非公開化／編集／削除で Attempt も消える／実ユーザー Road への PATCH・publish・DELETE は 404／
+  管理者以外は 401）。
+
 ## 8. 仕様変更ログ
 
 （現時点で指示書からの機能的な逸脱はなし。追記時は下記フォーマット）
@@ -1535,3 +1659,20 @@ SNS 的な人気競争にしないことを最優先に置く。
 - 影響範囲: `src/components/road-card.tsx` / `src/components/method-card.tsx` の タグ `<li>` のみ。
   カード背景・枠線・本文・見出し・ボタン・レイアウト・フッター、経験詳細/自分の道のタグ、検索フォームの
   絞り込みチップは変更なし。axe（トップ/経験を探す/経験詳細ほか）全通過、PC(1280)・モバイル(390) 目視確認。
+
+### 2026-09-10 検索・キーワード入力欄に「×」クリアボタン
+- 検索/キーワードの入力欄の右端に「×」ボタンを置き、押すとその欄だけを空にする（入力中のみ表示、押下後は入力欄へフォーカスを戻す）。
+- 共通 UI: `src/components/ui.tsx` の `ClearFieldButton`（`relative` ラッパー内に絶対配置。`aria-label` 付き）＋ `IconX`（`src/components/icons.tsx`）。
+- 対象: `search-box.tsx`（トップ/コンパクト検索）/ `experience-search-form.tsx`（経験を探す。× は検索ワードのみクリア。絞り込みは従来の「条件をクリア」）/ `admin/seed-data-generator.tsx`（キーワード）/ `admin/posts`（一覧検索。GET フォームのまま `AdminPostSearch` にクライアント化）。
+- `type="search"` の入力欄は WebKit のネイティブ × を `[&::-webkit-search-cancel-button]:appearance-none` で消し、独自 × に一本化。
+- × は送信・遷移をしない（ワードを消すだけ）。既存の検索ロジック・URL 生成・音声入力は変更なし。
+- **Enter で検索/生成が走る**: `search-box` / `experience-search-form` / `admin/posts` はもともと
+  `<form onSubmit>`＋submit ボタンで Enter 送信が効く。`seed-data-generator` は入力欄が form の外に
+  あり Enter が無反応だったため、入力セクションを `<form onSubmit>` にし「AIで生成する」を
+  `type="submit"` に変更（IME 変換確定の Enter はブラウザが吸収するので追加ガード不要）。
+
+### 2026-09-10 検索カードは白 / AI仮データ生成の入力カードは緑（見た目のみ）
+- 「経験を探す」の検索カード（`experience-search-form.tsx`）の背景を `--color-primary-tint`（緑）→ `--color-surface`（白）に。
+- 「AIで仮データを生成」の入力カード（`seed-data-generator.tsx` の入力 `<form>`）を、これまでの検索カードと同じ緑 `--color-primary-tint` ＋ `--shadow-card` に。中のキーワード入力欄・件数セレクトは `--color-surface`（白）で浮かせる。
+- 同画面の「生成結果」カード（各候補の `<li>`）は背景指定が無く生成りだったので `--color-surface`（白）に。
+- 色・影のトークン差し替えのみ。枠線・角丸・余白・レイアウト・入力ロジックは変更なし。

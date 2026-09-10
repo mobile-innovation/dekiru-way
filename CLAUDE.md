@@ -23,6 +23,19 @@
 制約: 非パーソナライズ配信のみ（行動追跡なし・文脈広告）。EEA/UK は CMP 未導入のため
 配信が絞られる可能性（将来課題）。表示は検索一覧・道詳細の 2 枠だけ。
 
+### 仮データ（AI 生成サンプル）管理 — コード実装済み
+
+管理者が `/admin/seed-data` で検索確認用のサンプルを AI 生成 → 確認 → 非公開で保存 →
+1 件ずつ公開できる機能。`roads.is_seed_data` / `data_origin` で実データと区別。詳細は
+`docs/spec.md` §5.10 / `docs/implementation-decisions.md` §7-decies / `docs/admin-manual.md` §6.5。
+
+本番反映で必要なのはコードではなく運用手順:
+
+1. マイグレーション 2 本 `20260910063926_add_road_seed_data` / `20260910082354_add_road_seed_keyword` を適用（`docs/deployment.md` の手順 4 が自動で拾う。`roads` への ADD COLUMN のみで安全）
+2. 実 AI 生成をしたいなら本番 env に `ANTHROPIC_API_KEY` を設定（未設定でも決定的スタブで動く。テーマから逸脱せず、生成のたびに違う切り口を返す）
+3. 生成物は必ず非公開で保存され、公開は管理画面から 1 件ずつ。一括公開・一括削除は無い
+4. 同じテーマで何度でも生成でき、2 回目以降は保存済みと重複しない切り口が出る（`roads.seed_keyword` で照合）
+
 ### 本番ホスティング
 
 さくら VPS（Ubuntu、mycarenote スタックと相乗り）に**既にデプロイ済み**。

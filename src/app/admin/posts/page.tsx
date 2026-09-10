@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/auth";
 import { postList } from "@/lib/admin/queries";
 import { AdminPostCard } from "@/components/admin/post-card";
+import { AdminPostSearch } from "@/components/admin/post-search";
 
 export const dynamic = "force-dynamic";
 
@@ -57,22 +58,7 @@ export default async function AdminPostsPage({ searchParams }: { searchParams: S
         ))}
       </nav>
 
-      <form action="/admin/posts" method="get" className="flex gap-2">
-        {status && <input type="hidden" name="status" value={status} />}
-        <input
-          type="search"
-          name="q"
-          defaultValue={q}
-          placeholder="本文・困りごと・目標で検索"
-          className="w-full rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 py-1.5 text-sm"
-        />
-        <button
-          type="submit"
-          className="rounded-[var(--radius-pill)] border border-[var(--color-neutral)] px-3 py-1.5 text-sm font-semibold"
-        >
-          検索
-        </button>
-      </form>
+      <AdminPostSearch defaultValue={q} status={status} />
 
       {items.length === 0 ? (
         <p className="rounded-[var(--radius-lg)] border border-[var(--color-border)] p-6 text-center text-sm text-[var(--color-ink-muted)]">

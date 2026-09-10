@@ -37,6 +37,8 @@ export interface RoadCardDTO {
   attemptCount: number;
   /** ログイン中ユーザーがこの道の公開経験を 1 つでも開いたか (未ログインは false)。 */
   isRead: boolean;
+  /** 管理者が用意した仮データ (サンプル) か。カードに「サンプル」表示を出す (指示書 14)。 */
+  isSeed: boolean;
 }
 
 // 「うまくいった順」用: 前向きな結果ほど小さい
@@ -97,6 +99,7 @@ export async function searchRoads(q: ExperienceQuery, viewerUserId?: string | nu
       })),
       attemptCount: pub.length,
       isRead: false,
+      isSeed: road.isSeedData,
     };
   });
 
@@ -152,6 +155,8 @@ export interface MethodCardDTO {
   treePage: number;
   /** ログイン中ユーザーがこの経験を既に開いたか (未ログインは false)。 */
   isRead: boolean;
+  /** 管理者が用意した仮データ (サンプル) か (指示書 14)。 */
+  isSeed: boolean;
 }
 
 /** 道詳細ツリー内で、その Attempt が出るページ番号（1 起点）を road ごとにまとめて計算。 */
@@ -236,6 +241,7 @@ export async function searchMethods(q: ExperienceQuery, viewerUserId?: string | 
     roadTags: a.road.roadTags.map((rt) => rt.tag.name).sort((x, y) => x.localeCompare(y, "ja")),
     treePage: pageOf.get(a.id) ?? 1,
     isRead: readSet.has(a.id),
+    isSeed: a.road.isSeedData,
   }));
 
   return {
@@ -331,6 +337,7 @@ export async function getPathClusters(opts: { q?: string; tag?: string; limit?: 
         goal: road.goal,
         previouslyAble: road.previouslyAble,
         tags: road.roadTags.map((rt) => rt.tag.name),
+        isSeed: road.isSeedData,
         steps,
       };
     })

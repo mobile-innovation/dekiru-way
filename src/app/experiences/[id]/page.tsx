@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Callout, Card } from "@/components/ui";
+import { Callout, Card, SampleBadge } from "@/components/ui";
 import {
   IconHistory,
   IconInfo,
@@ -83,7 +83,10 @@ export default async function ExperienceDetailPage({
           <Link href="/experiences">← 経験を探すへ戻る</Link>
         </p>
         <header className="space-y-2">
-          <h1 className="text-xl font-bold">{r.difficulty ?? r.goal ?? "経験の詳細"}</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-bold">{r.difficulty ?? r.goal ?? "経験の詳細"}</h1>
+            {r.isSeed && <SampleBadge />}
+          </div>
           {r.tags.length > 0 && (
             <ul className="flex flex-wrap gap-1.5">
               {r.tags.map((t) => (
@@ -183,6 +186,11 @@ export default async function ExperienceDetailPage({
             {" "}
             枝分かれの中で「できるようになった」が正解というわけではありません。
             うまくいかなかった方法も、次の人にとって大切な情報です。
+            {r.isSeed && (
+              <span className="mt-1 block font-bold">
+                これは運営が用意したサンプルです。実在の人の体験ではありません。
+              </span>
+            )}
           </Callout>
 
           <Card as="section">

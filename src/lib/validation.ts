@@ -120,6 +120,78 @@ export const aiExperienceSearchSchema = z.object({
   situation: trimmedRequired(1000, "いまの状況"),
 });
 
+// ---- 仮データ (管理画面 AI 生成。実装指示書) ----
+
+export const SEED_COUNT_MIN = 5;
+export const SEED_COUNT_MAX = 20;
+export const SEED_COUNT_DEFAULT = 10;
+
+/** キーワードから候補を生成する入力。 */
+export const seedGenerateSchema = z.object({
+  keyword: trimmedRequired(200, "キーワード"),
+  count: z.coerce
+    .number()
+    .int()
+    .min(SEED_COUNT_MIN)
+    .max(SEED_COUNT_MAX)
+    .default(SEED_COUNT_DEFAULT),
+  /**
+   * 再生成時に「これは出さない」候補。画面に表示中の結果＋その回までに生成した分。
+   * キーワードを変えずに再生成するたび内容を変えるために使う。保存済み仮データとは別。
+   */
+  exclude: z
+    .array(
+      z.object({
+        difficulty: z.string().trim().max(FIELD_MAX.text).nullable().optional(),
+        method: z.string().trim().max(FIELD_MAX.text).optional(),
+        result: z.string().trim().max(20).optional(),
+      }),
+    )
+    .max(200)
+    .optional(),
+});
+
+/**
+ * 困ったこと (difficulty)。仮データでは必須。「サンプル1」のような連番だけの困りごとは弾く
+ * (具体化は生成側 isConcreteDifficulty で担保。ここは保存時の最終防御)。
+ */
+const seedDifficulty = trimmedRequired(FIELD_MAX.text, "困ったこと").refine(
+  (v) => !/(サンプル|テスト|例)\s*[0-9０-９]+/.test(v),
+  { message: "「サンプル1」のような番号だけの困りごとにしないでください" },
+);
+
+/** 仮データ 1 件 = Road 相当 + Attempt 相当。保存前の確認画面で編集された値もこれで検証する。 */
+export const seedDraftSchema = z.object({
+  difficulty: seedDifficulty,
+  previouslyAble: trimmedOptional(FIELD_MAX.text),
+  goal: trimmedOptional(FIELD_MAX.text),
+  situation: trimmedOptional(FIELD_MAX.text),
+  startedAt: isoDateOptional,
+  memo: trimmedOptional(FIELD_MAX.longText),
+  status: trimmedOptional(FIELD_MAX.statusLabel),
+  progress: trimmedOptional(FIELD_MAX.text),
+  nextAction: trimmedOptional(FIELD_MAX.text),
+  method: trimmedRequired(FIELD_MAX.text, "試したこと"),
+  result: z.enum(ATTEMPT_RESULTS, { required_error: "結果を選んでください" }),
+  triedAt: isoDateOptional,
+  attemptMemo: trimmedOptional(FIELD_MAX.longText),
+});
+export type SeedDraftInput = z.infer<typeof seedDraftSchema>;
+
+/** 保存 (すべて非公開で作成)。件数は生成上限と同じに抑える。 */
+export const seedCreateSchema = z.object({
+  // 生成時のテーマ。同じテーマの再生成で重複を避けるため保存時に控える (任意)。
+  keyword: trimmedOptional(200),
+  items: z
+    .array(seedDraftSchema)
+    .min(1, "保存する仮データがありません")
+    .max(SEED_COUNT_MAX, `一度に保存できるのは ${SEED_COUNT_MAX} 件までです`),
+});
+
+/** 1 件ずつの編集 (部分更新)。 */
+export const seedUpdateSchema = seedDraftSchema.partial();
+export type SeedUpdateInput = z.infer<typeof seedUpdateSchema>;
+
 export const aiSummarizeSchema = z.object({
   experienceIds: z.array(z.string().uuid()).min(1).max(20),
 });

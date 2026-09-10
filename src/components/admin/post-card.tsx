@@ -40,6 +40,11 @@ const ACTION_LABEL: Record<string, string> = {
   republish: "やっぱり公開する",
   requeue: "確認待ちに戻す",
   recheck: "AI でもう一度チェック",
+  seed_create: "仮データを保存",
+  seed_edit: "仮データを編集",
+  seed_publish: "仮データを公開",
+  seed_unpublish: "仮データを非公開に",
+  seed_delete: "仮データを削除",
 };
 
 export function StatusBadge({ status }: { status: string }) {

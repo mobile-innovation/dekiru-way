@@ -55,6 +55,42 @@ export async function callJson<T>(
   }
 }
 
+/**
+ * 配列を返す JSON を AI に生成させる補助。`{"items": [...]}` を期待し、
+ * パースできない・キー未設定・items が配列でない場合は空配列を返す。
+ * 返り値の要素は未検証の unknown。呼び出し側で必ず正規化・検証すること。
+ */
+export async function callJsonArray(
+  userPrompt: string,
+  system: string = SYSTEM_PROMPT,
+  maxTokens = 4096,
+): Promise<unknown[]> {
+  if (!env.ai.configured) return [];
+  try {
+    const res = await client().messages.create({
+      model: env.ai.model,
+      max_tokens: maxTokens,
+      system,
+      messages: [{ role: "user", content: userPrompt }],
+    });
+    const text = res.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("");
+    const jsonStart = text.indexOf("{");
+    const jsonEnd = text.lastIndexOf("}");
+    if (jsonStart === -1 || jsonEnd === -1) return [];
+    const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1)) as { items?: unknown };
+    return Array.isArray(parsed?.items) ? parsed.items : [];
+  } catch (err) {
+    console.warn(
+      "[ai] callJsonArray failed, using []:",
+      err instanceof Error ? err.message : "unknown",
+    );
+    return [];
+  }
+}
+
 export interface ExperienceSearchAssist {
   keywords: string[];
   rephrased: string;

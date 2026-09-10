@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 import { resultMeta } from "@/lib/constants";
-import { IconSearch, resultIcon } from "@/components/icons";
+import { IconSearch, IconX, resultIcon } from "@/components/icons";
 
 /* ------------------------------------------------------------------ */
 /* カード                                                              */
@@ -79,6 +79,56 @@ export function ResultBadge({ result, size = "md" }: { result: string; size?: "s
     >
       <Icon aria-hidden="true" className={`${iconSize} shrink-0`} />
       <span>{m.label}</span>
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 入力欄の「×」クリアボタン                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 検索・キーワード入力欄の右側に置く「×」ボタン。押すとその欄を空にする。
+ * 呼び出し側で `relative` なラッパーの中に置き、入力欄の右パディングを空ける
+ * (例: `pr-10`)。入力が空のときは描画しない。
+ */
+export function ClearFieldButton({
+  onClick,
+  label = "入力を消す",
+  className = "",
+}: {
+  onClick: () => void;
+  label?: string;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={`tap-target absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-surface-sunken)] hover:text-[var(--color-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] ${className}`}
+    >
+      <IconX aria-hidden="true" className="h-4 w-4" />
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* サンプル(仮データ)バッジ                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 管理者が用意した仮データ (公開済み) を、利用者が実在の体験と誤認しないための小さな目印
+ * (実装指示書 14 / 23)。デザインは崩さず、必要最小限の表示にとどめる。
+ */
+export function SampleBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-[var(--radius-pill)] border border-[var(--color-neutral)] bg-[var(--color-neutral-soft)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-ink-muted)] ${className}`}
+      title="運営が用意したサンプルです。実在の人の体験ではありません。"
+    >
+      サンプル
     </span>
   );
 }

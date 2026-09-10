@@ -15,7 +15,12 @@ export type AdminAction =
   | "unpublish" // 公開中 → pending に戻す (取り下げ)
   | "republish" // rejected → approved (やっぱり公開する)
   | "requeue" // rejected → pending (確認待ちに戻す)
-  | "recheck"; // AI 再チェック
+  | "recheck" // AI 再チェック
+  | "seed_create" // 仮データを非公開で保存
+  | "seed_edit" // 仮データを 1 件編集
+  | "seed_publish" // 仮データを 1 件公開
+  | "seed_unpublish" // 仮データを 1 件非公開に戻す
+  | "seed_delete"; // 仮データを 1 件削除
 
 /**
  * PATCH /api/admin/posts/{id}（手動での moderationStatus 遷移）の監査ログ action を、

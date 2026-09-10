@@ -48,6 +48,12 @@ describe("serializeExperience", () => {
     expect(dto.siblings).toBeUndefined();
   });
 
+  it("road.isSeed は既定 false、仮データ Road なら true", () => {
+    expect(serializeExperience(base as any).road.isSeed).toBe(false);
+    const seed = { ...base, road: { ...base.road, isSeedData: true } };
+    expect(serializeExperience(seed as any).road.isSeed).toBe(true);
+  });
+
   it("siblings 指定時は現在の attempt に isCurrent が立つ", () => {
     const sibling = { ...base, id: "a2", method: "べつの方法" };
     const dto = serializeExperience(base as any, { siblings: [base, sibling] as any });
