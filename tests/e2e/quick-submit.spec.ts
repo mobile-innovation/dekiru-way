@@ -16,7 +16,7 @@ test("SNS から困りごと付きで開き、試したことを登録できる"
   await page.goto(`/try?problem=${encodeURIComponent(problem)}`);
 
   await expect(
-    page.getByRole("heading", { name: "あなたが試したことを教えてください" }),
+    page.getByRole("heading", { name: "あなたの経験を教えてください" }),
   ).toBeVisible();
 
   // 「困っていたこと」は URL パラメータで先に入っていて、編集もできる

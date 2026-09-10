@@ -48,9 +48,9 @@ export default async function TryPage({
     // スマホは main の px-4 で従来どおりの余白。
     <div className="mx-auto w-full max-w-2xl space-y-5">
       <header className="space-y-2">
-        <h1 className="text-xl font-bold">あなたが試したことを教えてください</h1>
+        <h1 className="text-xl font-bold">あなたの経験を教えてください</h1>
         <p className="text-sm text-[var(--color-ink-muted)]">
-          困っていることに対して、試してみた方法を教えてください。うまくいかなかったことも、
+          困っていたことと、試してみた方法を教えてください。うまくいかなかったことも、
           誰かの次の一歩につながります。
         </p>
       </header>
