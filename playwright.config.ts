@@ -45,6 +45,11 @@ export default defineConfig({
       SITE_URL: baseURL,
       // 広告スロットの配置・非配置を E2E で検証するため有効化（プレースホルダのみ表示）。
       ADS_ENABLED: "true",
+      // E2E は「AdSense クライアント未設定＝実配信タグ無し」の前提。開発者の .env に
+      // 本番 ID が入っていても next build に焼き込まれないよう、ここで空にする。
+      NEXT_PUBLIC_ADSENSE_CLIENT: "",
+      NEXT_PUBLIC_ADSENSE_SLOT_SEARCH: "",
+      NEXT_PUBLIC_ADSENSE_SLOT_ROAD: "",
     },
   },
 });

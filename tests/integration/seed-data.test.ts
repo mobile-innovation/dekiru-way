@@ -178,6 +178,27 @@ describe("仮データ: 生成 → 非公開で保存 → 1件ずつ公開/非�
     expect(audit).toBeTruthy();
   });
 
+  it("一覧の表示切り替え（非公開／公開）でしぼり込める", async () => {
+    // created[0] は直前のテストで公開済み、その他は非公開。
+    const pub = (await (
+      await listSeed(new Request("http://localhost/api/admin/seed-data?state=published"), {
+        params: Promise.resolve({}),
+      })
+    ).json()) as { items: { id: string }[]; counts: { published: number; private: number } };
+    expect(pub.items.some((i) => i.id === created[0].id)).toBe(true);
+    expect(pub.items.some((i) => i.id === created[1].id)).toBe(false);
+    expect(pub.counts.published).toBeGreaterThanOrEqual(1);
+
+    const priv = (await (
+      await listSeed(new Request("http://localhost/api/admin/seed-data"), {
+        params: Promise.resolve({}),
+      })
+    ).json()) as { items: { id: string }[]; counts: { private: number } };
+    // 公開済みは非公開の一覧には出ない（フィルタで完全に除外）。
+    expect(priv.items.some((i) => i.id === created[0].id)).toBe(false);
+    expect(priv.counts.private).toBeGreaterThanOrEqual(1);
+  });
+
   it("公開済みの仮データを 1 件ずつ非公開に戻せる", async () => {
     const target = created[0];
     const res = await unpublishSeed(

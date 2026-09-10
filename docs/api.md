@@ -299,7 +299,7 @@ SNS からの流入者が、1 件の「試したこと」だけを最小入力�
 | --- | --- | --- |
 | POST | `/api/admin/seed-data/generate` | `{ keyword, count(5〜20, 既定10), exclude? }` → 候補配列 `{ drafts, count, priorCount }` を返す。**保存しない**。保存済みの同 `keyword` 仮データ（`seed_keyword` で照合）＋ `exclude`（＝画面に表示中／その回までに生成した候補。キーワードを変えず「再生成」するたびに内容を変えるため）と実質的に重複しない切り口を返す。AI キー未設定時は決定的なスタブ（生成のたびに開始位置をずらす）。 |
 | POST | `/api/admin/seed-data` | `{ keyword?, items: SeedDraft[] }` → すべて非公開で保存（`is_seed_data=true` / `data_origin="ai_seed"` / `seed_keyword=keyword` / Attempt は `is_published=false`・`moderation_status=pending`）。 |
-| GET | `/api/admin/seed-data` | 仮データ一覧（`?page`）。 |
+| GET | `/api/admin/seed-data` | 仮データ一覧（`?page`, `?state=private`(既定)｜`published`｜`all`）。`{ items, total, counts:{all,private,published}, page, hasMore }`。 |
 | GET | `/api/admin/seed-data/{roadId}` | 仮データ 1 件。 |
 | PATCH | `/api/admin/seed-data/{roadId}` | 仮データ 1 件を編集（Road 相当 / Attempt 相当のフィールド）。 |
 | POST | `/api/admin/seed-data/{roadId}/publish` | 仮データ 1 件を公開（`is_published=true` / `moderation_status=approved`。管理者が確認済みのため AI 審査は通さない）。 |

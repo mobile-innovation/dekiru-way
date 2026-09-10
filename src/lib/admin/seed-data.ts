@@ -151,11 +151,24 @@ export async function persistSeedDrafts(
   return rows.map(serializeSeedRoad);
 }
 
-export async function listSeedData(opts: { page?: number } = {}) {
+/**
+ * 仮データ一覧。`published` を指定すると、公開 / 非公開でしぼり込む
+ * (一覧画面の「非公開／公開」表示切り替え。既定＝しぼり込みなし)。
+ * タブの件数表示用に、非公開・公開・全体の件数も返す。
+ */
+export async function listSeedData(opts: { page?: number; published?: boolean } = {}) {
   const page = Math.max(1, opts.page ?? 1);
-  const where: Prisma.RoadWhereInput = { isSeedData: true };
-  const [total, rows] = await Promise.all([
+  const seed: Prisma.RoadWhereInput = { isSeedData: true };
+  const where: Prisma.RoadWhereInput =
+    opts.published === undefined
+      ? seed
+      : { ...seed, attempts: { some: { isPublished: opts.published } } };
+
+  const [total, allCount, privateCount, publishedCount, rows] = await Promise.all([
     prisma.road.count({ where }),
+    prisma.road.count({ where: seed }),
+    prisma.road.count({ where: { ...seed, attempts: { some: { isPublished: false } } } }),
+    prisma.road.count({ where: { ...seed, attempts: { some: { isPublished: true } } } }),
     prisma.road.findMany({
       where,
       include: { attempts: true },
@@ -167,6 +180,7 @@ export async function listSeedData(opts: { page?: number } = {}) {
   return {
     items: rows.map(serializeSeedRoad),
     total,
+    counts: { all: allCount, private: privateCount, published: publishedCount },
     page,
     pageSize: PAGE_SIZE,
     hasMore: page * PAGE_SIZE < total,

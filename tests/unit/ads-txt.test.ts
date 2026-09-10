@@ -1,9 +1,15 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { GET } from "@/app/ads.txt/route";
 
 /**
  * `/ads.txt` — AdSense のパブリッシャ ID 設定時だけ配信、未設定なら 404。
+ * この挙動は環境変数だけで決まるので、tests/setup.ts が読み込む .env の値に
+ * 左右されないよう、各テストの前後で明示的にクリアする。
  */
+
+beforeEach(() => {
+  delete process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
+});
 
 afterEach(() => {
   delete process.env.NEXT_PUBLIC_ADSENSE_CLIENT;

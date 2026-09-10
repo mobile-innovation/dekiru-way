@@ -1676,3 +1676,9 @@ SNS 的な人気競争にしないことを最優先に置く。
 - 「AIで仮データを生成」の入力カード（`seed-data-generator.tsx` の入力 `<form>`）を、これまでの検索カードと同じ緑 `--color-primary-tint` ＋ `--shadow-card` に。中のキーワード入力欄・件数セレクトは `--color-surface`（白）で浮かせる。
 - 同画面の「生成結果」カード（各候補の `<li>`）は背景指定が無く生成りだったので `--color-surface`（白）に。
 - 色・影のトークン差し替えのみ。枠線・角丸・余白・レイアウト・入力ロジックは変更なし。
+
+### 2026-09-10 仮データ管理の一覧に「非公開／公開」表示切り替え
+- `/admin/seed-data` の上部に緑（`--color-primary-tint`）の指示枠を置き、「非公開（N）」「公開（N）」の 2 タブで表示をしぼり込む。**初期値は非公開**（`?state` 無し = 非公開）。`?state=published` で公開ぶん。
+- サーバー側フィルタ（`page.tsx` は `force-dynamic` の Server Component、タブは `<Link>`。JS 不要）。`listSeedData({ page, published })` に `published?: boolean` を追加し、`counts:{ all, private, published }` も返す。
+- `GET /api/admin/seed-data` に `?state=private|published|all`（既定 private）を追加。
+- 各行の操作（編集／公開・非公開にする／削除）は従来どおり変更なし。
