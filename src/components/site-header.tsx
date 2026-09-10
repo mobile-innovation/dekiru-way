@@ -53,7 +53,7 @@ export async function SiteHeader() {
           ) : (
             <Link
               href="/login"
-              className="tap-target rounded-[var(--radius-pill)] bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary-ink)] no-underline hover:bg-[var(--color-primary-hover)]"
+              className="tap-target inline-flex items-center justify-center rounded-[var(--radius-pill)] bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary-ink)] no-underline hover:bg-[var(--color-primary-hover)]"
             >
               ログイン
             </Link>
