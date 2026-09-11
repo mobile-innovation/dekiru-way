@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, type ChangeEvent, type ComponentProps, type ReactNode } from "react";
-import { IconCircleAlert, IconX } from "@/components/icons";
+import { IconCalendar, IconCircleAlert, IconX } from "@/components/icons";
 
 /**
  * フォーム部品。
@@ -97,6 +97,13 @@ const CONTROL_OK = "border-[var(--color-border)]";
 const CONTROL_ERR = "border-[var(--color-danger)]";
 // 読み取り専用（確定して変更できない項目）は、編集できないと分かる見た目にする。
 const CONTROL_LOCKED = "bg-[var(--color-surface-sunken)] text-[var(--color-ink-muted)] cursor-not-allowed";
+// overflow-hidden: iOS Safari は <input type="date"> に値が入ると、ネイティブの日付表示
+// （テキスト＋カレンダーアイコン）を角丸・枠の内側からはみ出して描画することがある
+// （枠自体は広がらないため min-w-0 では直らない）。要素自身に overflow-hidden を付け、
+// 角丸の内側に描画をクリップさせる。
+// pr-9: iOS Safari はカレンダーアイコンを描画しない（枠全体がタップ領域になるだけ）ため、
+// 自前のアイコンを右に重ねる。その分の余白を確保する。
+const CONTROL_DATE = "overflow-hidden pr-9";
 
 export function TextField({
   label,
@@ -140,16 +147,26 @@ export function TextField({
       }
     >
       {({ id: fid, describedBy, invalid }) => (
-        <input
-          id={fid}
-          aria-describedby={describedBy}
-          aria-invalid={invalid || undefined}
-          onChange={onChange}
-          className={`${CONTROL} ${invalid ? CONTROL_ERR : CONTROL_OK} ${
-            rest.readOnly || rest.disabled ? CONTROL_LOCKED : ""
-          }`}
-          {...rest}
-        />
+        <div className={rest.type === "date" ? "relative" : undefined}>
+          <input
+            id={fid}
+            aria-describedby={describedBy}
+            aria-invalid={invalid || undefined}
+            onChange={onChange}
+            className={`${CONTROL} ${invalid ? CONTROL_ERR : CONTROL_OK} ${
+              rest.readOnly || rest.disabled ? CONTROL_LOCKED : ""
+            } ${rest.type === "date" ? CONTROL_DATE : ""}`}
+            {...rest}
+          />
+          {/* iOS Safari は日付欄にカレンダーアイコンを描画しないため、目印として自前で重ねる。
+              枠全体がタップ領域なので、アイコンはタップを奪わないよう pointer-events-none。 */}
+          {rest.type === "date" && (
+            <IconCalendar
+              aria-hidden="true"
+              className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-ink-muted)]"
+            />
+          )}
+        </div>
       )}
     </Field>
   );
