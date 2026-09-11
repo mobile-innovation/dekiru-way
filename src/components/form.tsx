@@ -97,12 +97,10 @@ const CONTROL_OK = "border-[var(--color-border)]";
 const CONTROL_ERR = "border-[var(--color-danger)]";
 // 読み取り専用（確定して変更できない項目）は、編集できないと分かる見た目にする。
 const CONTROL_LOCKED = "bg-[var(--color-surface-sunken)] text-[var(--color-ink-muted)] cursor-not-allowed";
-// overflow-hidden: iOS Safari は <input type="date"> に値が入ると、ネイティブの日付表示
-// （テキスト＋カレンダーアイコン）を角丸・枠の内側からはみ出して描画することがある
-// （枠自体は広がらないため min-w-0 では直らない）。要素自身に overflow-hidden を付け、
-// 角丸の内側に描画をクリップさせる。
 // pr-9: 右に重ねる自前アイコン（下の CONTROL_DATE_STYLE）の分の余白。
-const CONTROL_DATE = "overflow-hidden pr-9";
+// overflow-hidden は付けない: iOS Safari のネイティブ日付コントロールに付けると、
+// 単なる描画クリップでは済まずページ全体が実際に横スクロールする副作用が確認されたため。
+const CONTROL_DATE = "pr-9";
 // iOS Safari はカレンダーアイコンを描画しない（枠全体がタップ領域になるだけ）ため、
 // 目印として背景画像でアイコンを右に重ねる。wrapper要素 + absolute 配置は iOS の日付欄を
 // 実際にページ幅より広げる副作用があったため不採用（input 自身の background-image なら
