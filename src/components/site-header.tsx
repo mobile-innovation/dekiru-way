@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { FontSizeControl } from "@/components/font-size-control";
 import { UserMenu } from "@/components/user-menu";
+import { SyncLocalReadsOnLogin } from "@/components/sync-local-reads";
 
 export async function SiteHeader() {
   const session = await auth();
@@ -49,7 +50,11 @@ export async function SiteHeader() {
         <div className="ml-auto flex items-center gap-2">
           <FontSizeControl />
           {signedIn ? (
-            <UserMenu />
+            <>
+              {/* 未ログイン中にブラウザへ溜めた既読を、アカウント側へ統合する (既読引き継ぎ指示書)。表示は無い。 */}
+              <SyncLocalReadsOnLogin />
+              <UserMenu />
+            </>
           ) : (
             <Link
               href="/login"

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ResultBadge } from "@/components/ui";
-import { ReadBadge } from "@/components/read-badge";
+import { ReadBadgeAuto } from "@/components/read-badge-auto";
+import { ReadAwareCard } from "@/components/read-aware-card";
 import type { MethodCardDTO } from "@/lib/queries";
 
 /**
@@ -8,7 +9,13 @@ import type { MethodCardDTO } from "@/lib/queries";
  * カードには方法の内容を出し、タップするとその方法の道の詳細（経験詳細）へ移動する。
  * ＝ 道別カード（RoadCard）とは別種。困りごと・目標に語が当たった道は RoadCard で出る。
  */
-export function MethodCard({ method: m }: { method: MethodCardDTO }) {
+export function MethodCard({
+  method: m,
+  loggedIn = false,
+}: {
+  method: MethodCardDTO;
+  loggedIn?: boolean;
+}) {
   const context = m.roadDifficulty ?? m.roadGoal ?? "ある困りごと";
   // その方法が実際に見えるページ（道詳細ツリーが 10 件ごとに分割されている場合は ?p=N）へ
   const href =
@@ -19,13 +26,16 @@ export function MethodCard({ method: m }: { method: MethodCardDTO }) {
   return (
     // 未読は淡い緑のまま「少しだけ目立つ」、既読は白背景で落ち着かせる。
     // 色だけでなく右上の「既読 / 未読」バッジ（アイコン + 文字）でも判別できる（指示書 5）。
-    <article
-      className={`relative rounded-[var(--radius-lg)] border border-[var(--color-primary)] p-5 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)] ${
-        m.isRead ? "bg-[var(--color-surface)]" : "bg-[var(--color-primary-soft)]"
-      }`}
+    <ReadAwareCard
+      loggedIn={loggedIn}
+      serverRead={m.isRead}
+      attemptIds={[m.attemptId]}
+      className="relative rounded-[var(--radius-lg)] border border-[var(--color-primary)] p-5 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)]"
+      readClassName="bg-[var(--color-surface)]"
+      unreadClassName="bg-[var(--color-primary-soft)]"
     >
       <div className="pointer-events-none absolute right-3 top-3">
-        <ReadBadge read={m.isRead} />
+        <ReadBadgeAuto loggedIn={loggedIn} serverRead={m.isRead} attemptIds={[m.attemptId]} />
       </div>
       <Link href={href} className="block no-underline">
         <p className="flex items-center gap-1.5 pr-16 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
@@ -72,6 +82,6 @@ export function MethodCard({ method: m }: { method: MethodCardDTO }) {
           この方法の道を見る →
         </span>
       </Link>
-    </article>
+    </ReadAwareCard>
   );
 }

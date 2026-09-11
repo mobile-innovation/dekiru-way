@@ -1769,3 +1769,78 @@ SNS 的な人気競争にしないことを最優先に置く。
 - 公開・非公開ルールは変更なし（仮データも `PUBLIC_ATTEMPT_WHERE` に従う）。
 - 検索 AI（Phase 1）は従来どおり DB の公開経験だけを検索する。存在しない経験の生成・混入はしない。
 - テスト: `serializers.test.ts` の `road.isSeed` ケースを削除。他は不変で緑（342）。
+
+### 2026-09-11 既読引き継ぎ（未ログイン⇄ログイン、指示書「既読引き継ぎ」）
+- 目的: 「経験の検索・閲覧はログイン不要」の方針を保ったまま、既読を未ログイン（ブラウザ）とログイン
+  （アカウント）の両方で使え、ログアウトで消えず、再ログインでブラウザ側の分をアカウントへ統合する。
+- **調査結果（§12）**: 既読対象は `Attempt`（`attempt_reads(user_id, attempt_id, read_at)`、`UNIQUE(user_id, attempt_id)`）。
+  既存の登録経路 `POST /api/v1/attempts/{id}/read`（`markAttemptRead`）・表示経路
+  （`readAttemptIdSet` → `RoadCardDTO.isRead` / `MethodCardDTO.isRead`）・UI（`ReadBadge`）は
+  そのまま使う。**新しいテーブル・マイグレーションは無し**（既存 `attempt_reads` をそのまま利用）。
+- **未ログイン**: `src/lib/client/local-reads.ts`（`localStorage` キー `dekiru:localReads`、既読にした
+  Attempt id の配列。上限 `MAX_LOCAL_READ_IDS=500`・超過は古いものから破棄）。
+  経験詳細では `MarkReadLocal`（`MarkRead` の対、通信なし）が既読を追加。検索結果カードは
+  `ReadBadgeAuto`（`RoadCard`/`MethodCard` から `ReadBadge` を置き換え）が、ログイン中はサーバー値を
+  そのまま、未ログインはマウント後に `localStorage` を見てバッジだけ更新（初期表示はサーバーと同じ
+  「未読」でハイドレーション不一致なし）。
+- **ログアウト時**: `UserMenu.signOut()` が `/api/v1/auth/logout` を呼ぶ**前**に
+  `GET /api/v1/me/reads` でアカウントの既読 id 一覧を取得し `mergeLocalReadIds` でブラウザへ統合してから
+  ログアウトする。取得に失敗してもログアウト自体は続行（既読引き継ぎは補助機能）。
+- **再ログイン時**: `SiteHeader` がログイン中だけ描画する `SyncLocalReadsOnLogin`（表示なし）が、
+  ブラウザに既読 id が残っていれば `POST /api/v1/me/reads/merge` へ送り、成功したら
+  `clearLocalReadIds`。失敗時はブラウザ側の記録を残し次回また試す。
+- **新規 API**（`src/lib/reads.ts` に `listReadAttemptIds` / `mergeReadAttemptIds` を追加し薄いルートで包む）:
+  `GET /api/v1/me/reads` → `{ attemptIds }`（本人のみ・件数上限 500）。
+  `POST /api/v1/me/reads/merge` → `mergeReadsSchema`（uuid 配列 1〜500）で検証し、
+  存在しない id・自分の Attempt は除外、`attemptRead.createMany({ skipDuplicates: true })` で重複させず統合。
+- 非公開・削除された経験は既読 id が残っていても再表示されない（表示はすべて `PUBLIC_ATTEMPT_WHERE`
+  経由の検索・詳細が決める。既読 id そのものは「新しい経験」をどこにも出現させない）。
+- 他ユーザーの既読は取得できない（`GET/POST /me/reads*` は `requireUserId()` のセッション id のみを使う。
+  リクエストで id を指定させない）。`localStorage` には UUID 以外（個人情報）を保存しない。
+- テスト: `tests/unit/local-reads.test.ts`（localStorage ヘルパ。壊れた値・上限・重複防止）、
+  `tests/integration/reads-carryover.api.test.ts`（`GET/POST /me/reads*` の認可・バリデーション・
+  存在しない id の無視・自分の Attempt 除外・重複統合しないこと）、
+  `tests/e2e/reads-carryover.spec.ts`（未ログイン既読→ログアウト引き継ぎ→再ログイン統合の一気通貫）。
+  既存の `tests/e2e/reads.spec.ts`（サーバー側既読）・`ReadBadge` の見た目・
+  「既読だけ/未読だけ」フィルタは無変更で緑。
+  - 副次的な発見: このリポジトリのテスト環境 (Node 25 系) には built-in `localStorage` グローバルがあり、
+    vitest の jsdom 環境でテストコードが素の `localStorage` を参照すると、jsdom の実装ではなくその
+    壊れた（`clear` 等を持たない）グローバルを掴むことがある。ソース側は必ず `window.localStorage` を
+    明示し、単体テストでは `Object.defineProperty` で Storage 互換のメモリ実装に差し替えて検証した。
+- **ログイン中と未ログインで表示の即時性が異なる点（ユーザー確認）**: ログイン中はサーバーが判定済みの
+  既読状態が最初の描画から出るが、未ログインはブラウザにしか無い `localStorage` を見るため、
+  マウント直後まで「未読」で描画し、既読ならそこから切り替わる。`ReadBadgeAuto` は `useEffect` ではなく
+  `useLayoutEffect` を使い、実際の描画（ペイント）前に判定を反映させて体感できる「未読→既読」の
+  チラつきを無くす。ただし JS 到達前の一瞬は原理的に残り得る（サーバーがブラウザの localStorage を
+  知る手段が無いため）。ログイン中の挙動・SSR の出力は変えない。
+- **バグ修正: 未ログインで既読にしてもカードの背景色が既読色に変わらない**: `ReadBadgeAuto` は右上の
+  バッジだけを更新しており、`RoadCard`/`MethodCard` の `<article>` 背景色（未読＝淡い色／既読＝白）は
+  引き続き `road.isRead`/`m.isRead`（サーバー計算値。未ログインは常に false）だけで決まっていたため、
+  未ログインで既読にしてもバッジは「既読」なのに背景は未読色のままだった。
+  `src/components/read-aware-card.tsx`（新規, client）に `<article>` 自体を切り出し、`ReadBadgeAuto` と
+  同じ入力（`loggedIn` / `serverRead` / `attemptIds`）から同じ判定を行って背景クラスを切り替えるように
+  変更（`RoadCard` / `MethodCard` から利用）。バッジ側と同じロジックなので食い違わない。
+  `useLayoutEffect` も踏襲。e2e (`reads-carryover.spec.ts`) に背景クラスの `toHaveClass` 検証を追加。
+- **バグ修正: 経験詳細の「← 経験を探すへ戻る」で戻ると既読マークが未読のまま（ユーザー報告）**:
+  `ReadBadgeAuto` / `ReadAwareCard` が `useState(serverRead)` で初期値をキャッシュしていたため、
+  「経験を探す」に戻ったときに React が同じ道のカードのコンポーネントを作り直さず使い回した場合、
+  最初にマウントしたときの既読状態のまま固まり、ログイン中に既読へ変わっても反映されないおそれがあった
+  （ログイン中は `useLayoutEffect` 側が早期 return するため、状態を更新し直す経路が無かった）。
+  両コンポーネントとも `read` の値を `useState` にキャッシュせず、描画のたびに
+  `loggedIn ? serverRead : serverRead || (mounted && hasAnyLocalRead(attemptIds))` として直接計算するよう
+  修正（`mounted` はハイドレーション後かどうかの目印としてのみ保持し、`useLayoutEffect(() => setMounted(true), [])`
+  で一度だけ立てる）。ログイン中は常に最新の `serverRead` をそのまま使うため、コンポーネントが
+  作り直されてもされなくても必ず最新値になる。e2e に「ログイン中、詳細の『← 経験を探すへ戻る』で
+  戻ると、カードが既読表示になる」を追加（`reads-carryover.spec.ts`）。
+  - 調査メモ: 実際に自動テスト (Chromium・本番ビルド) でこの遷移を再現したところ、対象カードの
+    React コンポーネントは通常フルに作り直されており、旧コードでもこの経路単体では再現しなかった。
+    ただし新コードの実装は理論的な脆弱性（コンポーネント再利用時に値が固まる）を確実に塞ぐため、
+    修正自体は維持する。
+  - **重要な副次的発見（環境起因）**: 調査中、開発者の `npm run dev`（Next のインクリメンタルな
+    `.next`）と、この session が検証のため繰り返し実行していた `npm run build` / e2e
+    （`next build && next start`、同じ `.next` を上書きする）が同じ作業ディレクトリを共有しており、
+    実際に `.next` が壊れて `Cannot find module './vendor-chunks/@auth.js'` のような 500 エラーが
+    dev サーバー側で発生することを確認した（`rm -rf .next` で解消）。ユーザーが `npm run dev` を
+    使っている間にこの session が `npm run build`／e2e を走らせると、同様の予測不能な不具合
+    （既読に限らず様々な「反映されない」症状）を引き起こしうる。今後は、ユーザーが開発サーバーを
+    動かしていそうなときはビルド検証を避けるか、検証後に `.next` を削除してから返す。

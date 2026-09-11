@@ -229,19 +229,25 @@ SNS からの流入者が、1 件の「試したこと」だけを最小入力�
 
 ---
 
-## 既読（ログイン必須）
+## 既読
 
 検索して見つけた経験を「自分がもう見たか」を判別するための、完全に個人用の状態。
 既読数・閲覧数は出さず、検索順位にも使わない。「いいね」とは別テーブル（`attempt_reads`）。
+経験の検索・閲覧そのものはログイン不要（既読引き継ぎ指示書）。
 
-| メソッド | パス | 説明 |
-| --- | --- | --- |
-| POST | `/api/v1/attempts/{attemptId}/read` | この経験を既読にする。`200 { read: true }`。冪等 |
+| メソッド | パス | 認証 | 説明 |
+| --- | --- | --- | --- |
+| POST | `/api/v1/attempts/{attemptId}/read` | 必須 | この経験を既読にする。`200 { read: true }`。冪等 |
+| GET | `/api/v1/me/reads` | 必須 | 本人の既読 Attempt id 一覧 `{ attemptIds: string[] }`。ログアウト時にブラウザへ書き出すため |
+| POST | `/api/v1/me/reads/merge` | 必須 | `{ attemptIds: uuid[] }`（1〜500件）をアカウント側の既読へ統合。`200 { merged: number }`。再ログイン時に使う |
 
 - 経験詳細（`/experiences/{id}`）を**開いた時点**でクライアントが 1 回呼ぶ。検索結果に出ただけでは呼ばない
-- 未ログイン → `401`（Cookie 等の簡易既読管理はしない）／非公開・不存在 → `404`
-- 自分の経験は既読登録しない（`{ read: false }` を返し行を作らない）
-- `user_id` はセッションから取得。リクエストボディの `user_id` は無視
+- **未ログイン中はサーバーを呼ばない**。ブラウザの `localStorage` にだけ既読 id を保存する（個人情報なし・
+  端末をまたいだ同期はしない）。ログイン中は従来どおりサーバー側（`attempt_reads`）
+- `/attempts/{attemptId}/read` は非公開・不存在 → `404`／自分の経験は既読登録しない（`{ read: false }`）
+- `/me/reads` `/me/reads/merge` の `user_id` は必ずセッションから取得（他ユーザーの既読は取得・変更できない）
+- `/me/reads/merge` は存在しない id・自分の Attempt id を無視し、二重登録もしない
+  （DB `UNIQUE(user_id, attempt_id)` + `skipDuplicates`）
 - 二重は DB `UNIQUE(user_id, attempt_id)` で防止（アプリ側は冪等）
 - 既読は補助機能。失敗しても経験の表示は妨げない（クライアントは握りつぶす）
 

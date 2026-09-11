@@ -101,6 +101,13 @@ export const EXPERIENCE_READ_LABEL: Record<string, string> = {
   unread: "未読だけ",
 };
 
+/**
+ * 既読引き継ぎ (指示書「既読引き継ぎ」)。未ログイン時にブラウザへ保存する既読 ID の上限と、
+ * ログイン⇄未ログイン間で一度に統合する件数の上限。クライアントの localStorage 側とサーバー側の
+ * 統合 API (`mergeReadsSchema`) で同じ値を使い、上限の食い違いを避ける。
+ */
+export const MAX_LOCAL_READ_IDS = 500;
+
 /** トップページの検索例 (指示書 6-①) */
 export const SEARCH_EXAMPLES = [
   "ボタンがとめにくい",

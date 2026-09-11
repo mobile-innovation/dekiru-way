@@ -6,6 +6,7 @@ import {
   EXPERIENCE_READ_VALUES,
   EXPERIENCE_SORTS,
   FIELD_MAX,
+  MAX_LOCAL_READ_IDS,
 } from "@/lib/constants";
 
 /**
@@ -197,6 +198,13 @@ export type SeedUpdateInput = z.infer<typeof seedUpdateSchema>;
 
 export const aiSummarizeSchema = z.object({
   experienceIds: z.array(z.string().uuid()).min(1).max(20),
+});
+
+// ---- 既読引き継ぎ (未ログイン⇄ログインの既読統合) ----
+
+/** 再ログイン時、ブラウザに溜まった既読 id をアカウント側へ統合するための入力。 */
+export const mergeReadsSchema = z.object({
+  attemptIds: z.array(z.string().uuid()).min(1).max(MAX_LOCAL_READ_IDS),
 });
 
 // ---- SNS 簡易登録 (/try) ----

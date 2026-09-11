@@ -65,3 +65,44 @@ export async function readAttemptIdSet(
   });
   return new Set(rows.map((r) => r.attemptId));
 }
+
+/**
+ * このユーザーがこれまでに既読にした Attempt id の一覧 (既読引き継ぎ指示書)。
+ * ログアウト時にブラウザ側 (localStorage) へ書き出すために使う。
+ * 現在は非公開/削除済みになった Attempt の id も含めて返す（既読という「事実」自体は
+ * サーバー側の attempt_reads と同じ扱い。表示可否は検索・詳細側の公開ゲートが別途担う）。
+ */
+export async function listReadAttemptIds(userId: string, limit = 500): Promise<string[]> {
+  const rows = await prisma.attemptRead.findMany({
+    where: { userId },
+    orderBy: { readAt: "desc" },
+    take: limit,
+    select: { attemptId: true },
+  });
+  return rows.map((r) => r.attemptId);
+}
+
+/**
+ * 再ログイン時、ブラウザ側 (localStorage) に溜まった既読 id をアカウント側へ統合する。
+ *   - 存在しない Attempt id は無視する（FK 違反を避ける。削除済みなど）。
+ *   - 自分の Attempt は既読管理の対象外（`markAttemptRead` と同じ方針）。
+ *   - 既存の既読と重複させない（`(user_id, attempt_id)` の一意制約を `skipDuplicates` で活用）。
+ * 戻り値は実際に新規登録した件数（参考値。呼び出し側の表示には使わない）。
+ */
+export async function mergeReadAttemptIds(userId: string, attemptIds: string[]): Promise<number> {
+  const uniqueIds = [...new Set(attemptIds)];
+  if (uniqueIds.length === 0) return 0;
+
+  const attempts = await prisma.attempt.findMany({
+    where: { id: { in: uniqueIds } },
+    select: { id: true, road: { select: { userId: true } } },
+  });
+  const targetIds = attempts.filter((a) => a.road.userId !== userId).map((a) => a.id);
+  if (targetIds.length === 0) return 0;
+
+  const result = await prisma.attemptRead.createMany({
+    data: targetIds.map((attemptId) => ({ attemptId, userId })),
+    skipDuplicates: true,
+  });
+  return result.count;
+}

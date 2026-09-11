@@ -4,6 +4,22 @@
 コードからは分からない「残作業」を書く。詳細仕様は `docs/spec.md` /
 `docs/implementation-decisions.md`、API は `docs/api.md`、運用は `docs/admin-manual.md`。
 
+## 開発時の注意：`.next` の競合
+
+ユーザーがこのディレクトリで `npm run dev` を動かしている間に、検証目的で
+`npm run build` や `npx playwright test`（内部で `next build && next start` する）を
+同じ作業ディレクトリで実行すると、共有の `.next` を上書きして dev サーバー側が
+`Cannot find module './vendor-chunks/...'` のような 500 エラーで壊れることを確認済み
+（2026-09-11、既読引き継ぎ機能の調査中に実際に再現。`docs/implementation-decisions.md` 該当日）。
+症状は「見えるはずの変更が反映されない」など多岐にわたり、アプリのバグと区別しにくい。
+
+- ユーザーの `npm run dev` が動いていそうなときは、`npm run build` / e2e によるビルド検証を避ける
+  （まず `ps`/`lsof :3000` 等で確認する）。
+- どうしても検証が必要なら、終わったら `.next` を削除してから返す
+  （ユーザーの次の `npm run dev` がクリーンな状態から再コンパイルできるように）。
+- ユーザーから「反映されない」「動かない」系の報告があり、コード上は正しく見えるときは、
+  この `.next` 競合の可能性を先に疑う（`rm -rf .next` して再現するか確認）。
+
 ## 残作業 / 未了
 
 ### 検索AI Phase 2（pgvector + Embedding）— 未着手

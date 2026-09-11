@@ -4,6 +4,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IconChevronDown, IconUser } from "@/components/icons";
+import { api } from "@/lib/client/api";
+import { mergeLocalReadIds } from "@/lib/client/local-reads";
 
 /**
  * ヘッダー右上のユーザー操作メニュー（アカウント設定指示書 §3）。
@@ -37,6 +39,14 @@ export function UserMenu() {
   async function signOut() {
     setBusy(true);
     try {
+      // ログアウトで既読情報が消えないよう、先にアカウント側の既読をブラウザへ引き継ぐ
+      // (既読引き継ぎ指示書)。取得に失敗しても、ログアウト自体は妨げない。
+      try {
+        const { attemptIds } = await api.get<{ attemptIds: string[] }>("/api/v1/me/reads");
+        mergeLocalReadIds(attemptIds);
+      } catch {
+        /* 既読の引き継ぎは補助機能。失敗してもログアウトは続行する */
+      }
       await fetch("/api/v1/auth/logout", { method: "POST" });
       setOpen(false);
       router.push("/");

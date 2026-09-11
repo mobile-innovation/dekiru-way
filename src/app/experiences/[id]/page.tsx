@@ -13,6 +13,7 @@ import { BranchingPaths, type Branch } from "@/components/branching-paths";
 import { RateLimitedNotice } from "@/components/rate-limited-notice";
 import { LikeButton } from "@/components/like-button";
 import { MarkRead } from "@/components/mark-read";
+import { MarkReadLocal } from "@/components/mark-read-local";
 import { AdSlot } from "@/components/ad-slot";
 import { adContextFromText } from "@/lib/ads";
 import { getExperience } from "@/lib/queries";
@@ -74,8 +75,14 @@ export default async function ExperienceDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-8">
-      {/* 経験詳細を開いた = 既読。ログイン中で、かつ自分の経験でないときだけ登録する。 */}
-      {viewerUserId != null && !exp.like.isMine && <MarkRead attemptId={exp.id} />}
+      {/* 経験詳細を開いた = 既読 (既読引き継ぎ指示書)。
+          ログイン中は自分の経験でない限りサーバーへ、未ログインはブラウザ (localStorage) へ記録する。
+          どちらもログイン不要の閲覧方針は変えない。 */}
+      {viewerUserId != null ? (
+        !exp.like.isMine && <MarkRead attemptId={exp.id} />
+      ) : (
+        <MarkReadLocal attemptId={exp.id} />
+      )}
 
       {/* ① 戻る / ② タイトル */}
       <div className="space-y-4">

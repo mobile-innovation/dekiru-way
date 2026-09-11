@@ -166,7 +166,7 @@ export default async function ExperiencesPage({
               {items.map((road, i) => (
                 <Fragment key={road.entryId}>
                   <li>
-                    <RoadCard road={road} />
+                    <RoadCard road={road} loggedIn={viewerUserId != null} />
                   </li>
                   {/* 最初の 2 件のあとに広告を 1 枠だけ（3 件以上あるときのみ）。
                       経験カードとは別枠で、順位には影響しない。ADS_ENABLED=false なら何も出ない。 */}
@@ -223,7 +223,7 @@ export default async function ExperiencesPage({
             <ul className="grid gap-4 lg:grid-cols-2">
               {methodMatch.items.map((m) => (
                 <li key={m.attemptId}>
-                  <MethodCard method={m} />
+                  <MethodCard method={m} loggedIn={viewerUserId != null} />
                 </li>
               ))}
             </ul>
