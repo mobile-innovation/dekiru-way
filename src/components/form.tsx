@@ -1,7 +1,7 @@
 "use client";
 
-import { useId, type ComponentProps, type ReactNode } from "react";
-import { IconCircleAlert } from "@/components/icons";
+import { useId, type ChangeEvent, type ComponentProps, type ReactNode } from "react";
+import { IconCircleAlert, IconX } from "@/components/icons";
 
 /**
  * フォーム部品。
@@ -88,8 +88,11 @@ function withMaxHint(hint: ReactNode, max: number | undefined): ReactNode {
   );
 }
 
+// min-w-0: <input type="date"> はスマホの一部ブラウザでネイティブ表示に必要な幅を
+// 「内容の最小幅」として持ち、w-full だけでは親幅より広がって右にはみ出ることがある。
+// min-w-0 で明示的にその最小幅を無効化し、指定した幅まで縮められるようにする。
 const CONTROL =
-  "w-full rounded-[var(--radius-md)] border bg-[var(--color-surface)] px-3.5 py-2.5 text-base shadow-[0_1px_2px_rgba(46,42,38,0.04)]";
+  "w-full min-w-0 rounded-[var(--radius-md)] border bg-[var(--color-surface)] px-3.5 py-2.5 text-base shadow-[0_1px_2px_rgba(46,42,38,0.04)]";
 const CONTROL_OK = "border-[var(--color-border)]";
 const CONTROL_ERR = "border-[var(--color-danger)]";
 // 読み取り専用（確定して変更できない項目）は、編集できないと分かる見た目にする。
@@ -101,11 +104,19 @@ export function TextField({
   error,
   required,
   id,
+  onChange,
   ...rest
 }: { label: string; hint?: ReactNode; error?: string | null } & ComponentProps<"input">) {
   const max = typeof rest.maxLength === "number" ? rest.maxLength : undefined;
   // 文字数カウンタは自由記述向け。date/number など長さの概念が無いものには付けない。
   const countable = max !== undefined && (rest.type === undefined || rest.type === "text" || rest.type === "search");
+  // 日付欄は値があるときだけ、明示的に消せるボタンを添える。スマホ（特に iOS Safari）は
+  // ネイティブの日付ダイアログに値を消す手段が無く、一度選ぶと OS 側の操作だけでは
+  // 空に戻せないことがあるため（任意項目なので、選び直し以外に空へ戻す手段が要る）。
+  const clearableDate = rest.type === "date" && Boolean(rest.value);
+  function clearDate() {
+    onChange?.({ target: { value: "" } } as ChangeEvent<HTMLInputElement>);
+  }
   return (
     <Field
       label={label}
@@ -113,13 +124,27 @@ export function TextField({
       error={error}
       required={required}
       id={id}
-      footer={countable ? <CharCount value={rest.value} max={max!} /> : undefined}
+      footer={
+        countable ? (
+          <CharCount value={rest.value} max={max!} />
+        ) : clearableDate ? (
+          <button
+            type="button"
+            onClick={clearDate}
+            className="tap-target -ml-2 inline-flex items-center gap-1 rounded-[var(--radius-pill)] px-2 py-1 text-xs font-semibold text-[var(--color-ink-muted)] hover:bg-[var(--color-surface-sunken)] hover:text-[var(--color-ink)]"
+          >
+            <IconX aria-hidden="true" className="h-3.5 w-3.5" />
+            日付を消す
+          </button>
+        ) : undefined
+      }
     >
       {({ id: fid, describedBy, invalid }) => (
         <input
           id={fid}
           aria-describedby={describedBy}
           aria-invalid={invalid || undefined}
+          onChange={onChange}
           className={`${CONTROL} ${invalid ? CONTROL_ERR : CONTROL_OK} ${
             rest.readOnly || rest.disabled ? CONTROL_LOCKED : ""
           }`}

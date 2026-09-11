@@ -186,7 +186,9 @@ export function RoadForm() {
 
       {/* 入力フォームのまとまり＝「作る場所」。枠線は他のカード（方法カード / 自分の道 / セクション）と
           同じ `--color-primary` の緑。下地は淡いグリーンのまま＝緑の面に白い入力欄が浮く。 */}
-      <fieldset className="space-y-5 rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-primary-tint)] p-5 shadow-[var(--shadow-card)] sm:p-6">
+      {/* min-w-0: <fieldset> はブラウザ既定で min-width: min-content を持ち、
+          中の要素（特に date input）の最小幅次第でスマホ幅より広がり右にはみ出ることがある。 */}
+      <fieldset className="min-w-0 space-y-5 rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-primary-tint)] p-5 shadow-[var(--shadow-card)] sm:p-6">
         <legend className="px-1 text-base font-bold">これから試していく「道」を作ります</legend>
 
         <div className="space-y-2">

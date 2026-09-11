@@ -92,6 +92,26 @@ test("長い「できなくなったこと」でも道を作成でき、作っ�
   await expect(card.getByRole("link", { name: "公開表示" })).toHaveCount(0);
 });
 
+test("「いつ頃から難しくなりましたか？」に値を入れると「日付を消す」が出て、押すと空に戻る", async ({
+  page,
+}) => {
+  // スマホ（特に iOS Safari）はネイティブの日付ダイアログに値を消す手段が無く、
+  // 一度選ぶと OS 側の操作だけでは空に戻せないことがあるため、明示的な消すボタンを添えている。
+  await login(page);
+  const dateField = page.getByLabel("いつ頃から難しくなりましたか？（任意）");
+  const clearBtn = page.getByRole("button", { name: "日付を消す" });
+
+  await expect(clearBtn).toHaveCount(0);
+
+  await dateField.fill("2020-01-01");
+  await expect(dateField).toHaveValue("2020-01-01");
+  await expect(clearBtn).toBeVisible();
+
+  await clearBtn.click();
+  await expect(dateField).toHaveValue("");
+  await expect(clearBtn).toHaveCount(0);
+});
+
 test("送信ボタンは連打しても道は 1 件しか作られない", async ({ page }) => {
   await login(page);
   const marker = `二重送信テスト ${Date.now()}`;

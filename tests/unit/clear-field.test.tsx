@@ -20,6 +20,7 @@ vi.mock("@/lib/client/api", () => ({
 
 import { SearchBox } from "@/components/search-box";
 import { SeedDataGenerator } from "@/components/admin/seed-data-generator";
+import { TextField } from "@/components/form";
 
 afterEach(() => {
   cleanup();
@@ -98,5 +99,35 @@ describe("検索・キーワード欄の × クリアボタン", () => {
     expect(secondBody.exclude.map((e) => e.difficulty)).toEqual(
       expect.arrayContaining(["肩や首がつらい", "マウス操作が難しい"]),
     );
+  });
+});
+
+describe("日付欄の「日付を消す」ボタン（スマホの日付ダイアログに消す手段が無いことがあるため）", () => {
+  it("値があるときだけ出て、押すと onChange が空文字で呼ばれる", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <TextField label="いつ頃から難しくなりましたか？" type="date" value="" onChange={onChange} />,
+    );
+    expect(screen.queryByRole("button", { name: "日付を消す" })).toBeNull();
+
+    rerender(
+      <TextField
+        label="いつ頃から難しくなりましたか？"
+        type="date"
+        value="2026-01-01"
+        onChange={onChange}
+      />,
+    );
+    const clear = screen.getByRole("button", { name: "日付を消す" });
+    fireEvent.click(clear);
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ target: expect.objectContaining({ value: "" }) }),
+    );
+  });
+
+  it("date 以外の欄には出ない", () => {
+    render(<TextField label="メモ" type="text" value="abc" onChange={() => {}} />);
+    expect(screen.queryByRole("button", { name: "日付を消す" })).toBeNull();
   });
 });
