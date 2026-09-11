@@ -4,9 +4,10 @@ import { searchRoads, searchMethods } from "@/lib/queries";
 import type { ExperienceQuery } from "@/lib/validation";
 
 /**
- * 検索で自分の投稿は未読ではなく既読扱いにする指示。
- * `searchRoads`（道カード）/ `searchMethods`（方法カード）の isRead に、
- * 「投稿者自身が見ている場合は、実際に開いていなくても true」を確認する。
+ * 検索で自分の投稿は、既読ではなく「自分の投稿」だと分かるようにする指示。
+ * `searchRoads`（道カード）/ `searchMethods`（方法カード）に、
+ * 投稿者自身が見ている場合は `isMine: true` が付くことを確認する
+ * （`isRead` は既読/未読の実際の状態のままで、自分の投稿を既読扱いに書き換えたりはしない）。
  */
 
 const MARK = `own-read-${Date.now()}`;
@@ -56,19 +57,24 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe("searchRoads: 自分の道は開いていなくても isRead=true", () => {
-  it("投稿者本人が見ると既読、他人が見ると未読、未ログインも未読", async () => {
+describe("searchRoads: 自分の道には isMine=true が付く（isRead は書き換えない）", () => {
+  it("投稿者本人が見ると isMine=true、他人・未ログインは isMine=false", async () => {
     const own = await searchRoads(q({}), ownerId);
-    expect(own.items.find((i) => i.entryId === publicAttemptId)?.isRead).toBe(true);
+    const ownItem = own.items.find((i) => i.entryId === publicAttemptId);
+    expect(ownItem?.isMine).toBe(true);
+    // 実際には一度も開いていないので isRead 自体は false のまま
+    expect(ownItem?.isRead).toBe(false);
 
     const other = await searchRoads(q({}), otherId);
-    expect(other.items.find((i) => i.entryId === publicAttemptId)?.isRead).toBe(false);
+    const otherItem = other.items.find((i) => i.entryId === publicAttemptId);
+    expect(otherItem?.isMine).toBe(false);
+    expect(otherItem?.isRead).toBe(false);
 
     const anon = await searchRoads(q({}), null);
-    expect(anon.items.find((i) => i.entryId === publicAttemptId)?.isRead).toBe(false);
+    expect(anon.items.find((i) => i.entryId === publicAttemptId)?.isMine).toBe(false);
   });
 
-  it("実際に既読レコードは作られない（投稿者は attempt_reads に記録されない）", async () => {
+  it("既読レコードは作られない（投稿者は attempt_reads に記録されない）", async () => {
     await searchRoads(q({}), ownerId);
     const count = await prisma.attemptRead.count({
       where: { attemptId: publicAttemptId, userId: ownerId },
@@ -77,12 +83,16 @@ describe("searchRoads: 自分の道は開いていなくても isRead=true", () 
   });
 });
 
-describe("searchMethods: 自分の方法は開いていなくても isRead=true", () => {
-  it("投稿者本人が見ると既読、他人が見ると未読", async () => {
+describe("searchMethods: 自分の方法には isMine=true が付く（isRead は書き換えない）", () => {
+  it("投稿者本人が見ると isMine=true、他人が見ると isMine=false", async () => {
     const own = await searchMethods(q({ kind: "method" }), ownerId);
-    expect(own.items.find((i) => i.attemptId === publicAttemptId)?.isRead).toBe(true);
+    const ownItem = own.items.find((i) => i.attemptId === publicAttemptId);
+    expect(ownItem?.isMine).toBe(true);
+    expect(ownItem?.isRead).toBe(false);
 
     const other = await searchMethods(q({ kind: "method" }), otherId);
-    expect(other.items.find((i) => i.attemptId === publicAttemptId)?.isRead).toBe(false);
+    const otherItem = other.items.find((i) => i.attemptId === publicAttemptId);
+    expect(otherItem?.isMine).toBe(false);
+    expect(otherItem?.isRead).toBe(false);
   });
 });

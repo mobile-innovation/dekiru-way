@@ -36,11 +36,10 @@ export interface RoadCardDTO {
     achievementPercent: number | null;
   }[];
   attemptCount: number;
-  /**
-   * ログイン中ユーザーがこの道の公開経験を 1 つでも開いたか (未ログインは false)。
-   * 自分自身の道は、実際に開いていなくても既読扱いにする。
-   */
+  /** ログイン中ユーザーがこの道の公開経験を 1 つでも開いたか (未ログインは false)。 */
   isRead: boolean;
+  /** ログイン中ユーザー自身の道か (未ログインは false)。既読/未読とは別に、カードで区別する。 */
+  isMine: boolean;
 }
 
 // 「うまくいった順」用: 前向きな結果ほど小さい
@@ -109,19 +108,19 @@ export async function searchRoads(
       })),
       attemptCount: pub.length,
       isRead: false,
+      isMine: viewerUserId != null && road.userId === viewerUserId,
     };
   });
 
   // ログイン中なら「その道の公開経験を 1 つでも開いたか」を既読として付ける (未ログインは全て false)。
-  // 自分自身の道は、実際に開いたかに関わらず既読扱いにする（検索で自分の投稿が未読と出るのは不自然なため）。
   if (viewerUserId) {
     const readSet = await readAttemptIdSet(
       viewerUserId,
       items.flatMap((i) => i.attempts.map((a) => a.id)),
     );
-    items = items.map((i, idx) => ({
+    items = items.map((i) => ({
       ...i,
-      isRead: roads[idx]!.userId === viewerUserId || i.attempts.some((a) => readSet.has(a.id)),
+      isRead: i.attempts.some((a) => readSet.has(a.id)),
     }));
   }
 
@@ -173,11 +172,10 @@ export interface MethodCardDTO {
   roadTags: string[];
   /** その方法が道詳細ツリーの何ページ目に出るか（1 起点）。1 ならクエリ無しでリンク */
   treePage: number;
-  /**
-   * ログイン中ユーザーがこの経験を既に開いたか (未ログインは false)。
-   * 自分自身の投稿は、実際に開いていなくても既読扱いにする。
-   */
+  /** ログイン中ユーザーがこの経験を既に開いたか (未ログインは false)。 */
   isRead: boolean;
+  /** ログイン中ユーザー自身の投稿か (未ログインは false)。既読/未読とは別に、カードで区別する。 */
+  isMine: boolean;
 }
 
 /** 道詳細ツリー内で、その Attempt が出るページ番号（1 起点）を road ごとにまとめて計算。 */
@@ -265,8 +263,8 @@ export async function searchMethods(
     roadGoal: a.road.goal,
     roadTags: a.road.roadTags.map((rt) => rt.tag.name).sort((x, y) => x.localeCompare(y, "ja")),
     treePage: pageOf.get(a.id) ?? 1,
-    // 自分自身の投稿は、実際に開いていなくても既読扱いにする（検索で自分の投稿が未読と出るのは不自然なため）。
-    isRead: (viewerUserId != null && a.road.userId === viewerUserId) || readSet.has(a.id),
+    isRead: readSet.has(a.id),
+    isMine: viewerUserId != null && a.road.userId === viewerUserId,
   }));
 
   // 検索AI経路のみ: このページ内を関連度で並べ替える（DB の並び順は変えない）。

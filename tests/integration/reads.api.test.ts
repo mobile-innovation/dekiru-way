@@ -145,14 +145,19 @@ describe("既読 API", () => {
 });
 
 describe("検索・詳細 API が閲覧者視点の is_read を返す", () => {
-  async function listIsRead(viewer: string | null): Promise<boolean | undefined> {
+  async function listItem(viewer: string | null) {
     asUser(viewer);
     const res = await listExperiences(
       new Request(`http://localhost/api/v1/experiences?q=${encodeURIComponent(MARK)}&limit=50`),
       { params: Promise.resolve({}) },
     );
-    const json = (await res.json()) as { items: { id: string; isRead: boolean }[] };
-    return json.items.find((i) => i.id === publicAttemptId)?.isRead;
+    const json = (await res.json()) as {
+      items: { id: string; isRead: boolean; like: { isMine: boolean } }[];
+    };
+    return json.items.find((i) => i.id === publicAttemptId);
+  }
+  async function listIsRead(viewer: string | null): Promise<boolean | undefined> {
+    return (await listItem(viewer))?.isRead;
   }
 
   it("既読にする前は false、開いた後は true（ログインユーザー視点）", async () => {
@@ -166,11 +171,17 @@ describe("検索・詳細 API が閲覧者視点の is_read を返す", () => {
     expect(await listIsRead(null)).toBe(false);
   });
 
-  it("自分の投稿は、実際に開いていなくても既読扱いになる（検索で自分の投稿が未読と出るのは不自然なため）", async () => {
+  it("自分の投稿は isRead を既読扱いにしない代わりに、like.isMine で自分の投稿だと分かる（既読ではなく自分の投稿だとわかるようにする指示）", async () => {
     // readerId はまだ一度も開いていないので、reader 視点では未読のまま
-    expect(await listIsRead(readerId)).toBe(false);
-    // ownerId（この経験の投稿者本人）から見ると、既読レコードが無くても true
-    expect(await listIsRead(ownerId)).toBe(true);
+    const asReader = await listItem(readerId);
+    expect(asReader?.isRead).toBe(false);
+    expect(asReader?.like.isMine).toBe(false);
+
+    // ownerId（この経験の投稿者本人）から見ると、isRead は実際の既読レコードどおり false のまま。
+    // 代わりに like.isMine が true になり、自分の投稿だと判別できる。
+    const asOwner = await listItem(ownerId);
+    expect(asOwner?.isRead).toBe(false);
+    expect(asOwner?.like.isMine).toBe(true);
     expect(
       await prisma.attemptRead.count({ where: { attemptId: publicAttemptId, userId: ownerId } }),
     ).toBe(0);

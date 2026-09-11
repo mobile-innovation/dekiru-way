@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ResultBadge } from "@/components/ui";
 import { ReadBadgeAuto } from "@/components/read-badge-auto";
+import { OwnPostBadge } from "@/components/read-badge";
 import { ReadAwareCard } from "@/components/read-aware-card";
 import type { MethodCardDTO } from "@/lib/queries";
 
@@ -26,16 +27,22 @@ export function MethodCard({
   return (
     // 未読は淡い緑のまま「少しだけ目立つ」、既読は白背景で落ち着かせる。
     // 色だけでなく右上の「既読 / 未読」バッジ（アイコン + 文字）でも判別できる（指示書 5）。
+    // 自分の投稿は既読/未読の区別自体が意味を持たないため、未読の強調表示にはせず
+    // 「自分の投稿」バッジに差し替える（既読ではなく自分の投稿だとわかるようにする指示）。
     <ReadAwareCard
       loggedIn={loggedIn}
-      serverRead={m.isRead}
+      serverRead={m.isMine || m.isRead}
       attemptIds={[m.attemptId]}
       className="relative rounded-[var(--radius-lg)] border border-[var(--color-primary)] p-5 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)]"
       readClassName="bg-[var(--color-surface)]"
       unreadClassName="bg-[var(--color-primary-soft)]"
     >
       <div className="pointer-events-none absolute right-3 top-3">
-        <ReadBadgeAuto loggedIn={loggedIn} serverRead={m.isRead} attemptIds={[m.attemptId]} />
+        {m.isMine ? (
+          <OwnPostBadge />
+        ) : (
+          <ReadBadgeAuto loggedIn={loggedIn} serverRead={m.isRead} attemptIds={[m.attemptId]} />
+        )}
       </div>
       <Link href={href} className="block no-underline">
         <p className="flex items-center gap-1.5 pr-16 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">

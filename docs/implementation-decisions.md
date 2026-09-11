@@ -2319,3 +2319,43 @@ SNS 的な人気競争にしないことを最優先に置く。
   （合計 128/128）で緑**。`quick-submit.spec.ts`（axe-core のアクセシビリティ監査込み）も
   問題なく、`try.png` の alt・レイアウトに a11y 上の懸念がないことを確認した。検証後は `.next`
   を削除。`npx vitest run` も 409/409 のまま変化なし（ロジック変更が無いため）。
+
+### 2026-09-11 検索：自分の投稿は未読ではなく既読扱いにする
+
+- 「検索で自分の投稿は未読ではなく、既読扱いにしてください」の指示で実装。
+  `src/lib/serializers.ts`（`serializeExperience`）と `src/lib/queries.ts`（`searchRoads`/
+  `searchMethods`）の `isRead` を、投稿者本人が閲覧しているときは実際に開いていなくても
+  `true` を返すよう変更（`attempt_reads` に行を作るわけではなく、表示上だけ既読扱いにする）。
+- `tests/integration/reads.api.test.ts` に既存の「別ユーザーから見ればまだ未読」という
+  アサーション（`ownerId` を「別ユーザー」として扱っていた、今回の要件とは矛盾する古い前提）が
+  あり、これを新しい期待値に修正。新規に `tests/integration/search-own-read.test.ts` を追加し、
+  `searchRoads`/`searchMethods` 両方で本人=既読・他人=未読・未ログイン=未読を確認。
+  `tests/e2e/reads.spec.ts` の「自分の経験は既読にならない」テストも「開いていなくても既読表示に
+  なる」へ更新。
+- 検証: `npx tsc --noEmit` / `npm run lint` / `npx vitest run`（413/413）緑。e2e はローカルの
+  `npm run start` プレビュー（前回と同じ、ユーザーの許可を得て停止）を止めてから実行し、
+  desktop 64/64・mobile 64/64（合計 128/128）で緑。
+
+### 2026-09-11 検索：自分の投稿は「既読」ではなく「自分の投稿」だと分かるようにする（前指示の上書き）
+
+- 直後にユーザーから「自分の投稿は、既読ではなく自分の投稿だとわかるようにしたい」と修正指示。
+  直前のエントリの「自分の投稿を既読扱いにする」という実装方針を撤回し、専用の表示に差し替えた。
+  - `isRead` の「投稿者本人なら強制的に true にする」処理を全て削除し、実際の既読状態のみを返す
+    形に戻した（`serializeExperience` / `searchRoads` / `searchMethods`）。
+  - 代わりに `RoadCardDTO` / `MethodCardDTO` に `isMine: boolean` を追加（`ExperienceDTO` は
+    既存の `like.isMine` をそのまま使えるので追加不要）。
+  - `src/components/read-badge.tsx` に `OwnPostBadge`（`IconUser` + 「自分の投稿」文言、
+    `--color-accent-soft`/`--color-accent-strong` で通常の既読/未読バッジと見た目を分ける）を追加。
+  - `road-card.tsx` / `method-card.tsx`: `isMine` のときは `ReadBadgeAuto` の代わりに
+    `OwnPostBadge` を表示。背景色（`ReadAwareCard` の `serverRead`）は `isMine || isRead` にして、
+    自分の投稿を未読の強調表示（淡い緑）にはせず、既読と同じ落ち着いた背景にする。
+  - 経験詳細ページ・API（`serializeExperience`）は、直前のエントリで一度 `isMine` 強制表示にした
+    分を含めて完全に元の「実際の既読状態のみ」に戻した。ページ自体に読み/未読バッジは元々無く、
+    `like.isMine` は既にいいねボタンの出し分けに使われていたため、新規フィールド追加は不要だった。
+- **テスト**: 直前のエントリで追加・修正した 3 箇所（`reads.api.test.ts` の新規 describe、
+  `search-own-read.test.ts`、`reads.spec.ts` の own-card アサーション）を、
+  「`isRead` は書き換えない・`isMine`/`OwnPostBadge` で判別する」という新方針に合わせて全面的に
+  書き直した。
+- 検証: `npx tsc --noEmit` / `npm run lint` / `npx vitest run`（413/413）緑。ユーザーの許可を得て
+  ローカルの `npm run start` プレビューを再度停止し、e2e フルスイート実行——desktop 64/64・
+  mobile 64/64（合計 128/128）で緑。検証後は `.next` を削除。
