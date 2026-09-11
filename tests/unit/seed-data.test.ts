@@ -89,6 +89,52 @@ describe("isConcreteDifficulty × キーワードを文へ無理やり差し込�
   });
 });
 
+describe("isConcreteDifficulty × 物・道具・設備はキーワードを主語にしてよい（「困ったこと」生成ルール修正指示書）", () => {
+  it("「キーワードが使いにくい」等はそのまま OK", () => {
+    expect(isConcreteDifficulty("爪切りが使いにくい", "爪切り")).toBe(true);
+    expect(isConcreteDifficulty("箸を持ちにくい", "箸")).toBe(true);
+    expect(isConcreteDifficulty("リモコンのボタンを押しにくい", "リモコン")).toBe(true);
+    expect(isConcreteDifficulty("ハサミを握って開閉しにくい", "ハサミ")).toBe(true);
+    expect(isConcreteDifficulty("ドアノブを握って回すのが難しい", "ドアノブ")).toBe(true);
+    expect(isConcreteDifficulty("階段の上り下りが難しい", "階段")).toBe(true);
+  });
+
+  it("それでも「「キーワード」で、〜」のかっこ書き差し込みは NG のまま", () => {
+    expect(isConcreteDifficulty("「爪切り」で、使いにくい", "爪切り")).toBe(false);
+  });
+});
+
+describe("isConcreteDifficulty × 「ボタン」（キーワード理解・関連性を厳密化する修正指示）", () => {
+  it("キーワードから直接言える操作（押す/つまむ/留める/操作する）を含む OK 例は、キーワードを含んでいる、というだけで不合格にしない", () => {
+    // 指示書 15: 「キーワードが文章に含まれている」だけを理由に不合格にしてはいけない。
+    expect(isConcreteDifficulty("ボタンを押す操作がしにくい", "ボタン")).toBe(true);
+    expect(isConcreteDifficulty("小さなボタンを指先で操作しにくい", "ボタン")).toBe(true);
+    expect(isConcreteDifficulty("ボタンをつまんで留めるのが難しい", "ボタン")).toBe(true);
+    expect(isConcreteDifficulty("ボタンをつまんで操作するのが難しい", "ボタン")).toBe(true);
+  });
+
+  it("鍵（D の新しい例示語）も同じ扱いになる", () => {
+    expect(isConcreteDifficulty("鍵を差し込んで回すのが難しい", "鍵")).toBe(true);
+    expect(isConcreteDifficulty("鍵を持ちにくい", "鍵")).toBe(true);
+  });
+
+  it("「「ボタン」で、〜」「ボタンをすることが難しい」のような機械的差し込みは引き続き NG", () => {
+    expect(isConcreteDifficulty("「ボタン」で、操作しにくい", "ボタン")).toBe(false);
+    expect(isConcreteDifficulty("ボタンをすることが難しい", "ボタン")).toBe(false);
+  });
+
+  it("既知の限界: 意味的にキーワードから飛躍した創作（想像による文脈追加）は、コード側の検証だけでは検出できない", () => {
+    // 「一度手を止めると、どこまで進めたか分からなくなって再開が難しい」は「ボタン」から
+    // 根拠なく創作された別の文脈（キーワード理解・関連性を厳密化する修正指示 18）だが、
+    // 形式面（連番でない・キーワードの機械的差し込みでない・「難しい」を含む）は満たしてしまうため、
+    // isConcreteDifficulty だけでは弾けない。この種の意味的な関連性は SEED_SYSTEM_PROMPT
+    // （AI 生成時のプロンプト）側で防ぐ役割分担であり、コード側は形式面の最終防御に徹する。
+    expect(isConcreteDifficulty("一度手を止めると、どこまで進めたか分からなくなって再開が難しい", "ボタン")).toBe(
+      true,
+    );
+  });
+});
+
 describe("parseSeedThemes（スペース区切り＝複数テーマ）", () => {
   it("半角スペースで複数テーマに分ける", () => {
     expect(parseSeedThemes("料理 掃除")).toEqual(["料理", "掃除"]);
@@ -188,7 +234,7 @@ describe("localStubDrafts（テーマ → 具体的な困りごとへ分解）",
 });
 
 describe("localStubDrafts × 分野の無いテーマ（キーワード変換ルール修正指示書）", () => {
-  it("「手芸」のように分野が無いテーマでも、difficulty にキーワードを差し込まない", () => {
+  it("「手芸」のように分野が無い活動テーマでも、difficulty にキーワードを差し込まない", () => {
     const drafts = localStubDrafts("手芸", 10);
     expect(drafts).toHaveLength(10);
     for (const d of drafts) {
@@ -198,6 +244,75 @@ describe("localStubDrafts × 分野の無いテーマ（キーワード変換ル
     }
     // テーマとのつながりは situation 側で保つ
     expect(drafts.every((d) => (d.situation ?? "").includes("「手芸」"))).toBe(true);
+  });
+});
+
+describe("localStubDrafts: 特定単語リストによる「物か」判定をしない（AI生成「物・道具」判定ロジックの修正指示書）", () => {
+  it("以前コードに登録していた道具名（爪切り）も、登録したことのない道具名も、スタブでは同じ扱いになる", () => {
+    // 特定の単語をコードへ登録して「これは物」と判定する実装は行わない。
+    // その結果として、既知/未知どちらの道具名でも同じ汎用プール（NEUTRAL_ASPECTS）から生成される
+    // ＝「爪切りだから」という特別扱いが存在しないことの確認。
+    const a = localStubDrafts("爪切り", 5).map((d) => d.difficulty);
+    const b = localStubDrafts("ホッチキス", 5).map((d) => d.difficulty);
+    const c = localStubDrafts("耳かき", 5).map((d) => d.difficulty);
+    expect(a).toEqual(b);
+    expect(a).toEqual(c);
+    for (const d of [...a, ...b, ...c]) {
+      expect(d).not.toContain("爪切り");
+      expect(d).not.toContain("ホッチキス");
+      expect(d).not.toContain("耳かき");
+    }
+  });
+
+  it.each(["ホッチキス", "耳かき", "電気ケトル", "ファスナー", "杖", "電動歯ブラシ"])(
+    "事前登録のない道具名「%s」でも、具体的な困りごととして成立する（汎用プールへフォールバック）",
+    (kw) => {
+      const drafts = localStubDrafts(kw, 5);
+      expect(drafts).toHaveLength(5);
+      for (const d of drafts) expect(isConcreteDifficulty(d.difficulty, kw)).toBe(true);
+    },
+  );
+
+  it.each(["園芸", "読書", "料理を作る", "掃除", "洗濯", "階段", "ドアノブ", "浴槽"])(
+    "活動・行動・設備のキーワード「%s」も引き続き自然な困りごとになる（既存の分野判定は維持）",
+    (kw) => {
+      const drafts = localStubDrafts(kw, 5);
+      for (const d of drafts) expect(isConcreteDifficulty(d.difficulty, kw)).toBe(true);
+    },
+  );
+
+  it("根拠のない身体症状（震え・麻痺など）は、未知のキーワードでも付け加えない", () => {
+    const blob = JSON.stringify([
+      ...localStubDrafts("ホッチキス", 5),
+      ...localStubDrafts("電気ケトル", 5),
+      ...localStubDrafts("耳かき", 5),
+    ]);
+    expect(blob).not.toMatch(/(震え|麻痺|筋力低下)/);
+  });
+});
+
+describe("normalizeDrafts: 事前登録の無い道具キーワードでも AI 出力をそのまま検証できる（分類はコード側で行わない）", () => {
+  // isConcreteDifficulty / normalizeDrafts はどの関数も特定の道具名リストを参照しない。
+  // 「AI が意味を理解して出した」想定の difficulty を、コード側の辞書に登録せずそのまま受け入れられることを確認する。
+  it.each([
+    ["ホッチキス", "ホッチキスの針を入れ替えるのが難しい"],
+    ["耳かき", "耳かきを持って細かく動かすのが難しい"],
+    ["電気ケトル", "電気ケトルの蓋を開けるのが難しい"],
+    ["ファスナー", "ファスナーの引き手をつまんで動かすのが難しい"],
+    ["杖", "杖を握って体重をかけるのが難しい"],
+    ["電動歯ブラシ", "電動歯ブラシのスイッチを押しにくい"],
+    // 「キーワード理解・関連性を厳密化する修正指示」の最終テスト対象語
+    ["ボタン", "ボタンを押す操作がしにくい"],
+    ["鍵", "鍵を差し込んで回すのが難しい"],
+    ["リモコン", "リモコンのボタンを押しにくい"],
+  ])("キーワード「%s」の AI 出力例をコード側の辞書登録なしで受け入れる", (keyword, difficulty) => {
+    const out = normalizeDrafts(
+      [{ difficulty, method: "持ちやすい形に替えて練習した", result: "partial" }],
+      keyword,
+      10,
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].difficulty).toBe(difficulty);
   });
 });
 
