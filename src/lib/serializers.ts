@@ -90,11 +90,6 @@ type ExperienceRow = Attempt & {
   road: Road & { roadTags?: (RoadTag & { tag: Tag })[] };
 };
 
-/** Road から派生する軽量な公開フラグ。`Road` 型に含まれるが、テストの部分オブジェクト用に緩く読む。 */
-function isSeedRoad(road: { isSeedData?: boolean }): boolean {
-  return road.isSeedData ?? false;
-}
-
 export interface ExperienceSibling {
   id: string;
   method: string;
@@ -132,8 +127,6 @@ export interface ExperienceDTO {
     nextAction: string | null;
     startedAt: string | null;
     tags: string[];
-    /** 管理者が用意した仮データ (サンプル) か (指示書 14)。 */
-    isSeed: boolean;
   };
   /** 「道の見える化」(指示書 6-④)。詳細取得時のみ入る。 */
   siblings?: ExperienceSibling[];
@@ -194,7 +187,6 @@ export function serializeExperience(
       tags: (row.road.roadTags ?? [])
         .map((rt) => rt.tag.name)
         .sort((a, b) => a.localeCompare(b, "ja")),
-      isSeed: isSeedRoad(row.road),
     },
   };
   if (opts?.siblings) {

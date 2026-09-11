@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Card, EmptyState, SampleBadge } from "@/components/ui";
+import { Card, EmptyState } from "@/components/ui";
 import { IconRoute } from "@/components/icons";
 import { BranchingPaths } from "@/components/branching-paths";
 import { RateLimitedNotice } from "@/components/rate-limited-notice";
@@ -49,7 +49,6 @@ export default async function PathsOverviewPage({
                 <div>
                   <p className="flex flex-wrap items-center gap-2 font-bold">
                     {c.difficulty ?? c.goal ?? "ある困りごと"}
-                    {c.isSeed && <SampleBadge />}
                   </p>
                   {c.goal && c.difficulty && (
                     <p className="mt-0.5 text-sm text-[var(--color-ink-muted)]">目標：{c.goal}</p>

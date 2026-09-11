@@ -115,25 +115,6 @@ export function ClearFieldButton({
 }
 
 /* ------------------------------------------------------------------ */
-/* サンプル(仮データ)バッジ                                            */
-/* ------------------------------------------------------------------ */
-
-/**
- * 管理者が用意した仮データ (公開済み) を、利用者が実在の体験と誤認しないための小さな目印
- * (実装指示書 14 / 23)。デザインは崩さず、必要最小限の表示にとどめる。
- */
-export function SampleBadge({ className = "" }: { className?: string }) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-[var(--radius-pill)] border border-[var(--color-neutral)] bg-[var(--color-neutral-soft)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-ink-muted)] ${className}`}
-      title="運営が用意したサンプルです。実在の人の体験ではありません。"
-    >
-      サンプル
-    </span>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /* 補足・注意書き                                                       */
 /* ------------------------------------------------------------------ */
 

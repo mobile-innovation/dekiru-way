@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ResultBadge, SampleBadge } from "@/components/ui";
+import { ResultBadge } from "@/components/ui";
 import { ReadBadge } from "@/components/read-badge";
 import { IconArrowRight, IconFootprints } from "@/components/icons";
 import type { RoadCardDTO } from "@/lib/queries";
@@ -35,7 +35,6 @@ export function RoadCard({ road }: { road: RoadCardDTO }) {
       <Link href={`/experiences/${road.entryId}`} className="flex flex-1 flex-col no-underline">
         <p className="flex items-center gap-1.5 pr-16 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
           だれかの道
-          {road.isSeed && <SampleBadge />}
         </p>
 
         <p className="mt-1.5 flex items-start gap-1.5 font-semibold text-[var(--color-ink)]">

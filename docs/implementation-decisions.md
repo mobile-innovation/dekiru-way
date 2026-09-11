@@ -823,8 +823,9 @@ SNS 的な人気競争にしないことを最優先に置く。
     一文にすることが「タイトルが連番にならない」ことも兼ねる（新規カラムは足さない）。
   - `ANTHROPIC_API_KEY` 未設定時のスタブは、テーマを埋め込まず `SEED_DIFFICULTY_ASPECTS`（20 個。
     日常作業のつまずき）から件ごとに異なる具体的な困りごと・目標・方法を割り当てる。テーマは
-    `situation` に「「<キーワード>」に取り組むときの場面（サンプル）」の形で引用として残す
+    `situation` に「「<キーワード>」に取り組むときの場面」の形で引用として残す
     （検索でたどれるように。`buildExperienceWhere` は `road.situation` も対象）。
+    ※ スタブ本文の「（サンプル）」表記は 2026-09-11 に削除（公開時に通常の経験と同じ見た目にするため。下記変更ログ）。
   - **テーマから逸脱させない（テーマ逸脱防止指示書）:** difficulty は入力テーマの活動・場面の中で
     起きる困りごとにする（料理→PC、PC→階段 のような別活動への飛躍は不可）。
     - プロンプトに「テーマから離れない（最重要）」節と、各候補の自己チェック 4 項目
@@ -875,9 +876,11 @@ SNS 的な人気競争にしないことを最優先に置く。
   すべて `handle()` + `requireAdminApi()`。監査ログ action:
   `seed_create|seed_edit|seed_publish|seed_unpublish|seed_delete`。
 
-- **一般ユーザー表示:** 公開された仮データは既存の経験カード・詳細・道の見える化に出るが、
-  誤認防止に小さな「サンプル」ピル（`SampleBadge`、`src/components/ui.tsx`）のみ足す。
-  `RoadCardDTO` / `MethodCardDTO` / `ExperienceDTO.road` / `getPathClusters` に `isSeed` を伝播。
+- **一般ユーザー表示:** 公開された仮データは既存の経験カード・詳細・道の見える化に出る。
+  当初は誤認防止に「サンプル」ピル（`SampleBadge`）を足したが、**2026-09-11 に撤去**し
+  通常の経験とまったく同じ見た目にした（下記変更ログ）。`SampleBadge` と、`RoadCardDTO` /
+  `MethodCardDTO` / `ExperienceDTO.road` / `getPathClusters` の `isSeed` フィールドも削除。
+  仮データの判別は `roads.is_seed_data` / `data_origin` と `/admin/seed-data` のみ。
 
 - **ダッシュボード:** `dashboardStats().roads` と `recentActivity` の Road 集計から
   `isSeedData: false` で仮データを除外（実データと混同しない／10 件生成で「最近の動き」が埋まらない）。
@@ -1749,3 +1752,20 @@ SNS 的な人気競争にしないことを最優先に置く。
 - 非機能: AI 出力は文字列のみ・30 字以内・最大 8 語・先頭は元フレーズに正規化。SQL 連結なし（Prisma の `contains` パラメータ）。公開ゲートは `PUBLIC_ATTEMPT_WHERE` のまま（`ai=1` 経路で非公開データは混ざらない）。モデル名は `env.ai.model`。
 - **Phase 2（未着手・保留）**: pgvector + Embedding のベクトル類似検索。`postgres:16-alpine` に pgvector は無く、Anthropic に Embeddings API も無い。着手時に必要＝docker イメージを `pgvector/pgvector:pg16` へ／本番 DB コンテナ入れ替え／`CREATE EXTENSION vector`／Embedding 専用テーブルと公開・非公開・編集・削除への同期＋バックフィル／Embedding プロバイダ選定（環境変数化・ハードコード禁止）。`CLAUDE.md` 残作業にも記載。
 - テスト: `tests/unit/ai-search-intent.test.ts`（`localExpand` / `normalizeIntent` / `expandSearchIntent` の未設定経路・区切り記号・8 語上限・長すぎる語の除去）、`tests/unit/ai-search-intent-ai.test.ts`（`callJson` を差し替えた AI 有効経路・`source` 判定・失敗フォールバック）、`tests/unit/ai-assist-search.test.ts`（`assistExperienceSearch` の委譲）、`tests/unit/search-rank.test.ts`（スコア・安定ソート・非破壊）、`tests/unit/search.test.ts`（3 ビルダーの `opts.terms`・`q.q` との優先順位）、`tests/integration/search-ai.test.ts`（OR 和集合・公開ゲート不変・ページ内ランキング）、`tests/integration/ai-experience-search.api.test.ts`（レスポンス形・バリデーション・同一オリジン・レート制限）、`tests/e2e/search-ai.spec.ts`（`ai=1` とアシストパネル）。
+
+### 2026-09-11 仮データを一般ユーザー画面で「通常の経験」として表示（サンプル表示を撤去）
+- 指示「AI作成データの表示ルール追加」に基づく。公開された仮データは検索結果・経験カード・
+  経験詳細・道の見える化で **通常の経験とまったく同じ見た目**にする。「サンプル」「仮データ」
+  「AI 生成」等の表示・注記は出さない。
+- 削除: `SampleBadge`（`src/components/ui.tsx`）、`RoadCard` / `MethodCard` / `experiences/[id]` /
+  `experiences/paths` の `SampleBadge` 使用と、経験詳細の「これは運営が用意したサンプルです」注記。
+- 削除: 表示用の派生フィールド `isSeed`（`RoadCardDTO` / `MethodCardDTO` / `ExperienceDTO.road` /
+  `getPathClusters` のクラスタ）と `serializers.ts` の `isSeedRoad` ヘルパ。公開レスポンスに
+  仮データを示すフィールドが載らなくなる。
+- スタブ生成本文の「（サンプル）」表記（`stubAttemptMemo` / `stubDraftAt` の `situation`）も削除。
+- **DB は不変:** `roads.is_seed_data` / `data_origin` / `seed_keyword` はそのまま。
+- **管理側は不変:** `/admin/seed-data`（一覧・状態バッジ・「AI生成」タグ・編集/公開/非公開/削除）、
+  `SeedDataDTO` / `serializeSeedRoad`、ダッシュボード集計の `isSeedData:false` 除外、監査ログはすべて維持。
+- 公開・非公開ルールは変更なし（仮データも `PUBLIC_ATTEMPT_WHERE` に従う）。
+- 検索 AI（Phase 1）は従来どおり DB の公開経験だけを検索する。存在しない経験の生成・混入はしない。
+- テスト: `serializers.test.ts` の `road.isSeed` ケースを削除。他は不変で緑（342）。

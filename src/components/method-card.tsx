@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ResultBadge, SampleBadge } from "@/components/ui";
+import { ResultBadge } from "@/components/ui";
 import { ReadBadge } from "@/components/read-badge";
 import type { MethodCardDTO } from "@/lib/queries";
 
@@ -30,7 +30,6 @@ export function MethodCard({ method: m }: { method: MethodCardDTO }) {
       <Link href={href} className="block no-underline">
         <p className="flex items-center gap-1.5 pr-16 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
           方法の記録
-          {m.isSeed && <SampleBadge />}
         </p>
         <p className="mt-1 text-xs text-[var(--color-ink-muted)]">この道の困りごと：{context}</p>
 

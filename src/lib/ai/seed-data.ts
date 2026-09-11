@@ -544,19 +544,23 @@ export function normalizeDrafts(
   return out;
 }
 
-/** result ごとの気づきメモ (サンプル)。医療的な断定はしない。 */
+/**
+ * result ごとの気づきメモ。医療的な断定はしない。
+ * 一般公開面では通常の経験と同じ見た目で出るため、「サンプル」等の文言は本文に入れない
+ * （仮データの判別は Road.isSeedData / dataOrigin と管理画面で行う）。
+ */
 function stubAttemptMemo(result: AttemptResultValue): string {
   switch (result) {
     case "success":
-      return "この方法で、必要な作業がひととおりできるようになった（サンプル）";
+      return "この方法で、必要な作業がひととおりできるようになった";
     case "partial":
-      return "作業はしやすくなったが、細かいところはまだ難しい（サンプル）";
+      return "作業はしやすくなったが、細かいところはまだ難しい";
     case "no_change":
-      return "やり方を変えてみたが、難しさの感じ方は特に変わらなかった（サンプル）";
+      return "やり方を変えてみたが、難しさの感じ方は特に変わらなかった";
     case "failed":
-      return "この方法は合わず、かえってやりにくく感じた（サンプル）";
+      return "この方法は合わず、かえってやりにくく感じた";
     case "ongoing":
-      return "いま試している途中で、少しずつ調整している（サンプル）";
+      return "いま試している途中で、少しずつ調整している";
   }
 }
 
@@ -582,7 +586,7 @@ function stubDraftAt(theme: string, seq: number, poolIndex: number, fullKeyword:
     previouslyAble: seq % 3 === 0 ? "以前はとくに困らずにできていた" : null,
     goal: aspect.g,
     // テーマは「場面」に引用の形でも残す（検索で見つけられるように）。
-    situation: `「${theme}」に取り組むときの場面（サンプル）`,
+    situation: `「${theme}」に取り組むときの場面`,
     startedAt: null,
     memo: null,
     status: result === "ongoing" ? "継続中" : null,
