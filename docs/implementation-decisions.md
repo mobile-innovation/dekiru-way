@@ -2254,3 +2254,68 @@ SNS 的な人気競争にしないことを最優先に置く。
   ソースコードを変更していない（テスト追加のみ）ため、直前の指示書検証時に確認済みの
   desktop 64/64・mobile 64/64（合計 128/128）がそのまま有効と判断し、再実行はしていない
   （着手時点でユーザーの `npm run dev` が起動中だったため）。
+
+### 2026-09-11 簡易登録 最終動作確認指示書
+
+- コード調査＋テスト実行で確認。**実装済みの動作に不具合は見つからなかった**。
+  `src/lib/quick-submit.ts`・`src/app/api/v1/quick-experiences/route.ts`・
+  `src/components/quick-submit-form.tsx`・`quickExperienceSchema` はいずれも仕様どおり。
+- **指示書 §5「Roadを勝手に作成していないか」の実態**: 実装は `Road` を**作成する**
+  （`createQuickSubmission` が `prisma.road.create({ difficulty })` を呼ぶ）。ただし所有者は
+  匿名の受け皿システム利用者（`ANON_SUBMITTER_SUB`。Google ログイン不可・公開面に一切出ない・
+  何度投稿されても 1 行だけ upsert される）であり、実在のログインユーザーの「自分の道」には
+  一切現れない。コード冒頭のコメントに「新しいデータモデルは作らない。既存の Road + Attempt を
+  そのまま使う」と明記されている、意図した設計。指示書の「経験データとして登録するだけ」という
+  想定とは字面上ずれるが、実質的な懸念（実ユーザーの一覧を汚染しない）は満たされているため、
+  変更しなかった——これは指示書 §5「既存の実装がこの考え方と異なる場合は、現在のコードを確認して
+  実際の仕様を報告する。勝手に変更しない」に従った判断。
+- **指示書 §7「AIモデレーションのフォールバック」の実態**: 通常の Attempt 公開
+  （`applyModerationOnPublish`）は AI verdict "ok" で即 approved になるが、簡易登録は
+  **AI 判定の結果に関わらず必ず `moderationStatus=pending`** で作られる（`aiVerdict`/`aiReason` は
+  運営が確認するときの参考情報として保存されるだけ）。つまり本番で `ANTHROPIC_API_KEY` を設定しても
+  簡易登録が自動公開されることはなく、`/admin/moderation` での人手承認が唯一の公開経路——匿名投稿を
+  自動公開しないという指示書 §5 の理解と一致する、意図した非対称設計。**本番で承認処理を進めるために
+  必要な設定は「AI キー」ではなく「運営が `/admin/moderation` を定期的に確認すること」**（AI キーは
+  審査の参考情報を増やすだけ）。
+- 個人情報保護（§10）: `serializeExperience` を確認。`road.userId` は `isMine` 判定に使うだけで
+  DTO には一切出さない。氏名・メール・`googleSub`・管理用メモ（`moderationNote`/`aiReason`）は
+  どの公開レスポンスにも含まれない。
+  架空経験の生成（§11）: 簡易登録に AI が経験本文を生成する経路はない（`moderateAttemptContent` は
+  入力を審査するだけで新しい文章を作らない）。
+- 不正登録対策（§14）の棚卸し: **実装済み** = CSRF（`handle()` の `assertSameOrigin`）／
+  レート制限（6/分・IP 単位、バーストテストで確認）／Edge レベルの IP ブロックリストと既知 AI
+  クローラー拒否（`src/middleware.ts` の `screenEdgeRequest`、全リクエストに適用）。**未実装・今回は
+  対象外** = CAPTCHA 等の高度な bot 行動分析。
+- **見つかったのはテストの穴のみ**: `quickExperienceSchema` の単体テストが一つも無かった
+  （必須 3 項目・400 字制限・5 分類許可・整形処理）。統合テストは method 欠落と不正な result 値は
+  あったが、difficulty 欠落・result 未指定・5 分類すべての保存確認が無かった。
+  `tests/unit/validation.test.ts` に新規 describe を追加（4 件）、
+  `tests/integration/quick-experiences.api.test.ts` に 3 件追加（difficulty 欠落 400、result 未指定
+  400、5 分類すべてが保存でき「成功だけを公開優遇するフィルタが無い」ことを確認）。
+- `npx tsc --noEmit` / `npm run lint` / `npx vitest run`（409/409、新規 7 件）緑。e2e は今回も
+  ソースコードを変更していない（テスト追加のみ、かつ着手時点でユーザーの `npm run dev` が起動中）
+  ため再実行せず、直前ラウンドで確認済みの `quick-submit.spec.ts` 3/3（desktop・mobile 各）を含む
+  128/128 がそのまま有効と判断した。
+
+### 2026-09-11 簡易登録画面「try.png」画像追加指示書
+
+- `/try`（「あなたの経験を教えてください」）のタイトルより上に、既存の `public/try.png`
+  （実寸 1774×887）を導入イラストとして追加。変更は `src/app/try/page.tsx` の 1 ファイルのみ
+  （`next/image` を実寸 width/height 指定 + `className="h-auto w-full"` で追加。
+  `story-strip.tsx` と同じ既存パターンを踏襲し、枠線・影・角丸などの新規装飾は付けなかった）。
+  フォーム（`QuickSubmitForm`）・API・DB・検索仕様は無変更。
+- **稼働中サーバーの誤検知**: 実装直後、変更が反映されているか `curl localhost:3000/try` で
+  確認しようとしたところ、新しい alt テキストが一切出てこなかった。調べたところポート 3000 は
+  `npm run dev` ではなく `npm run start`（本番プレビュー、`.next` の事前ビルドを配信するだけで
+  ソース変更を拾わない）が掴んでいたことが判明。本番プレビューが動いている間に `npm run build`
+  すると配信中の `.next` を書き換えて壊す恐れがあるため、その場では e2e を実行せず、ユーザーに
+  状況を報告した。
+- 直後にユーザーが新しい `npm run dev`（または別プロセス）を起動しようとして
+  `EADDRINUSE :::3000` が発生。原因は上記の残存プレビュープロセスだったため、そのプロセス
+  （`next-server` と親の `npm run start`）を `kill -9` して停止し、ポートを解放した
+  （このリポジトリで繰り返し起きている「残存プロセスによる EADDRINUSE」の既知パターンと同一。
+  `CLAUDE.md` の `.next` 競合の注意と表裏一体の事象として今後も疑ってよい）。
+- ポート解放後にユーザー依頼で e2e フルスイートを実行——**desktop 64/64・mobile 64/64
+  （合計 128/128）で緑**。`quick-submit.spec.ts`（axe-core のアクセシビリティ監査込み）も
+  問題なく、`try.png` の alt・レイアウトに a11y 上の懸念がないことを確認した。検証後は `.next`
+  を削除。`npx vitest run` も 409/409 のまま変化なし（ロジック変更が無いため）。

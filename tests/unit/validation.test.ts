@@ -3,7 +3,9 @@ import {
   roadCreateSchema,
   attemptCreateSchema,
   experienceQuerySchema,
+  quickExperienceSchema,
 } from "@/lib/validation";
+import { ATTEMPT_RESULTS } from "@/lib/constants";
 
 describe("attemptCreateSchema", () => {
   it("method は必須", () => {
@@ -106,5 +108,41 @@ describe("experienceQuerySchema", () => {
       limit: 20,
       sort: "recent",
     });
+  });
+});
+
+describe("quickExperienceSchema（簡易登録 最終動作確認指示書）", () => {
+  const BASE = { difficulty: "困っていたこと", method: "試したこと", result: "success" as const };
+
+  it("困っていたこと・試したこと・結果はすべて必須", () => {
+    expect(quickExperienceSchema.safeParse(BASE).success).toBe(true);
+    expect(quickExperienceSchema.safeParse({ ...BASE, difficulty: "  " }).success).toBe(false);
+    expect(quickExperienceSchema.safeParse({ ...BASE, method: "" }).success).toBe(false);
+    expect(quickExperienceSchema.safeParse({ ...BASE, result: undefined }).success).toBe(false);
+  });
+
+  it("結果は 5 分類すべてを許可する", () => {
+    for (const result of ATTEMPT_RESULTS) {
+      expect(quickExperienceSchema.safeParse({ ...BASE, result }).success).toBe(true);
+    }
+    expect(quickExperienceSchema.safeParse({ ...BASE, result: "great" }).success).toBe(false);
+  });
+
+  it("困っていたこと・試したことは 400 文字まで（超過は失敗）", () => {
+    expect(quickExperienceSchema.safeParse({ ...BASE, difficulty: "a".repeat(400) }).success).toBe(
+      true,
+    );
+    expect(quickExperienceSchema.safeParse({ ...BASE, difficulty: "a".repeat(401) }).success).toBe(
+      false,
+    );
+    expect(quickExperienceSchema.safeParse({ ...BASE, method: "a".repeat(401) }).success).toBe(
+      false,
+    );
+  });
+
+  it("制御文字を除去し、連続する空白を 1 つに畳む", () => {
+    const withTabAndRuns = ["abc", "def", "ghi"].join("   ").replace(" ", "\t");
+    const r = quickExperienceSchema.parse({ ...BASE, difficulty: withTabAndRuns });
+    expect(r.difficulty).toBe("abc def ghi");
   });
 });
