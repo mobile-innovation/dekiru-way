@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, type ChangeEvent, type ComponentProps, type CSSProperties, type ReactNode } from "react";
+import { useId, type ChangeEvent, type ComponentProps, type ReactNode } from "react";
 import { IconCircleAlert, IconX } from "@/components/icons";
 
 /**
@@ -97,21 +97,11 @@ const CONTROL_OK = "border-[var(--color-border)]";
 const CONTROL_ERR = "border-[var(--color-danger)]";
 // 読み取り専用（確定して変更できない項目）は、編集できないと分かる見た目にする。
 const CONTROL_LOCKED = "bg-[var(--color-surface-sunken)] text-[var(--color-ink-muted)] cursor-not-allowed";
-// pr-9: 右に重ねる自前アイコン（下の CONTROL_DATE_STYLE）の分の余白。
-// overflow-hidden は付けない: iOS Safari のネイティブ日付コントロールに付けると、
-// 単なる描画クリップでは済まずページ全体が実際に横スクロールする副作用が確認されたため。
-const CONTROL_DATE = "pr-9";
-// iOS Safari はカレンダーアイコンを描画しない（枠全体がタップ領域になるだけ）ため、
-// 目印として背景画像でアイコンを右に重ねる。wrapper要素 + absolute 配置は iOS の日付欄を
-// 実際にページ幅より広げる副作用があったため不採用（input 自身の background-image なら
-// レイアウトに一切影響しない）。色は --color-ink-muted の固定値（このアプリにダークテーマは無い）。
-const CONTROL_DATE_STYLE: CSSProperties = {
-  backgroundImage:
-    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23595248' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='18' x='3' y='4' rx='2'/%3E%3Cpath d='M16 2v4'/%3E%3Cpath d='M8 2v4'/%3E%3Cpath d='M3 10h18'/%3E%3C/svg%3E\")",
-  backgroundRepeat: "no-repeat",
-  backgroundPosition: "right 0.875rem center",
-  backgroundSize: "1rem",
-};
+// カレンダーアイコンの重ね描画（背景画像）と、その分の余白 (pr-9) を一時的に追加したが、
+// iOS Safari のネイティブ日付コントロールで実際にページが横スクロールする不具合が出たため
+// 撤回した。原因はおそらく、右パディングを増やして使える幅を削ったことで、ネイティブ側が
+// 「収まらない」と判断し width: 100% を無視して箱ごと広げたこと（要調査・要実機検証）。
+// アイコンを足すなら、この入力欄のパディングを変えない方法を別途検討する。
 
 export function TextField({
   label,
@@ -162,8 +152,7 @@ export function TextField({
           onChange={onChange}
           className={`${CONTROL} ${invalid ? CONTROL_ERR : CONTROL_OK} ${
             rest.readOnly || rest.disabled ? CONTROL_LOCKED : ""
-          } ${rest.type === "date" ? CONTROL_DATE : ""}`}
-          style={rest.type === "date" ? CONTROL_DATE_STYLE : undefined}
+          }`}
           {...rest}
         />
       )}
