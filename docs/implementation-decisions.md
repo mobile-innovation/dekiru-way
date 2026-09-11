@@ -1844,3 +1844,30 @@ SNS 的な人気競争にしないことを最優先に置く。
     使っている間にこの session が `npm run build`／e2e を走らせると、同様の予測不能な不具合
     （既読に限らず様々な「反映されない」症状）を引き起こしうる。今後は、ユーザーが開発サーバーを
     動かしていそうなときはビルド検証を避けるか、検証後に `.next` を削除してから返す。
+
+### 2026-09-11 セキュリティレビュー：`/experiences?ai=1` が AI 専用のレート制限を受けていなかった
+- 「サイトのセキュリティー的に問題などないか」の依頼を受けての全体レビューで発見。検索AI Phase 1
+  （`?ai=1`）を追加した際、`expandSearchIntent`（Anthropic API 呼び出し＝課金対象）を
+  `src/app/experiences/page.tsx`（SSR ページ、`handle()`/`handlePublicRead()` を通らない）から
+  直接呼んでおり、他の AI エンドポイント（`/api/v1/ai/experience-search` 等）に掛けている
+  `RATE_PRESETS.ai`（15/分・クライアント単位）が掛かっていなかった。`guardPublicPage` の一般的な
+  巡回対策（bot-guard、100req/60s 程度）は効くが、AI コストの濫用を防ぐには緩すぎる。
+  ログイン不要の公開ページなので、悪意ある利用者が `q` を変えながら連打すると想定より多く
+  Anthropic API を呼べてしまう状態だった（コスト濫用・DoS 的リスク）。
+- 修正: `src/lib/ratelimit.ts` に `clientKeyFromHeaders(h)`（`clientKey(req)` の Server Component 版。
+  `next/headers` の `Headers` から同じ抽出ロジックでクライアント識別子を得る）を追加。
+  `experiences/page.tsx` で `expandSearchIntent` を呼ぶ前に
+  `enforceRateLimit({ key: `ai:search:${clientId}`, ...RATE_PRESETS.ai })`
+  を実行（`/api/v1/ai/experience-search` と同じキー空間を共有し、両経路合算で 15/分に収める）。
+  超過時は `ApiError("rate_limited")` を捕まえて `intent` を `null` のままにし、
+  例外を投げずに黙って**通常のキーワード検索へフォールバック**する（検索そのものは止めない。
+  既存の「AI 利用不可でも通常検索は動く」方針どおり）。
+- テスト: `tests/e2e/search-ai.spec.ts` に、専用 `x-forwarded-for` で 17 回連続アクセスし、
+  15 回を超えたところで AIアシストパネルが出なくなる（＝フォールバックする）ことと、
+  その状態でも通常の検索結果（道カード）は出続けることを確認するケースを追加。
+- 他のページ (`page.tsx`) を全数チェックし、AI 関数を直接呼んでいるのは `experiences/page.tsx` だけ
+  であることを確認済み（同種の抜けは他に無い）。
+- 併せて `npm audit`・CSRF・admin 認証・公開 GET の bot-guard・XSS・SQLi・秘密情報の扱い・
+  仮データ内部フラグの非公開API漏えい・`E2E_TEST_LOGIN` のゲートも点検し、いずれも問題なし
+  （`next-auth`/`postcss` 等の依存パッケージの既知脆弱性は棚卸し済み・実害はほぼ無いと判断。
+  `next-auth` の更新は影響範囲が大きいため別途判断）。

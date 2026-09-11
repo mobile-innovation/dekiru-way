@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fragment, Suspense } from "react";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { RoadCard } from "@/components/road-card";
 import { MethodCard } from "@/components/method-card";
 import { AdSlot } from "@/components/ad-slot";
@@ -14,6 +15,8 @@ import { expandSearchIntent, type SearchIntent } from "@/lib/ai/search";
 import { adContextFromText } from "@/lib/ads";
 import { getOptionalUserId } from "@/lib/authz";
 import { guardPublicPage } from "@/lib/page-guard";
+import { ApiError } from "@/lib/api";
+import { enforceRateLimit, clientKeyFromHeaders, RATE_PRESETS } from "@/lib/ratelimit";
 
 export const metadata: Metadata = { title: "経験を探す" };
 
@@ -57,8 +60,23 @@ export default async function ExperiencesPage({
   // 検索AIアシスト (Phase 1): ?ai=1 かつ検索語があるときだけ、AI で意図を展開して
   // 複数語ハイブリッド検索＋ページ内関連度ランキングを通す。AI 未設定・失敗でも
   // expandSearchIntent は決定的な展開結果を返し、通常のキーワード検索として機能する。
+  //
+  // ここはログイン不要の公開ページなので、`guardPublicPage` の一般的な巡回検知だけでは
+  // AI 呼び出し（課金対象）を守れない。他の AI エンドポイントと同じ `RATE_PRESETS.ai`
+  // （15/分・クライアント単位）をここでも掛け、超過時は例外を投げずに黙って
+  // AI 抜きの通常キーワード検索へフォールバックする（検索そのものは止めない）。
   const aiAssist = q.ai === "1" && !!q.q;
-  const intent: SearchIntent | null = aiAssist ? await expandSearchIntent(q.q ?? "") : null;
+  let intent: SearchIntent | null = null;
+  if (aiAssist) {
+    try {
+      const clientId = clientKeyFromHeaders(await headers());
+      enforceRateLimit({ key: `ai:search:${clientId}`, ...RATE_PRESETS.ai });
+      intent = await expandSearchIntent(q.q ?? "");
+    } catch (err) {
+      if (!(err instanceof ApiError && err.code === "rate_limited")) throw err;
+      // レート制限時は intent を null のままにし、下のフォールバック経路（通常検索）に任せる。
+    }
+  }
   const searchOpts = intent ? { terms: intent.terms, rank: true } : undefined;
 
   const tagsPromise = getPopularTags(12);

@@ -28,3 +28,23 @@ test("「AIで探す」で検索すると ai=1 とアシストパネルが出て
   await expect(page).toHaveURL(/[?&]q=%E9%9A%8E%E6%AE%B5/);
   await expect(page.getByRole("region", { name: "AIアシスト検索" })).toHaveCount(0);
 });
+
+test("?ai=1 は公開ページでも AI 専用のレート制限（15/分）を受け、超過時は通常検索へフォールバックする", async ({
+  page,
+}) => {
+  // クライアント単位のバケットを他テストと分離するため、専用の x-forwarded-for を付ける。
+  await page.setExtraHTTPHeaders({ "x-forwarded-for": `10.77.${Date.now() % 250}.9` });
+
+  let sawFallbackWithoutPanel = false;
+  for (let i = 0; i < 17 && !sawFallbackWithoutPanel; i++) {
+    await page.goto(`/experiences?q=${encodeURIComponent("階段")}&ai=1&kind=road`);
+    // レート制限を超えると intent が null のままになり、AIアシストパネルが出ない
+    // （通常のキーワード検索結果は引き続き返る＝ページ自体は 200 のまま）。
+    const panelCount = await page.getByRole("region", { name: "AIアシスト検索" }).count();
+    if (panelCount === 0) sawFallbackWithoutPanel = true;
+  }
+  expect(sawFallbackWithoutPanel).toBe(true);
+
+  // フォールバック中でも通常の検索結果（道カード）は出る（検索そのものは止まらない）
+  await expect(page.getByRole("heading", { name: "「階段」への、いろいろな道" })).toBeVisible();
+});

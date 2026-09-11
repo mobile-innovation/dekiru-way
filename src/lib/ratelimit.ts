@@ -46,9 +46,18 @@ export function enforceRateLimit({ key, limit, windowMs }: RateLimitOptions): vo
 
 /** リクエストから概算のクライアント識別子を得る。 */
 export function clientKey(req: Request): string {
-  const fwd = req.headers.get("x-forwarded-for");
+  return clientKeyFromHeaders(req.headers);
+}
+
+/**
+ * `clientKey` の Server Component 版。Route Handler は `Request` を持つが、
+ * SSR ページ（`next/headers` の `headers()`）は素の `Headers` しか持たないため分けている。
+ * 抽出ロジックは同一（同じクライアントは同じキーになる）。
+ */
+export function clientKeyFromHeaders(h: Pick<Headers, "get">): string {
+  const fwd = h.get("x-forwarded-for");
   if (fwd) return fwd.split(",")[0].trim();
-  return req.headers.get("x-real-ip") ?? "unknown";
+  return h.get("x-real-ip") ?? "unknown";
 }
 
 /** よく使う制限プリセット */
