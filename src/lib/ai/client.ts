@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "@/lib/env";
+import { expandSearchIntent } from "@/lib/ai/search";
 
 /**
  * AI は補助レイヤー (指示書 12)。
@@ -92,23 +93,26 @@ export async function callJsonArray(
 }
 
 export interface ExperienceSearchAssist {
+  /** 後方互換のための上位 5 語（= terms の先頭 5 件）。 */
   keywords: string[];
+  /** ハイブリッド検索に渡す展開済み検索語（先頭は元フレーズ）。 */
+  terms: string[];
   rephrased: string;
   disclaimer: string;
 }
 
+/**
+ * 状況文 → 検索キーワード候補。実体は {@link expandSearchIntent}（検索AI Phase 1）に委譲する。
+ * AI 未設定・失敗時も決定的な展開結果を返し、terms は空にならない。
+ */
 export async function assistExperienceSearch(situation: string): Promise<ExperienceSearchAssist> {
-  const naive = situation
-    .replace(/[。、,.!?！？\n]/g, " ")
-    .split(/\s+/)
-    .filter((w) => w.length >= 2)
-    .slice(0, 5);
-  return callJson<ExperienceSearchAssist>(
-    `利用者の状況: "${situation}"\n\nこの状況で他の人の経験を探すための検索キーワード候補(2〜5個, 日本語, 一般語)と、` +
-      `困りごとを一文で言い換えたものを返してください。\n` +
-      `JSON形式: {"keywords": string[], "rephrased": string}`,
-    { keywords: naive, rephrased: situation.trim(), disclaimer: DISCLAIMER },
-  );
+  const intent = await expandSearchIntent(situation);
+  return {
+    keywords: intent.terms.slice(0, 5),
+    terms: intent.terms,
+    rephrased: intent.rephrased,
+    disclaimer: intent.disclaimer,
+  };
 }
 
 export interface ExperienceSummary {

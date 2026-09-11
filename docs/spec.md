@@ -69,7 +69,7 @@
 | パス | 内容 |
 | --- | --- |
 | `/` | トップ。ヒーロー（`head.png` 背景）＋困りごとの検索フォーム＋具体例チップ、8 枚のストーリー、試した結果の見かた、実データの道プレビュー、CTA。**広告は出さない。** ログイン中で未読の「いいねが届いた」通知があれば最上部に通知ボックス |
-| `/experiences` | 経験を探す。**道カード**（困りごと別）と**方法カード**（検索語が方法本文に当たったもの）を出し分け。フィルタ: 検索語 `q` / 結果 `result` / タグ `tag` / 表示種類 `kind`（道・方法・両方）/ 並び `sort`（recent・helpful・tried）。道カードと方法カードは独立ページング（`page` / `mp`）。ログイン中は各カード右上に既読／未読バッジ。道カード 2 件のあとに広告枠 1 つ（`ADS_ENABLED` 時のみ） |
+| `/experiences` | 経験を探す。**道カード**（困りごと別）と**方法カード**（検索語が方法本文に当たったもの）を出し分け。フィルタ: 検索語 `q` / 結果 `result` / タグ `tag` / 表示種類 `kind`（道・方法・両方）/ 並び `sort`（recent・helpful・tried）/ AIアシスト `ai=1`（§5.2.1）。道カードと方法カードは独立ページング（`page` / `mp`）。ログイン中は各カード右上に既読／未読バッジ。道カード 2 件のあとに広告枠 1 つ（`ADS_ENABLED` 時のみ） |
 | `/experiences/[id]` | 道の詳細（`id` = 公開 Attempt の id）。「この人がたどった道」枝分かれ表示、見出し右に「参考になった」（いいね）ボタン。ログイン中に開くと既読登録。道の内容のあとに広告枠 1 つ（`ADS_ENABLED` 時のみ）、右サイドに「この情報について」＋「自分の道を作る」CTA |
 | `/experiences/paths` | 道の見える化（一覧）。枝分かれ＋各方法から詳細への導線 |
 | `/try` | **SNS 向け簡易登録**。ログイン不要・1 画面・最小 3 入力（困っていたこと／試したこと／試した結果）。`?problem=` で困っていたことを事前入力可。OGP / Twitter カード設定あり。`robots: noindex` |
@@ -128,6 +128,28 @@
 - 検索条件はすべて URL クエリに乗る。他ページから素の `/experiences` に戻ったときは、同じセッション内の前回の検索を自動復元する（`RestoreSearch`／`sessionStorage`）。タブを閉じるか、記憶から 60 分（`RESTORE_MAX_AGE_MS`）経つとリセット。「条件をクリア」で即時に忘れる。
 - ページング上限: `limit ≤ 50`、`page ≤ 100`、かつ `(page-1)*limit < 500`（超過は 400）。全件取得 API は無い。
 - 内部 ID（`user_id` / `google_sub` / `road_id`）は公開レスポンスに出さない。
+
+#### 5.2.1 AIアシスト検索（Phase 1）
+
+`/experiences` の「AIで探す」チェックを入れて検索すると `?ai=1` が付き、次の追加処理が入る
+（チェック無し＝従来の純キーワード検索と完全に同じ。AI は経験を生成せず、検索語を広げるだけ）。
+
+1. **意図展開** `expandSearchIntent`（`src/lib/ai/search.ts`）が困りごと文を関連語・言い換えに展開する。
+   `ANTHROPIC_API_KEY` 未設定・AI 失敗時は決定的なローカル展開にフォールバックし、展開語（`terms`）は必ず 1 つ以上返る。
+   AI 出力は文字列のみ・各 30 字以内・最大 8 語・先頭は必ず元フレーズ、に正規化する。
+2. **ハイブリッド絞り込み** `terms` を `buildExperienceWhere` 系（`src/lib/search.ts`）へ渡し、
+   既存の対象カラム（困りごと・目標・場面・以前できていた・タグ／方法本文・気づき）への `ILIKE` OR を語ごとに増やす。
+3. **関連度の並べ替え** 取得後の 1 ページ分だけ `rankBySearchRelevance`（`src/lib/search-rank.ts`）で
+   スコア降順に安定ソート（DB の並び順・`buildExperienceOrderBy` は変えない。helpful/tried と同じ後処理）。
+4. **フォールバック** AIアシストで 0 件なら、同じクエリを `terms` 無しで再検索して通常のキーワード結果を返す。
+
+公開ゲートは `PUBLIC_ATTEMPT_WHERE` のまま。非公開・未承認データが `ai=1` 経路で混ざることはない。
+`POST /api/v1/ai/experience-search` も同じ `expandSearchIntent` を返す（`{ keywords, terms, rephrased, disclaimer }`）。
+
+**Phase 2（未着手・保留）**: pgvector + Embedding によるベクトル類似検索。必要になるインフラ・判断＝
+docker イメージを `pgvector/pgvector:pg16` へ差し替え／本番 DB コンテナ入れ替え／`CREATE EXTENSION vector`／
+Embedding 専用テーブルと公開・非公開・編集・削除に追随する同期＋バックフィル／
+Embedding プロバイダの選定（Anthropic に Embeddings API は無い。モデル名は環境変数化しハードコードしない）。
 
 ### 5.3 AI 内容モデレーション
 
@@ -286,7 +308,9 @@
 
 **公開 GET のガード:** IP 単位のレート／バースト制限、`page` 高速連続巡回・同一クエリ連打の検知 →
 `429`（`Retry-After` 付き、悪質時は一時ブロック）。既知の AI クローラー UA は `403`。
-全レスポンスに `X-Robots-Tag: noai, noimageai`。
+`X-Robots-Tag` は `middleware.ts` がパス別に付与する: トップ `/` は `index, follow`／
+`/login`・`/me*` は `noindex, nofollow`／`/admin*` は `noindex, nofollow, noarchive`（＋ `Cache-Control: no-store`）／
+その他の公開ページは `noindex, follow`。いずれも `noai, noimageai` を含む。
 
 ---
 
@@ -296,10 +320,11 @@
 | --- | --- |
 | アクセシビリティ | WCAG 2.1 A/AA。色だけで情報を伝えない、ラベルと `aria-*` の関連付け、キーボード操作、文字サイズトグル（標準／大／特大）、`prefers-reduced-motion` 尊重。主要画面は axe-core で重大違反 0 を確認 |
 | レート制限 | メモリ内（単一プロセス前提）。プリセット: 書き込み 60/分、AI 15/分。簡易登録は 6/分・IP 単位 |
-| スクレイピング対策 | `src/middleware.ts`（IP ブロックリスト・AI クローラー UA 遮断）＋ `src/lib/bot-guard.ts`（巡回・バースト検知）＋ ページング上限＋ `robots.txt`（`/api/` `/me/` `/login` `/admin/` `/try` を Disallow、AI クローラーは全体不可） |
+| スクレイピング対策 | `src/middleware.ts`（IP ブロックリスト・AI クローラー UA 遮断）＋ `src/lib/bot-guard.ts`（巡回・バースト検知）＋ ページング上限＋ `robots.txt`（一般クローラーは `/api/` と `/admin` のみ Disallow、既知 AI クローラーは全体不可） |
+| 検索エンジンへの露出 | 索引に載せるのは**トップページ `/` だけ**。他の公開ページは `noindex`（`robots.txt` では塞がずクローラーに `noindex` を読ませる）。`/login`・`/me*`・`/admin*` は `noindex,nofollow`。`sitemap.xml` はトップのみ。方針の詳細は `implementation-decisions.md`（2026-09-10 検索エンジン露出方針） |
 | 個人情報 | ユーザー属性は最小限。公開経験に氏名・アバターを含めない。画像投稿なし。AI 審査・広告カテゴリ変換に個人識別情報を渡さない。アクセスログの識別子は匿名化 |
 | モデレーション独立性 | 管理者セッションは利用者と別 Cookie・別テーブル。ガードは middleware ではなく Server Component layout ＋ API ハンドラ |
-| 管理機能の露出低減 | 公開ページから `/admin` へリンクしない。sitemap 無し。ログイン画面に「管理画面／管理者／運営者」の語を出さない（`<title>` も「ログイン」）。`/admin/*` は layout metadata ＋ middleware で `noindex,nofollow,noarchive` ＋ `Cache-Control: no-store`。ログインは IP 単位 10/分でロック、失敗メッセージは「メールアドレスまたはパスワードが違います」で存在を漏らさない（ダミーハッシュ検証でタイミング差も抑制）。※URL 秘匿は防御にしない — 認証・認可が本体 |
+| 管理機能の露出低減 | 公開ページから `/admin` へリンクしない。`sitemap.xml` はトップのみ（`/admin` は載せない）。ログイン画面に「管理画面／管理者／運営者」の語を出さない（`<title>` も「ログイン」）。`/admin/*` は layout metadata ＋ middleware で `noindex,nofollow,noarchive` ＋ `Cache-Control: no-store`。ログインは IP 単位 10/分でロック、失敗メッセージは「メールアドレスまたはパスワードが違います」で存在を漏らさない（ダミーハッシュ検証でタイミング差も抑制）。※URL 秘匿は防御にしない — 認証・認可が本体 |
 | 監査 | 管理操作は `admin_audit_logs` に記録。消せない |
 
 ---
@@ -348,5 +373,6 @@
 - いいね・広告費用による検索順位の操作
 - ポップアップ広告・画面全体を覆う広告、トップ画面への広告
 - 「アカウントだけ削除して公開経験を匿名で残す」方式
-- 類似検索・全文検索・ベクトル検索（検索は部分一致 `ILIKE`）
+- 全文検索インデックス・ベクトル類似検索（pg_trgm / pgvector / Embedding）。検索は部分一致 `ILIKE` のまま。
+  AIアシスト検索（§5.2.1）は「AI が検索語を広げて `ILIKE` OR を増やす」Phase 1 に限る。ベクトル検索は Phase 2 として保留
 - 個人情報・ユーザー識別情報を広告ターゲティングへ渡す設計

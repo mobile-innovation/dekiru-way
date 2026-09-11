@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui";
 import { RateLimitedNotice } from "@/components/rate-limited-notice";
 import { experienceQuerySchema } from "@/lib/validation";
 import { searchRoads, searchMethods, getPopularTags } from "@/lib/queries";
+import { expandSearchIntent, type SearchIntent } from "@/lib/ai/search";
 import { adContextFromText } from "@/lib/ads";
 import { getOptionalUserId } from "@/lib/authz";
 import { guardPublicPage } from "@/lib/page-guard";
@@ -41,6 +42,7 @@ export default async function ExperiencesPage({
         kind: "road" as const,
         limit: 20,
         sort: "recent" as const,
+        ai: undefined,
       };
 
   // kind（道 / 方法 / 両方）は検索語の有無に関わらず効く。
@@ -52,11 +54,30 @@ export default async function ExperiencesPage({
   // ログイン中なら各カードに既読/未読を付ける（未ログインは全て未読扱い）。
   const viewerUserId = await getOptionalUserId();
 
-  const [roadRes, methodMatch, tags] = await Promise.all([
-    roadEnabled ? searchRoads(q, viewerUserId) : Promise.resolve(emptyRes),
-    methodEnabled ? searchMethods(q, viewerUserId) : Promise.resolve(emptyRes),
-    getPopularTags(12),
+  // 検索AIアシスト (Phase 1): ?ai=1 かつ検索語があるときだけ、AI で意図を展開して
+  // 複数語ハイブリッド検索＋ページ内関連度ランキングを通す。AI 未設定・失敗でも
+  // expandSearchIntent は決定的な展開結果を返し、通常のキーワード検索として機能する。
+  const aiAssist = q.ai === "1" && !!q.q;
+  const intent: SearchIntent | null = aiAssist ? await expandSearchIntent(q.q ?? "") : null;
+  const searchOpts = intent ? { terms: intent.terms, rank: true } : undefined;
+
+  const tagsPromise = getPopularTags(12);
+  let [roadRes, methodMatch] = await Promise.all([
+    roadEnabled ? searchRoads(q, viewerUserId, searchOpts) : Promise.resolve(emptyRes),
+    methodEnabled ? searchMethods(q, viewerUserId, searchOpts) : Promise.resolve(emptyRes),
   ]);
+
+  // AIアシストで 1 件も見つからなければ、通常のキーワード検索へ自動フォールバック
+  // （利用者は必ずキーワード検索の結果を受け取れる）。
+  let aiFellBack = false;
+  if (aiAssist && roadRes.total === 0 && methodMatch.total === 0) {
+    aiFellBack = true;
+    [roadRes, methodMatch] = await Promise.all([
+      roadEnabled ? searchRoads(q, viewerUserId) : Promise.resolve(emptyRes),
+      methodEnabled ? searchMethods(q, viewerUserId) : Promise.resolve(emptyRes),
+    ]);
+  }
+  const tags = await tagsPromise;
   const { items, total, page, hasMore, windowExceeded } = roadRes;
 
   const hasRoadSection = roadEnabled;
@@ -93,16 +114,21 @@ export default async function ExperiencesPage({
 
       {/* URL の検索条件が変わったら（戻る/復元も含む）フォームの初期値を取り直す */}
       <ExperienceSearchForm
-        key={`${q.q ?? ""}|${q.result ?? ""}|${q.tag ?? ""}|${q.kind}|${q.sort}|${q.read ?? ""}`}
+        key={`${q.q ?? ""}|${q.result ?? ""}|${q.tag ?? ""}|${q.kind}|${q.sort}|${q.read ?? ""}|${q.ai ?? ""}`}
         defaultQ={q.q ?? ""}
         defaultResult={q.result ?? ""}
         defaultTag={q.tag ?? ""}
         defaultKind={q.kind}
         defaultSort={q.sort}
         defaultRead={q.read ?? ""}
+        defaultAi={q.ai === "1"}
         loggedIn={viewerUserId != null}
         tags={tags}
       />
+
+      {intent && (
+        <AiAssistPanel intent={intent} fellBack={aiFellBack} plainHref={plainSearchHref(sp)} />
+      )}
 
       {nothingFound && (
         <EmptyState title="まだ見つかりませんでした">
@@ -225,6 +251,69 @@ function flatten(sp: SearchParams): Record<string, string> {
     else if (Array.isArray(v) && v[0]) out[k] = v[0];
   }
   return out;
+}
+
+/** いまの検索条件から AI アシスト（と現在ページ）を外したリンク。 */
+function plainSearchHref(sp: SearchParams): string {
+  const params = new URLSearchParams(flatten(sp));
+  params.delete("ai");
+  params.delete("page");
+  params.delete("mp");
+  const qs = params.toString();
+  return qs ? `/experiences?${qs}` : "/experiences";
+}
+
+/**
+ * AI が検索意図をどう広げたかを、結果の上に短く見せるパネル。
+ * AI は経験を作らない。展開した検索語（プレーンテキスト）と言い換えだけを表示する。
+ */
+function AiAssistPanel({
+  intent,
+  fellBack,
+  plainHref,
+}: {
+  intent: SearchIntent;
+  fellBack: boolean;
+  plainHref: string;
+}) {
+  const heading = intent.source === "ai" ? "AIが検索を手伝いました" : "検索のことばをひろげました";
+  return (
+    <section
+      aria-label="AIアシスト検索"
+      className="space-y-2 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-primary-tint)] p-4 text-sm"
+    >
+      <p className="font-bold text-[var(--color-ink)]">{heading}</p>
+      <p className="text-[var(--color-ink-muted)]">
+        AIは答えを作りません。あなたの言葉を、みんなの経験に結びつけています。
+      </p>
+      {intent.rephrased && (
+        <p className="text-[var(--color-ink)]">
+          言い換え：<span className="font-medium">{intent.rephrased}</span>
+        </p>
+      )}
+      {intent.terms.length > 0 && (
+        <ul className="flex flex-wrap gap-1.5" aria-label="検索に使ったことば">
+          {intent.terms.map((t) => (
+            <li
+              key={t}
+              className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-0.5 text-xs text-[var(--color-ink)]"
+            >
+              {t}
+            </li>
+          ))}
+        </ul>
+      )}
+      {fellBack && (
+        <p className="text-[var(--color-ink-muted)]">
+          AIでの絞り込みでは見つからなかったため、ふつうのキーワード検索の結果を表示しています。
+        </p>
+      )}
+      <p className="text-xs text-[var(--color-ink-muted)]">{intent.disclaimer}</p>
+      <Link href={plainHref} className="inline-block font-semibold underline">
+        AIアシストをやめて検索する
+      </Link>
+    </section>
+  );
 }
 
 function Pagination({

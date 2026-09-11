@@ -105,6 +105,9 @@ export const experienceQuerySchema = z.object({
   read: z.enum(EXPERIENCE_READ_VALUES).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   sort: z.enum(EXPERIENCE_SORTS).default("recent"),
+  // 検索AIアシスト (Phase 1)。"1" のときだけ AI 意図展開＋ページ内関連度ランキングを通す。
+  // 未指定なら従来の純キーワード検索と完全に同じ。
+  ai: z.enum(["1"]).optional(),
 });
 export type ExperienceQuery = z.infer<typeof experienceQuerySchema>;
 

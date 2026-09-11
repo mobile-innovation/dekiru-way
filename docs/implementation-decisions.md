@@ -119,6 +119,9 @@ AI に適用。将来は Upstash 等の共有ストアに差し替え。
 - 2 エンドポイント: `experience-search` / `summarize-experiences`。
   （`suggest-next-step` = 自分の道の「次に試す材料」提案は MVP で撤去。検索できる実体験に比べて
   一般論になりがちで価値が読めないため。復活させる場合は git 履歴から戻す。）
+- `experience-search` は 2026-09-11 に「検索意図の展開」へ拡張（Phase 1）。困りごと文 → 検索語
+  （関連語・言い換え・上位語）を返し、`/experiences?ai=1` がその語で既存キーワード検索を横断・
+  関連度並べ替えする。AI は経験を生成しない。詳細は下記 2026-09-11 の変更ログと `spec.md` §5.2.1。
 - システムプロンプトで **診断・治療方針・医療上の正解・「必ず成功する」等の断定を禁止**。
 - `ANTHROPIC_API_KEY` 未設定時は決め打ちのスタブ（キーワード抽出等）を返す。UI からは
   「押したときだけ」呼び、常に非ブロッキング。免責文（`DISCLAIMER`）を必ず添える。
@@ -161,11 +164,12 @@ AI に適用。将来は Upstash 等の共有ストアに差し替え。
 
 | 層 | 実体 | 役割 |
 | --- | --- | --- |
-| Edge ミドルウェア | `src/middleware.ts` + `screenEdgeRequest()` | 環境変数 IP ブロックリスト / 既知 AI クローラー UA を 403 / 全レスポンスに `X-Robots-Tag: noai, noimageai` |
+| Edge ミドルウェア | `src/middleware.ts` + `screenEdgeRequest()` | 環境変数 IP ブロックリスト / 既知 AI クローラー UA を 403 / `X-Robots-Tag` をパス別に付与（トップ `/` は `index,follow`、`/login`・`/me*` は `noindex,nofollow`、`/admin*` は `noindex,nofollow,noarchive` ＋ `Cache-Control: no-store`、その他は `noindex,follow`。すべて `noai, noimageai` を含む。2026-09-10 変更ログ参照） |
 | アプリ層ガード (状態あり) | `src/lib/bot-guard.ts#inspectPublicRead` | IP 単位のレート (60s) とバースト (10s)、`page=1,2,3..` の高速連続巡回、同一クエリ連打を検知。段階的に 429 → 一時ブロック (10分)。UA プロファイル: 通常 / UAなし / スクリプト系 (`curl`, `python-requests` 等) で閾値を変える |
 | 公開読み取りラッパ | `src/lib/public-api.ts#handlePublicRead` | 5 つの公開 GET (`experiences`, `experiences/{id}`, `experiences/paths`, `tags`, `tags/{id}/experiences`) を包み、ガード + アクセスログ + `X-Robots-Tag` |
 | SSR ページガード | `src/lib/page-guard.ts#guardPublicPage` | `/`, `/experiences`, `/experiences/{id}`, `/experiences/paths` の SSR も同じ bot-guard 状態で判定。ブロック時は `RateLimitedNotice` を表示 |
-| robots.txt | `src/app/robots.ts` | 一般クローラーは `/api/` `/me/` `/login` を Disallow。既知 AI クローラーはサイト全体を Disallow。**これ単独は防御にしない** (§8) |
+| robots.txt | `src/app/robots.ts` | 一般クローラーは `/api/` と `/admin` のみ Disallow（他ページは巡回可＝`noindex` を読ませる。2026-09-10 に `/me/` `/login` を外した）。既知 AI クローラーはサイト全体を Disallow。`Sitemap:` 行あり。**これ単独は防御にしない** (§8) |
+| sitemap.xml | `src/app/sitemap.ts` | トップページ (`/`) 1 件のみ。他の公開ページは各ページの `noindex` で検索除外する |
 | ページング上限 | `experienceQuerySchema` (`page ≤ 100`, `limit ≤ 50`) + `MAX_RESULT_WINDOW = 500` | `limit=10000` や深い `page` は 400。`(page-1)*limit ≥ 500` は 400 で絞り込みを促す。SSR (`searchExperiences`) も同じ窓で頭打ち |
 | レスポンス最小化 (§6) | `serializeExperience` / paths ルート | `user_id` / `google_sub` / `road_id` などの内部 ID を公開面に出さない。paths のクラスタ識別子は「先頭経験の id」を `key` にする |
 | 全件取得 API を作らない (§5) | — | `/experiences/all`, `/export/*` は存在しない。不正 ID (非 UUID) は `assertUuid` で 404 (500 にしない) |
@@ -1724,3 +1728,24 @@ SNS 的な人気競争にしないことを最優先に置く。
 - 管理画面の BASIC 認証（nginx）は `docs/deployment.md` §3-補足2 に手順を追加（ops で適用。認証情報は Git に置かない）。
 - `/admin` の URL リネームは**見送り**（ユーザー確認済み）。認証・認可がサーバー側で完結しており、URL 秘匿は防御にしない方針、かつ変更の影響範囲が大きいため。
 - 既存の OGP 設定・アプリ機能・API・DB は変更なし。
+
+### 2026-09-11 `/try` の画面文言を「試したこと」中心から「経験」中心へ（文言のみ）
+- 見出し `あなたが試したことを教えてください` → `あなたの経験を教えてください`。
+- 説明文 `困っていることに対して、試してみた方法を教えてください。…` →
+  `困っていたことと、試してみた方法を教えてください。うまくいかなかったことも、誰かの次の一歩につながります。`。
+- 画面の 2 文字列だけ。フォーム項目・バリデーション・保存処理・レート制限は不変。
+- OGP / Twitter 共有文（`SHARE_TITLE` / `SHARE_DESCRIPTION`）は SNS 側の一貫性のため**変更しない**。
+- e2e の見出しアサーション（`tests/e2e/quick-submit.spec.ts`）を新文言に更新。
+
+### 2026-09-11 検索AI（ハイブリッド検索）Phase 1
+- 目的: 利用者が自分の言葉で書いた困りごとを、表現の違う既存の公開経験に結びつける。「AI が答えを作る」のではなく「AI が検索語を広げる」。指示書「検索AI構築 v1」§30（まず最小構成）に沿う。
+- 範囲は **Phase 1 のみ**（ユーザー確認済み）。新インフラ・新 API キー・新プロバイダなし。既存 `@anthropic-ai/sdk` / `env.ai` だけ。`ANTHROPIC_API_KEY` 未設定でも動く。
+- 追加: `src/lib/ai/search.ts`（`expandSearchIntent` / `localExpand` / `normalizeIntent`）、`src/lib/search-rank.ts`（`scoreText` / `rankBySearchRelevance`・純関数）。
+- `src/lib/search.ts` の 3 つの where ビルダーに任意の第 3 引数 `opts.terms` を追加。非空なら語ごとに既存対象カラムへの `ILIKE` OR を増やす。**未指定なら従来と完全に同一**（`buildExperienceOrderBy` の出力形は変更せず、`tests/unit/search.test.ts` を壊さない）。
+- `src/lib/queries.ts` の `searchRoads` / `searchMethods` に `opts.{terms,rank}`。`rank` は取得後の 1 ページ分だけをスコア順に安定ソート（DB の並び順は不変。helpful/tried と同じ後処理）。**ページをまたぐ厳密な関連度順にはしない**（既存の helpful/tried と同じ割り切り。Phase 2 で改善余地）。
+- `experienceQuerySchema` に `ai: z.enum(["1"]).optional()` を追加（`page/limit/sort` の既定は不変）。`EXPERIENCE_SORTS` は変更しない（`constants.ts` / フォーム / order-by への波及を避けるため。関連度ランキングは `ai=1` のときに `sort` の上へ後追いで載る）。
+- `/experiences`（`ai=1` かつ検索語あり）: サーバーで `expandSearchIntent` を直接呼ぶ（dormant な `POST /api/v1/ai/experience-search` を自己 fetch しない）。0 件なら `terms` 無しで再検索して通常結果を返す。結果上部に AIアシストパネル（展開語チップ＋言い換え＋免責＋「AIアシストをやめて検索する」リンク。すべてプレーンテキスト）。
+- `assistExperienceSearch` / `POST /api/v1/ai/experience-search` は `expandSearchIntent` に委譲し、レスポンスに `terms` を追加（`keywords` は先頭 5 件で後方互換）。
+- 非機能: AI 出力は文字列のみ・30 字以内・最大 8 語・先頭は元フレーズに正規化。SQL 連結なし（Prisma の `contains` パラメータ）。公開ゲートは `PUBLIC_ATTEMPT_WHERE` のまま（`ai=1` 経路で非公開データは混ざらない）。モデル名は `env.ai.model`。
+- **Phase 2（未着手・保留）**: pgvector + Embedding のベクトル類似検索。`postgres:16-alpine` に pgvector は無く、Anthropic に Embeddings API も無い。着手時に必要＝docker イメージを `pgvector/pgvector:pg16` へ／本番 DB コンテナ入れ替え／`CREATE EXTENSION vector`／Embedding 専用テーブルと公開・非公開・編集・削除への同期＋バックフィル／Embedding プロバイダ選定（環境変数化・ハードコード禁止）。`CLAUDE.md` 残作業にも記載。
+- テスト: `tests/unit/ai-search-intent.test.ts`（`localExpand` / `normalizeIntent` / `expandSearchIntent` の未設定経路・区切り記号・8 語上限・長すぎる語の除去）、`tests/unit/ai-search-intent-ai.test.ts`（`callJson` を差し替えた AI 有効経路・`source` 判定・失敗フォールバック）、`tests/unit/ai-assist-search.test.ts`（`assistExperienceSearch` の委譲）、`tests/unit/search-rank.test.ts`（スコア・安定ソート・非破壊）、`tests/unit/search.test.ts`（3 ビルダーの `opts.terms`・`q.q` との優先順位）、`tests/integration/search-ai.test.ts`（OR 和集合・公開ゲート不変・ページ内ランキング）、`tests/integration/ai-experience-search.api.test.ts`（レスポンス形・バリデーション・同一オリジン・レート制限）、`tests/e2e/search-ai.spec.ts`（`ai=1` とアシストパネル）。

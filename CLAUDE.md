@@ -6,6 +6,20 @@
 
 ## 残作業 / 未了
 
+### 検索AI Phase 2（pgvector + Embedding）— 未着手
+
+Phase 1（AI が検索語を展開 → `ILIKE` OR を増やす → ページ内で関連度ソート → フォールバック）は
+`feat/mvp-foundation` に実装済み（`src/lib/ai/search.ts` / `src/lib/search-rank.ts` / `?ai=1`）。
+詳細は `docs/spec.md` §5.2.1 / `docs/implementation-decisions.md` 2026-09-11。
+
+Phase 2（ベクトル類似検索）に必要なのは主にインフラと判断で、着手前に決める:
+
+1. docker イメージを `postgres:16-alpine` → `pgvector/pgvector:pg16` に差し替え、本番 DB コンテナも入れ替え
+2. マイグレーションで `CREATE EXTENSION vector` ＋ Embedding 専用テーブル（公開経験のみ）
+3. Embedding プロバイダの選定（Anthropic に Embeddings API は無い）。API キーは環境変数、モデル名もハードコードしない
+4. 公開／非公開／編集／削除に追随する Embedding 同期＋既存データのバックフィルスクリプト
+5. kNN 検索とキーワード検索のスコア融合（Phase 1 の `rankBySearchRelevance` を土台に）
+
 ### Google AdSense — コードは実装済み、実配信は未了
 
 `feat/mvp-foundation` で AdSense 接続のコードは完成している（`src/app/ads.txt/`、

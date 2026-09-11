@@ -42,6 +42,7 @@ export function ExperienceSearchForm({
   defaultKind = EXPERIENCE_KIND_DEFAULT,
   defaultSort = "recent",
   defaultRead = "",
+  defaultAi = false,
   loggedIn = false,
   tags,
 }: {
@@ -52,6 +53,8 @@ export function ExperienceSearchForm({
   defaultSort?: string;
   /** "" | "read" | "unread"。ログイン中のみ効く */
   defaultRead?: string;
+  /** AIアシスト検索を使うか（?ai=1）。検索語があるときだけ効く */
+  defaultAi?: boolean;
   loggedIn?: boolean;
   tags: { id: string; name: string; roadCount: number }[];
 }) {
@@ -66,6 +69,7 @@ export function ExperienceSearchForm({
   const [kind, setKind] = useState(defaultKind);
   const [sort, setSort] = useState(defaultSort);
   const [read, setRead] = useState(defaultRead);
+  const [useAi, setUseAi] = useState(defaultAi);
 
   // 「表示する種類」は検索ワードの有無に関わらず切り替えられる。
   // ワード無しでも「方法だけ」で公開された試したことの一覧を見られる。
@@ -79,6 +83,8 @@ export function ExperienceSearchForm({
     if (kind && kind !== EXPERIENCE_KIND_DEFAULT) params.set("kind", kind);
     if (sort && sort !== "recent") params.set("sort", sort);
     if (loggedIn && read) params.set("read", read);
+    // AIアシストは検索語があるときだけ意味を持つ
+    if (useAi && q) params.set("ai", "1");
     const qs = params.toString();
     if (!qs) clearStoredSearch(); // 条件なしで送信＝実質クリア
     router.push(qs ? `/experiences?${qs}` : "/experiences");
@@ -91,6 +97,7 @@ export function ExperienceSearchForm({
     setKind(EXPERIENCE_KIND_DEFAULT);
     setSort("recent");
     setRead("");
+    setUseAi(false);
     clearStoredSearch();
     router.push("/experiences");
   }
@@ -142,6 +149,22 @@ export function ExperienceSearchForm({
         <div className="mt-2">
           <VoiceInputButton onResult={(t) => setQText((v) => (v ? `${v} ${t}` : t))} />
         </div>
+
+        <label className="mt-3 flex items-start gap-2 text-sm text-[var(--color-ink)]">
+          <input
+            type="checkbox"
+            name="ai"
+            checked={useAi}
+            onChange={(e) => setUseAi(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-[var(--color-primary)]"
+          />
+          <span>
+            <span className="font-bold">AIで探す</span>
+            <span className="block text-[var(--color-ink-muted)]">
+              入力した言葉を似た言い方に広げて探します。答えはAIが作りません。
+            </span>
+          </span>
+        </label>
       </div>
 
       {/* ② 必要なら絞り込む（検索入力と視覚的に分ける） */}

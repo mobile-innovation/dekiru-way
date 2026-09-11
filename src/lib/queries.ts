@@ -7,6 +7,7 @@ import {
   experienceInclude,
   PUBLIC_ATTEMPT_WHERE,
 } from "@/lib/search";
+import { rankBySearchRelevance, RANK_WEIGHT } from "@/lib/search-rank";
 import { serializeExperience, serializeRoad, sortAttemptsChronologically } from "@/lib/serializers";
 import { likedAttemptIdSet } from "@/lib/likes";
 import { readAttemptIdSet } from "@/lib/reads";
@@ -54,8 +55,16 @@ const BEST_RESULT_RANK: Record<string, number> = {
  * 「道」単位の検索 (UI修正指示書「道別カード」)。
  * 方法（Attempt）ごとではなく、困りごと（Road）ごとに 1 カード。
  * ページング・件数は「道」単位。`GET /api/v1/experiences`（Attempt 単位）は変更しない。
+ *
+ * `opts` は検索AI Phase 1 用（省略時は従来と完全に同じ）:
+ *   - `terms`: AI が展開した検索語。where を語ごとの OR に広げる。
+ *   - `rank`: true なら取得後の 1 ページ分を関連度で並べ替える（helpful/tried と同じ後処理）。
  */
-export async function searchRoads(q: ExperienceQuery, viewerUserId?: string | null) {
+export async function searchRoads(
+  q: ExperienceQuery,
+  viewerUserId?: string | null,
+  opts?: { terms?: string[]; rank?: boolean },
+) {
   const skip = (q.page - 1) * q.limit;
   if (skip >= MAX_RESULT_WINDOW) {
     return {
@@ -68,7 +77,7 @@ export async function searchRoads(q: ExperienceQuery, viewerUserId?: string | nu
     };
   }
 
-  const where = buildRoadLevelSearchWhere(q, viewerUserId);
+  const where = buildRoadLevelSearchWhere(q, viewerUserId, opts);
   const [total, roads] = await Promise.all([
     prisma.road.count({ where }),
     prisma.road.findMany({
@@ -126,6 +135,16 @@ export async function searchRoads(q: ExperienceQuery, viewerUserId?: string | nu
     const lastTried = (r: RoadCardDTO) =>
       r.attempts.reduce((m, x) => (x.triedAt && x.triedAt > m ? x.triedAt : m), "");
     items = items.sort((a, b) => lastTried(b).localeCompare(lastTried(a)));
+  }
+
+  // 検索AI経路のみ: このページ内を関連度で並べ替える（DB の並び順は変えない）。
+  if (opts?.rank && opts.terms && opts.terms.length > 0) {
+    items = rankBySearchRelevance(items, opts.terms, (r) => [
+      { text: r.difficulty, weight: RANK_WEIGHT.road },
+      { text: r.goal, weight: RANK_WEIGHT.road },
+      ...r.tags.map((t) => ({ text: t, weight: RANK_WEIGHT.road })),
+      ...r.attempts.map((a) => ({ text: a.method, weight: RANK_WEIGHT.method })),
+    ]);
   }
 
   return {
@@ -198,7 +217,11 @@ async function treePageByAttempt(roadIds: string[]): Promise<Map<string, number>
  * 1 ページ `limit` 件、深さ上限は道カードと同じ（`page ≤ 100`、`(mp-1)*limit < MAX_RESULT_WINDOW`）。
  * リンク先は「その方法が見えるページ」の道詳細（ツリーが分割されていれば ?p=N 付き）。
  */
-export async function searchMethods(q: ExperienceQuery, viewerUserId?: string | null) {
+export async function searchMethods(
+  q: ExperienceQuery,
+  viewerUserId?: string | null,
+  opts?: { terms?: string[]; rank?: boolean },
+) {
   const base = {
     items: [] as MethodCardDTO[],
     total: 0,
@@ -209,7 +232,7 @@ export async function searchMethods(q: ExperienceQuery, viewerUserId?: string | 
   const skip = (q.mp - 1) * q.limit;
   if (skip >= MAX_RESULT_WINDOW) return { ...base, windowExceeded: true };
 
-  const where = buildMethodSearchWhere(q, viewerUserId);
+  const where = buildMethodSearchWhere(q, viewerUserId, opts);
   const [total, rows] = await Promise.all([
     prisma.attempt.count({ where }),
     prisma.attempt.findMany({
@@ -229,7 +252,7 @@ export async function searchMethods(q: ExperienceQuery, viewerUserId?: string | 
       )
     : new Set<string>();
 
-  const items: MethodCardDTO[] = rows.map((a) => ({
+  let items: MethodCardDTO[] = rows.map((a) => ({
     attemptId: a.id,
     method: a.method,
     memo: a.memo,
@@ -243,6 +266,17 @@ export async function searchMethods(q: ExperienceQuery, viewerUserId?: string | 
     isRead: readSet.has(a.id),
     isSeed: a.road.isSeedData,
   }));
+
+  // 検索AI経路のみ: このページ内を関連度で並べ替える（DB の並び順は変えない）。
+  if (opts?.rank && opts.terms && opts.terms.length > 0) {
+    items = rankBySearchRelevance(items, opts.terms, (m) => [
+      { text: m.roadDifficulty, weight: RANK_WEIGHT.road },
+      { text: m.roadGoal, weight: RANK_WEIGHT.road },
+      ...m.roadTags.map((t) => ({ text: t, weight: RANK_WEIGHT.road })),
+      { text: m.method, weight: RANK_WEIGHT.method },
+      { text: m.memo, weight: RANK_WEIGHT.method },
+    ]);
+  }
 
   return {
     items,

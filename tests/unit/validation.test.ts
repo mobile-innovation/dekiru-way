@@ -73,4 +73,15 @@ describe("experienceQuerySchema", () => {
   it("limit は 50 で頭打ち", () => {
     expect(experienceQuerySchema.safeParse({ limit: "999" }).success).toBe(false);
   });
+  it("ai フラグは '1' のみ許可し、既定値には影響しない", () => {
+    expect(experienceQuerySchema.parse({ ai: "1" }).ai).toBe("1");
+    expect(experienceQuerySchema.parse({}).ai).toBeUndefined();
+    expect(experienceQuerySchema.safeParse({ ai: "true" }).success).toBe(false);
+    // 既定値は不変
+    expect(experienceQuerySchema.parse({ ai: "1" })).toMatchObject({
+      page: 1,
+      limit: 20,
+      sort: "recent",
+    });
+  });
 });

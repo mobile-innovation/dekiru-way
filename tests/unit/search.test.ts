@@ -3,6 +3,7 @@ import {
   buildExperienceWhere,
   buildExperienceOrderBy,
   buildRoadLevelSearchWhere,
+  buildMethodSearchWhere,
   readFilterWhere,
 } from "@/lib/search";
 
@@ -35,6 +36,23 @@ describe("buildExperienceWhere", () => {
     const where = buildExperienceWhere({ tag: "手先" });
     const tagClause = (where.AND as any[]).find((c) => c.road?.roadTags);
     expect(tagClause).toBeTruthy();
+  });
+
+  it("opts.terms を渡すと語ごとに同じ対象カラムの OR が増える（検索AI Phase 1）", () => {
+    const where = buildExperienceWhere({}, undefined, { terms: ["ボタン", "留め具"] });
+    const orClause = (where.AND as any[]).find((c) => c.OR);
+    // 1 語あたり 7 節（method/memo/difficulty/situation/goal/previouslyAble/tag）× 2 語
+    expect(orClause.OR).toHaveLength(14);
+    const contains = orClause.OR.filter((o: any) => o.method).map((o: any) => o.method.contains);
+    expect(contains).toEqual(["ボタン", "留め具"]);
+  });
+
+  it("opts 無し（第 3 引数なし）は従来の単一語 where と変わらない", () => {
+    const a = buildExperienceWhere({ q: "ボタン" });
+    const b = buildExperienceWhere({ q: "ボタン" }, undefined);
+    expect(a).toEqual(b);
+    const or = (a.AND as any[]).find((c) => c.OR);
+    expect(or.OR).toHaveLength(7);
   });
 });
 
@@ -84,6 +102,65 @@ describe("buildRoadLevelSearchWhere（道の既読 / 未読）", () => {
   it("未ログインなら既読の絞り込みは付かない", () => {
     const where = buildRoadLevelSearchWhere({ read: "unread" });
     expect((where.AND as any[]).some((c) => c.attempts?.none || c.attempts?.some?.reads)).toBe(false);
+  });
+});
+
+describe("検索AI Phase 1: opts.terms（複数語ハイブリッド絞り込み）", () => {
+  it("buildRoadLevelSearchWhere は語ごとに road 側 5 カラムの OR を増やす", () => {
+    const where = buildRoadLevelSearchWhere({}, undefined, { terms: ["ボタン", "留め具"] });
+    const or = (where.AND as any[]).find((c) => c.OR);
+    // difficulty / situation / goal / previouslyAble / tag = 5 節 × 2 語
+    expect(or.OR).toHaveLength(10);
+    const diffContains = or.OR.filter((o: any) => o.difficulty).map((o: any) => o.difficulty.contains);
+    expect(diffContains).toEqual(["ボタン", "留め具"]);
+    // method は road 検索の対象外（従来どおり）
+    expect(or.OR.some((o: any) => "method" in o)).toBe(false);
+  });
+
+  it("buildMethodSearchWhere は語ごとに method / memo の OR を増やす", () => {
+    const where = buildMethodSearchWhere({}, undefined, { terms: ["ボタン", "留め具"] });
+    const or = (where.AND as any[]).find((c) => c.OR);
+    expect(or.OR).toHaveLength(4);
+    expect(or.OR.map((o: any) => (o.method ? "method" : "memo"))).toEqual([
+      "method",
+      "memo",
+      "method",
+      "memo",
+    ]);
+  });
+
+  it("opts.terms は q.q より優先される", () => {
+    const where = buildExperienceWhere({ q: "無視される" }, undefined, { terms: ["採用される"] });
+    const or = (where.AND as any[]).find((c) => c.OR);
+    expect(or.OR.some((o: any) => o.method?.contains === "採用される")).toBe(true);
+    expect(or.OR.some((o: any) => o.method?.contains === "無視される")).toBe(false);
+  });
+
+  it("opts.terms の各語は前後空白を除去して使う", () => {
+    const where = buildMethodSearchWhere({}, undefined, { terms: ["  ボタン  "] });
+    const or = (where.AND as any[]).find((c) => c.OR);
+    expect(or.OR[0].method.contains).toBe("ボタン");
+  });
+
+  it("空白だけ / 空文字の terms は無視して q.q にフォールバックする", () => {
+    const where = buildExperienceWhere({ q: "ボタン" }, undefined, { terms: ["  ", ""] });
+    const or = (where.AND as any[]).find((c) => c.OR);
+    expect(or.OR).toHaveLength(7); // 単一語 = 従来どおり
+    expect(or.OR[0].method.contains).toBe("ボタン");
+  });
+
+  it("terms も q.q も無ければキーワード OR 句を足さない", () => {
+    const where = buildExperienceWhere({}, undefined, { terms: [] });
+    expect((where.AND as any[]).some((c) => c.OR)).toBe(false);
+  });
+
+  it("terms と tag / result は AND で併存する", () => {
+    const where = buildExperienceWhere({ tag: "手先", result: "partial" }, undefined, {
+      terms: ["ボタン", "留め具"],
+    });
+    expect(where.AND).toContainEqual({ result: "partial" });
+    expect((where.AND as any[]).some((c) => c.road?.roadTags)).toBe(true);
+    expect((where.AND as any[]).some((c) => c.OR?.length === 14)).toBe(true);
   });
 });
 

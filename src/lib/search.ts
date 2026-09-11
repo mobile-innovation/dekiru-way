@@ -13,7 +13,9 @@ import type { ExperienceQuery } from "@/lib/validation";
  * 「承認済みの公開 Attempt を 1 つ以上持つか」だけで決まる。
  *
  * MVP はキーワード (部分一致) + タグ + 結果。
- * 将来は pg_trgm / ベクトル類似検索へ差し替えられるよう、
+ * 検索AI Phase 1 では、AI が展開した複数語 (`opts.terms`) を受け取り、
+ * 同じ対象カラムに対する OR を語ごとに増やす（1 語のときは従来と完全に同じ where）。
+ * 将来 (Phase 2) は pg_trgm / ベクトル類似検索へ差し替えられるよう、
  * where 生成をこの関数に閉じ込めておく。
  */
 
@@ -28,6 +30,24 @@ export const PUBLIC_ATTEMPT_WHERE = {
 } satisfies Prisma.AttemptWhereInput;
 
 type SearchQ = Pick<ExperienceQuery, "q" | "result" | "tag" | "read">;
+
+/** 検索AI Phase 1: AI が展開した検索語。未指定なら `q.q` 単独で従来どおり。 */
+export type TermOpts = { terms?: string[] };
+
+/**
+ * 実際に部分一致で使う語の一覧。
+ *   - `opts.terms` があればそれ（trim 済み・空語除去）
+ *   - なければ `q.q` を 1 語
+ *   - どちらも無ければ空（キーワード条件を足さない）
+ */
+function resolveTerms(q: SearchQ, opts?: TermOpts): string[] {
+  const fromOpts = (opts?.terms ?? []).map((t) => t.trim()).filter((t) => t.length > 0);
+  if (fromOpts.length > 0) return fromOpts;
+  const single = q.q?.trim();
+  return single ? [single] : [];
+}
+
+const ilike = (term: string) => ({ contains: term, mode: "insensitive" as const });
 
 /**
  * 既読 / 未読での Attempt レベルの絞り込み条件（ログイン中 viewer のみ）。
@@ -45,6 +65,7 @@ export function readFilterWhere(
 export function buildExperienceWhere(
   q: SearchQ,
   viewerUserId?: string | null,
+  opts?: TermOpts,
 ): Prisma.AttemptWhereInput {
   const and: Prisma.AttemptWhereInput[] = [{ ...PUBLIC_ATTEMPT_WHERE }];
 
@@ -61,19 +82,21 @@ export function buildExperienceWhere(
     });
   }
 
-  const term = q.q?.trim();
-  if (term) {
-    const contains = { contains: term, mode: "insensitive" as const };
+  const terms = resolveTerms(q, opts);
+  if (terms.length > 0) {
     and.push({
-      OR: [
-        { method: contains },
-        { memo: contains },
-        { road: { is: { difficulty: contains } } },
-        { road: { is: { situation: contains } } },
-        { road: { is: { goal: contains } } },
-        { road: { is: { previouslyAble: contains } } },
-        { road: { is: { roadTags: { some: { tag: { name: contains } } } } } },
-      ],
+      OR: terms.flatMap((term) => {
+        const contains = ilike(term);
+        return [
+          { method: contains },
+          { memo: contains },
+          { road: { is: { difficulty: contains } } },
+          { road: { is: { situation: contains } } },
+          { road: { is: { goal: contains } } },
+          { road: { is: { previouslyAble: contains } } },
+          { road: { is: { roadTags: { some: { tag: { name: contains } } } } } },
+        ];
+      }),
     });
   }
 
@@ -108,6 +131,7 @@ export const experienceInclude = {
 export function buildRoadLevelSearchWhere(
   q: SearchQ,
   viewerUserId?: string | null,
+  opts?: TermOpts,
 ): Prisma.RoadWhereInput {
   const publishedAttempt: Prisma.AttemptWhereInput = { ...PUBLIC_ATTEMPT_WHERE };
   if (q.result) publishedAttempt.result = q.result;
@@ -133,17 +157,19 @@ export function buildRoadLevelSearchWhere(
     });
   }
 
-  const term = q.q?.trim();
-  if (term) {
-    const contains = { contains: term, mode: "insensitive" as const };
+  const terms = resolveTerms(q, opts);
+  if (terms.length > 0) {
     and.push({
-      OR: [
-        { difficulty: contains },
-        { situation: contains },
-        { goal: contains },
-        { previouslyAble: contains },
-        { roadTags: { some: { tag: { name: contains } } } },
-      ],
+      OR: terms.flatMap((term) => {
+        const contains = ilike(term);
+        return [
+          { difficulty: contains },
+          { situation: contains },
+          { goal: contains },
+          { previouslyAble: contains },
+          { roadTags: { some: { tag: { name: contains } } } },
+        ];
+      }),
     });
   }
 
@@ -158,6 +184,7 @@ export function buildRoadLevelSearchWhere(
 export function buildMethodSearchWhere(
   q: SearchQ,
   viewerUserId?: string | null,
+  opts?: TermOpts,
 ): Prisma.AttemptWhereInput {
   const and: Prisma.AttemptWhereInput[] = [{ ...PUBLIC_ATTEMPT_WHERE }];
 
@@ -171,10 +198,14 @@ export function buildMethodSearchWhere(
     });
   }
 
-  const term = q.q?.trim();
-  if (term) {
-    const contains = { contains: term, mode: "insensitive" as const };
-    and.push({ OR: [{ method: contains }, { memo: contains }] });
+  const terms = resolveTerms(q, opts);
+  if (terms.length > 0) {
+    and.push({
+      OR: terms.flatMap((term) => {
+        const contains = ilike(term);
+        return [{ method: contains }, { memo: contains }];
+      }),
+    });
   }
 
   return { AND: and };

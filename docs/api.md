@@ -13,9 +13,9 @@
 - 公開 GET（`/experiences*`, `/tags*`）は認証不要だが**無制限ではない**（追加指示書 v1）:
   - IP 単位のレート/バースト制限、`page` の高速連続巡回・同一クエリ連打の検知 → `429`（`Retry-After` 付き、悪質時は一時ブロック）
   - `limit ≤ 50`、`page ≤ 100`、かつ `(page-1)*limit < 500`（超過は `400`）。全件取得 API は無い
-  - 既知の AI クローラー UA は `403`（`GET` でもページでも）。全レスポンスに `X-Robots-Tag: noai, noimageai`
+  - 既知の AI クローラー UA は `403`（`GET` でもページでも）。`X-Robots-Tag` はパス別（トップ `/` は `index,follow`、他の公開ページは `noindex,follow`、`/login`・`/me*`・`/admin*` は `noindex,nofollow`）＋ どのページも `noai, noimageai`
   - レスポンスに内部 ID（`user_id` / `google_sub` / `road_id`）は含めない
-  - `robots.txt` で `/api/` と AI クローラーを Disallow。詳細は `docs/implementation-decisions.md` §7-bis
+  - `robots.txt` は一般クローラーに `/api/` と `/admin` のみ Disallow（他は `noindex` を読ませる）、AI クローラーは全体不可。`sitemap.xml` はトップのみ。詳細は `docs/implementation-decisions.md` §7-bis / 2026-09-10 変更ログ
 
 ---
 
@@ -268,10 +268,14 @@ SNS からの流入者が、1 件の「試したこと」だけを最小入力�
 
 | メソッド | パス | 認証 | ボディ | 返り |
 | --- | --- | --- | --- | --- |
-| POST | `/ai/experience-search` | 不要 | `{ situation: string }` | `{ keywords: string[], rephrased: string, disclaimer: string }` |
+| POST | `/ai/experience-search` | 不要 | `{ situation: string }` | `{ keywords: string[], terms: string[], rephrased: string, disclaimer: string }` |
 | POST | `/ai/summarize-experiences` | 不要 | `{ experienceIds: uuid[] }`（公開 Attempt のみ対象） | `{ triedMethods: string[], patterns: string[], disclaimer, count }` |
 
 `ANTHROPIC_API_KEY` 未設定時はスタブ応答。
+
+`/ai/experience-search` は検索意図の展開（検索AI Phase 1・`spec.md` §5.2.1）。`terms` は展開済み検索語
+（先頭は必ず元フレーズ・各 30 字以内・最大 8 語）、`keywords` はその先頭 5 件（後方互換）。AI は経験を生成しない。
+`/experiences` 画面の `?ai=1` はこのエンドポイントを叩かず、サーバー側で同じ `expandSearchIntent` を直接使う。
 
 ---
 
@@ -314,7 +318,8 @@ SNS からの流入者が、1 件の「試したこと」だけを最小入力�
 
 | パス | 説明 |
 | --- | --- |
-| `GET /robots.txt` | 一般クローラーは `/api/` `/me/` `/login` `/admin/` 不可、既知 AI クローラーは全体不可（`/try` は SNS 共有の着地点なので許可） |
+| `GET /robots.txt` | 一般クローラーは `/api/` と `/admin` のみ Disallow（他ページは巡回可＝各ページの `noindex` を読ませる方針）。既知 AI クローラーは全体不可。`Sitemap:` 行あり |
+| `GET /sitemap.xml` | トップページ (`/`) のみ 1 件。他の公開ページは各ページの `noindex` で除外する |
 
 ## 開発専用
 
