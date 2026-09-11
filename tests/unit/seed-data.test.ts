@@ -69,6 +69,26 @@ describe("isConcreteDifficulty", () => {
   });
 });
 
+describe("isConcreteDifficulty × キーワードを文へ無理やり差し込む形（キーワード変換ルール修正指示書）", () => {
+  it("「キーワード」で、〜 の形は NG", () => {
+    expect(isConcreteDifficulty("「手芸」で、細かい手先の作業を正確に行うのが難しい", "手芸")).toBe(false);
+    expect(isConcreteDifficulty("「料理を作る」で、料理を作ることが難しい", "料理を作る")).toBe(false);
+    expect(isConcreteDifficulty("『デスクワーク』で、長時間座るのが難しい", "デスクワーク")).toBe(false);
+  });
+
+  it("キーワードを動作の主語にしてそのまま「〜が難しい」に流し込む形は NG", () => {
+    expect(isConcreteDifficulty("手芸することが難しい", "手芸")).toBe(false);
+    expect(isConcreteDifficulty("手芸ができなくて困っている", "手芸")).toBe(false);
+    expect(isConcreteDifficulty("デスクワークをすることが難しい", "デスクワーク")).toBe(false);
+  });
+
+  it("キーワードを文中に含まない自然な言い方は OK（指示書6：含める必要はない）", () => {
+    expect(isConcreteDifficulty("細かい手作業が難しく、作業に時間がかかる", "手芸")).toBe(true);
+    expect(isConcreteDifficulty("指先が思うように動かず、細かな作業が難しい", "手芸")).toBe(true);
+    expect(isConcreteDifficulty("長時間座った姿勢を続けることが難しい", "デスクワーク")).toBe(true);
+  });
+});
+
 describe("parseSeedThemes（スペース区切り＝複数テーマ）", () => {
   it("半角スペースで複数テーマに分ける", () => {
     expect(parseSeedThemes("料理 掃除")).toEqual(["料理", "掃除"]);
@@ -164,6 +184,20 @@ describe("localStubDrafts（テーマ → 具体的な困りごとへ分解）",
     for (const d of localStubDrafts(KW, 10)) {
       expect(d.goal).not.toBe(KW);
     }
+  });
+});
+
+describe("localStubDrafts × 分野の無いテーマ（キーワード変換ルール修正指示書）", () => {
+  it("「手芸」のように分野が無いテーマでも、difficulty にキーワードを差し込まない", () => {
+    const drafts = localStubDrafts("手芸", 10);
+    expect(drafts).toHaveLength(10);
+    for (const d of drafts) {
+      expect(d.difficulty ?? "").not.toMatch(/^[「『]\s*手芸\s*[」』]/);
+      expect(d.difficulty ?? "").not.toContain("手芸");
+      expect(isConcreteDifficulty(d.difficulty, "手芸")).toBe(true);
+    }
+    // テーマとのつながりは situation 側で保つ
+    expect(drafts.every((d) => (d.situation ?? "").includes("「手芸」"))).toBe(true);
   });
 });
 
@@ -265,6 +299,20 @@ describe("normalizeDrafts", () => {
     );
     expect(out).toHaveLength(1);
     expect(out[0].difficulty).toBe("包丁で野菜を切るのが難しい");
+  });
+
+  it("AI が「キーワードを文へ差し込んだだけ」の候補を返しても捨てる（キーワード変換ルール修正指示書）", () => {
+    const out = normalizeDrafts(
+      [
+        { difficulty: "「料理を作る」で、料理を作ることが難しい", method: "何かする", result: "success" },
+        { difficulty: "料理を作ることが難しい", method: "別の何か", result: "success" },
+        { difficulty: "包丁や調理器具を扱う細かい作業が難しい", method: "座って切る", result: "partial" }, // OK
+      ],
+      KW,
+      10,
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].difficulty).toBe("包丁や調理器具を扱う細かい作業が難しい");
   });
 
   it("method が空/欠落の要素は捨てる", () => {

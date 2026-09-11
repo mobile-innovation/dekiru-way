@@ -152,8 +152,10 @@ const SEED_DOMAINS: { key: string; match: RegExp; aspects: Aspect[] }[] = [
 ];
 
 /**
- * どの分野にも当てはまる、作業のつまずき。テーマに専用の分野がないときのスタブに使う
- * (この場合だけ困りごと文の頭にテーマを引用でつけ、テーマとのつながりを保つ)。
+ * どの分野にも当てはまる、作業のつまずき。テーマに専用の分野がないときのスタブに使う。
+ * テーマとのつながりは `situation`（「<テーマ>」に取り組むときの場面）で保ち、
+ * difficulty 文自体にはテーマを差し込まない（キーワード変換ルール修正指示書 2 / 6:
+ * 「「手芸」で、〜」のようにテーマを主語・原因として文へ無理やり入れるのは不自然で禁止）。
  */
 const NEUTRAL_ASPECTS: Aspect[] = [
   { d: "細かい手先の作業を正確に行うのが難しい", g: "細かい作業を自分でできるようになりたい", m: "持ちやすい道具に替え、手元を安定させて行った" },
@@ -220,6 +222,21 @@ const SEED_SYSTEM_PROMPT = `あなたは「できる道」というサービス�
 - 「料理」「外出」「歩く」「生活」などの抽象的なテーマが入力された場合は、そこから具体的な困りごとを複数考えてください。
 - 入力がすでに具体的な困りごとの場合は、意味を保ったまま自然な一文にしてください（例: 入力「靴下が履きにくい」→「靴下を一人で履くのが難しい」）。
 
+■ キーワードの意味を正しく扱う（キーワード変換ルール修正指示書）
+- 入力キーワードは「本人がしたいこと・していること・場面・活動」として扱ってください。
+  キーワード自体を、困難の原因や身体症状のように扱わないでください。
+- 次のような「キーワードを文にそのまま組み込むだけ」の生成は禁止します。
+  禁止例: 「「手芸」で、細かい手先の作業を正確に行うのが難しい」
+  禁止例: 「手芸することが難しい」「手芸ができなくて困っている」
+  禁止例: 「「料理を作る」で、料理を作ることが難しい」
+- difficulty の文中に入力キーワードをそのまま含める必要はありません。むしろ、自然な文にするために
+  不要であれば省略してください（キーワードは「その活動をする場面で何に困っているか」を考えるための
+  手がかりに過ぎません）。
+  例: 入力「手芸」→「細かい手作業が難しく、作業に時間がかかる」（キーワードを含まなくてよい）
+- 優先して考える要素: 具体的な動作／道具の操作／姿勢・移動／力加減／手先の操作／疲れやすさ／
+  時間がかかること／安全面／一人で行う難しさ。ただし、キーワードだけからは分からない具体的な
+  作業内容・症状を根拠なく断定しないでください。
+
 ■ テーマから離れない（最重要）
 - 生成する困りごとは、必ず入力テーマの活動・場面の中で起きるものにしてください。
   入力を単なる連想の起点にして、別の活動へ広げないでください（例: 入力「デスクワーク PC」で「包丁を使うのが難しい」「階段を上るのが難しい」は不可）。
@@ -233,6 +250,10 @@ const SEED_SYSTEM_PROMPT = `あなたは「できる道」というサービス�
 2. 入力から離れた別の活動になっていないか
 3. 具体的に「できない・難しいこと」になっているか（テーマ・カテゴリ名だけになっていないか）
 4. difficulty / goal / method（試したこと）が、同じ一つの困りごとについて一貫しているか
+5. キーワードそのものを困難の原因や動作の主語として扱っていないか
+   （「◯◯が難しい」の◯◯がキーワードそのものになっていないか）
+6. キーワードを文へ無理やり差し込んでいないか（「「キーワード」で、〜」の形になっていないか）
+7. 実際の動作・場面として一読して自然に理解できる文になっているか
 
 ■ そのほか
 - goal は「何ができるようになりたいか」を、その困りごとに対応する具体的な形で書いてください（キーワードの繰り返しは禁止）。
@@ -305,9 +326,12 @@ function buildUserPrompt(themes: string[], count: number, existing: PriorSeedIte
     `■ ${count} 件を作ったら、次を自己チェックし、当てはまるものは作り直す:\n` +
     `  □ テーマから逸脱していない  □ 過去データと重複していない  □ ${count} 件どうしで重複していない\n` +
     `  □ 単なる言い換えになっていない  □ 困りごと・方法が具体的  □ 番号だけで差別化していない\n` +
+    `  □ キーワードを主語・原因として扱っていない  □ 「「キーワード」で、〜」の形になっていない\n` +
     `新しい内容を出すためにテーマから外れることは絶対にしないでください。\n\n` +
     `各件は次のキーを持つオブジェクトにしてください（不要な項目は null）:\n` +
-    `- difficulty: 具体的な行動・作業が「難しい／できない」という一文（必須。キーワードのコピー禁止）\n` +
+    `- difficulty: 具体的な行動・作業が「難しい／できない」という一文（必須。キーワードのコピー禁止。\n` +
+    `  「「キーワード」で、〜」「キーワードすることが難しい」のようにキーワードを主語・原因として\n` +
+    `  文へ差し込むのも禁止。文中にキーワードを含める必要はない）\n` +
     `- previouslyAble: 以前はできていたこと\n` +
     `- goal: その困りごとに対して「何ができるようになりたいか」\n` +
     `- situation: 困る場面\n` +
@@ -380,10 +404,43 @@ function normalizeOne(raw: unknown): SeedExperienceDraft | null {
 const SAMPLE_NUMBERING = /(サンプル|テスト|例|no\.?|＃|#)\s*[0-9０-９]+/i;
 const DIFFICULTY_MARKER = /(難し|むずかし|つら|辛|こわ|怖|大変|しんど|にくい|づらい|できな|できず|苦労)/;
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
- * difficulty が「具体的な行動・作業が難しい／できない」形になっているか (生成ルール修正指示書 2 / 12)。
+ * 「手芸」で、〜 のように、テーマ(キーワード)をかっこ／引用符で囲んで文頭に置き、
+ * 助詞で文へ接続する不自然な形（キーワード変換ルール修正指示書 2・9 チェック1〜3）。
+ */
+function startsWithBracketedThemeClause(d: string, themes: string[]): boolean {
+  for (const t of themes) {
+    if (!t) continue;
+    const esc = escapeRegExp(t);
+    const re = new RegExp(`^[「『"'（(]\\s*${esc}\\s*[」』"'）)]\\s*(で|は|が|の|を|に|、|,)`);
+    if (re.test(d)) return true;
+  }
+  return false;
+}
+
+/**
+ * 手芸することが難しい／手芸ができなくて困っている のように、テーマ(キーワード)そのものを
+ * 動作の主語として文頭に置き、そのまま「〜が難しい／できない」に流し込んだ不自然な形。
+ */
+function isThemeAsSubjectClause(d: string, themes: string[]): boolean {
+  for (const t of themes) {
+    if (!t) continue;
+    const esc = escapeRegExp(t);
+    const re = new RegExp(`^${esc}(を|が)?(する|できる)?(こと)?(が|は)?(難し|むずかし|できな|うまくいかな)`);
+    if (re.test(d)) return true;
+  }
+  return false;
+}
+
+/**
+ * difficulty が「具体的な行動・作業が難しい／できない」形になっているか
+ * (生成ルール修正指示書 2 / 12、キーワード変換ルール修正指示書)。
  * 入力キーワード (スペース区切りの各テーマを含む) そのまま・抽象的なテーマだけ・
- * 「サンプル1」等の連番は不可。
+ * テーマを文頭に無理やり差し込んだ形・「サンプル1」等の連番は不可。
  */
 export function isConcreteDifficulty(
   difficulty: string | null | undefined,
@@ -400,6 +457,8 @@ export function isConcreteDifficulty(
   if (core.length < 6) return false;
   const themes = [keyword.trim(), ...parseSeedThemes(keyword)];
   if (themes.some((t) => t.length > 0 && (core === t || d === t))) return false;
+  if (startsWithBracketedThemeClause(d, themes)) return false;
+  if (isThemeAsSubjectClause(d, themes)) return false;
   return DIFFICULTY_MARKER.test(d);
 }
 
@@ -566,9 +625,10 @@ function stubAttemptMemo(result: AttemptResultValue): string {
 
 function stubPoolFor(theme: string, fullKeyword: string): Aspect[] {
   const domain = domainFor(theme) ?? domainFor(fullKeyword);
-  return domain
-    ? [...domain.aspects, ...NEUTRAL_ASPECTS]
-    : NEUTRAL_ASPECTS.map((a) => ({ ...a, d: `「${theme}」で、${a.d}` }));
+  // 分野が無いテーマでも NEUTRAL_ASPECTS はそのまま使う（テーマを文頭に差し込まない）。
+  // NEUTRAL_ASPECTS 自体がどんな活動にも自然に当てはまる具体的な困りごとになっているため、
+  // テーマとの関連づけは situation 側に任せてよい。
+  return domain ? [...domain.aspects, ...NEUTRAL_ASPECTS] : NEUTRAL_ASPECTS;
 }
 
 /**
