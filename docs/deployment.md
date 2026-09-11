@@ -74,6 +74,10 @@ git diff --name-only HEAD@{1} HEAD | grep -q '^prisma/migrations/' \
 #     20260910063926_add_road_seed_data  … is_seed_data / data_origin（既定値あり）
 #     20260910082354_add_road_seed_keyword … seed_keyword（nullable）
 
+# 4-補足. 適用状況の確認（"Database schema is up to date!" が出ればOK。
+#   未適用のマイグレーションが一覧で出た場合だけ、上の migrate deploy をもう一度実行する）
+node_modules/.bin/prisma migrate status
+
 # 5. 再起動（3 が ✓ Compiled successfully で終わってから）
 sudo systemctl restart dekirumichi
 
@@ -194,6 +198,7 @@ NODE_OPTIONS=--max-old-space-size=768 npm run build
 
 # 5. ビルドが通ってから起動
 node_modules/.bin/prisma migrate deploy
+node_modules/.bin/prisma migrate status   # "Database schema is up to date!" を確認
 sudo systemctl start dekirumichi
 systemctl status dekirumichi --no-pager
 curl -I http://localhost:4000
