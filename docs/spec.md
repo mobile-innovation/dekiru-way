@@ -3,7 +3,7 @@
 > この文書は「いま実装されているもの」をまとめた現行仕様書です。
 > 決定の経緯・変更履歴は [`implementation-decisions.md`](implementation-decisions.md)、
 > API の詳細は [`api.md`](api.md)、運営者向けの手順は [`admin-manual.md`](admin-manual.md) を参照してください。
-> 最終更新: 2026-09-09
+> 最終更新: 2026-09-11
 
 ---
 
@@ -227,9 +227,10 @@ Embedding プロバイダの選定（Anthropic に Embeddings API は無い。�
 
 ### 5.9 AI 補助（断定しない）
 
-- `POST /api/v1/ai/experience-search`（いまの状況から探すヒント）、
+- `POST /api/v1/ai/experience-search`（困りごと文 → 検索語の展開。`{ keywords, terms, rephrased, disclaimer }`。
+  `/experiences?ai=1` の裏側でもある＝§5.2.1）、
   `POST /api/v1/ai/summarize-experiences`（経験の整理）。いずれも補助レイヤーで、
-  `ANTHROPIC_API_KEY` 未設定ならスタブ応答。医療的助言・診断はしない。
+  `ANTHROPIC_API_KEY` 未設定ならスタブ応答。AI は経験を生成しない。医療的助言・診断はしない。
 
 ### 5.10 仮データ（AI 生成サンプル・管理者専用）
 
