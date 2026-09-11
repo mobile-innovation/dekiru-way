@@ -21,7 +21,7 @@ test("管理者ログイン → 投稿の取り下げ・再許可が公開検索
   await page.request.post("/api/test/login", { data: { sub: ownerSub, name: "AdminE2E" } });
   const road = await (
     await page.request.post("/api/v1/roads", {
-      data: { difficulty: `${word} で困っている`, goal: "できるように" },
+      data: { previouslyAble: "以前はできていた", difficulty: `${word} で困っている`, goal: "できるように" },
     })
   ).json();
   const attempt = await (

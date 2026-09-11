@@ -9,7 +9,6 @@ import {
   IconCheckCircle,
   IconFlask,
   IconGlobe,
-  IconHeart,
   IconLightbulb,
   IconNotebookPen,
   resultIcon,
@@ -40,19 +39,22 @@ function Section({
 }
 
 /**
- * ⑥ 試したことを記録 / 編集 (指示書 6-⑥)。
+ * ⑥ 試したことを記録 / 編集（登録画面・登録項目 更新指示書）。
  * 5 分類は必須。failed も success と同じ経路で保存する (指示書 2/23)。
+ *
+ * 「できた度」「気持ち」「その後」「前に試した方法」は今回の更新で登録項目から外した
+ * （現行 DB/API 仕様（method/result/triedAt/memo/isPublished/nextAction）に一致させるため。
+ * 既存データの表示（分岐ツリー・カードのバッジ等）は変更していないので、過去の記録は
+ * そのまま見える。「気持ち」「その後」の内容は 1 項目「メモ・気づき」に統合した）。
  */
 
 interface Props {
   roadId: string;
   initialTags?: string[];
   attempt?: AttemptDTO; // あれば編集モード
-  /** 同じ道の他の記録（「前に試した方法」の選択肢に使う） */
-  siblingAttempts?: { id: string; method: string; triedAt: string | null }[];
 }
 
-export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts = [] }: Props) {
+export function AttemptForm({ roadId, initialTags = [], attempt }: Props) {
   const router = useRouter();
   const editing = Boolean(attempt);
 
@@ -60,21 +62,11 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
   const [result, setResult] = useState<string>(attempt?.result ?? "");
   const [triedAt, setTriedAt] = useState(attempt?.triedAt ?? "");
   const [memo, setMemo] = useState(attempt?.memo ?? "");
-  // 新規記録は既定で「公開」ON（編集時は既存の値をそのまま尊重する）。
-  const [isPublished, setIsPublished] = useState(attempt?.isPublished ?? true);
+  // 新規記録は既定で「公開」OFF（オプトイン。編集時は既存の値をそのまま尊重する。
+  // 「試したことを記録」公開設定の初期値修正指示）。
+  const [isPublished, setIsPublished] = useState(attempt?.isPublished ?? false);
   const [tags, setTags] = useState(initialTags.join(", "));
-  // v6: できた％（本人入力・任意）／気持ち／その後／次に試すこと／前に試した方法
-  const [recordPercent, setRecordPercent] = useState(
-    typeof attempt?.achievementPercent === "number",
-  );
-  const [percent, setPercent] = useState(
-    typeof attempt?.achievementPercent === "number" ? attempt.achievementPercent : 50,
-  );
-  const [feeling, setFeeling] = useState(attempt?.feeling ?? "");
-  const [stateAfter, setStateAfter] = useState(attempt?.stateAfter ?? "");
   const [nextAction, setNextAction] = useState(attempt?.nextAction ?? "");
-  const [previousAttemptId, setPreviousAttemptId] = useState(attempt?.previousAttemptId ?? "");
-  const prevChoices = siblingAttempts.filter((s) => s.id !== attempt?.id);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,11 +104,7 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
         triedAt: triedAt || null,
         memo: memo || null,
         isPublished,
-        achievementPercent: recordPercent ? percent : null,
-        feeling: feeling.trim() || null,
-        stateAfter: stateAfter.trim() || null,
         nextAction: nextAction.trim() || null,
-        previousAttemptId: previousAttemptId || null,
       };
 
       if (editing && attempt) {
@@ -169,7 +157,7 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
         <VoiceInputButton onResult={(t) => setMethod((v) => (v ? `${v} ${t}` : t))} />
       </Section>
 
-      {/* ② 結果（＋できた度） */}
+      {/* ② 結果 */}
       <Section icon={IconCheckCircle} title="結果">
         <Field label="結果" required error={fieldErrors.result}>
           {({ describedBy, invalid }) => (
@@ -220,63 +208,9 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
             </div>
           )}
         </Field>
-
-        {/* v6: できた度（本人の感覚。点数評価ではない） */}
-        <Field
-          label="どのくらいできるようになりましたか？"
-          hint="やりたいことが、この方法でどのくらいできるようになったと感じたか。数字はあなたの感覚で大丈夫です。"
-        >
-          {({ id }) => (
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={recordPercent}
-                  onChange={(e) => setRecordPercent(e.target.checked)}
-                  className="h-5 w-5"
-                />
-                できた度を記録する
-              </label>
-              {recordPercent && (
-                <div className="flex items-center gap-3">
-                  <input
-                    id={id}
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={5}
-                    value={percent}
-                    onChange={(e) => setPercent(Number(e.target.value))}
-                    aria-valuetext={`${percent}パーセント`}
-                    className="w-full"
-                  />
-                  <span className="w-14 shrink-0 text-right font-bold tabular-nums">{percent}%</span>
-                </div>
-              )}
-            </div>
-          )}
-        </Field>
       </Section>
 
-      {/* ③ 気づき・変化 */}
-      <Section icon={IconHeart} title="気づき・変化">
-        <TextAreaField
-          label="そのとき、どんな気持ちでしたか？"
-          value={feeling}
-          onChange={(e) => setFeeling(e.target.value)}
-          placeholder="例：少しだけど自分でできてうれしかった／期待していたので正直がっかりした"
-          maxLength={FIELD_MAX.text}
-        />
-        <TextAreaField
-          label="その後、どうなりましたか？"
-          value={stateAfter}
-          onChange={(e) => setStateAfter(e.target.value)}
-          placeholder="例：以前より一人でできるようになった／まだ一人では難しい"
-          maxLength={FIELD_MAX.text}
-        />
-      </Section>
-
-      {/* ④ 次の一歩 */}
+      {/* ③ 次の一歩 */}
       <Section icon={IconLightbulb} title="次の一歩">
         <TextField
           label="このあと、次に試すことは？"
@@ -287,7 +221,7 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
         />
       </Section>
 
-      {/* ⑤ 記録情報 */}
+      {/* ④ 記録情報 */}
       <Section icon={IconNotebookPen} title="記録情報">
         <TextField
           label="試した時期"
@@ -299,35 +233,12 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
 
         <TextAreaField
           label="メモ・気づき"
+          hint="試してみて感じたこと、気づいたこと、変化などを自由に書いてください。"
           value={memo}
           onChange={(e) => setMemo(e.target.value)}
           placeholder="やってみて感じたこと、次に活かせそうなこと"
           maxLength={FIELD_MAX.longText}
         />
-
-        {prevChoices.length > 0 && (
-          <Field
-            label="前に試した方法（つながりがある場合）"
-            hint="この方法の前に、実際に試していた方法があれば選んでください。順番が分かる場合だけで大丈夫です。"
-          >
-            {({ id }) => (
-              <select
-                id={id}
-                value={previousAttemptId}
-                onChange={(e) => setPreviousAttemptId(e.target.value)}
-                className="w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-base"
-              >
-                <option value="">指定しない</option>
-                {prevChoices.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.method.slice(0, 40)}
-                    {s.triedAt ? `（${s.triedAt}）` : ""}
-                  </option>
-                ))}
-              </select>
-            )}
-          </Field>
-        )}
 
         <TextField
           label="タグ（カンマ区切り。この道につきます）"
@@ -337,7 +248,7 @@ export function AttemptForm({ roadId, initialTags = [], attempt, siblingAttempts
         />
       </Section>
 
-      {/* ⑥ 公開設定 */}
+      {/* ⑤ 公開設定 */}
       <Section icon={IconGlobe} title="公開設定">
         <label className="flex items-start gap-3">
           <input

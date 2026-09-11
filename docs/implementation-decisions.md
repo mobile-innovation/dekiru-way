@@ -2066,3 +2066,191 @@ SNS 的な人気競争にしないことを最優先に置く。
   「ボタン」から認知・記憶の話を創作しなくなったかどうかは、ローカル環境（`ANTHROPIC_API_KEY` 未設定）
   では検証できない。本番で AI キーを設定して実際に生成し、目視確認することが必要（指示書 17/18 の
   テストキーワード一覧を使うとよい）。
+
+### 2026-09-11 登録画面・登録項目 更新指示書
+
+- 指示書「できる道｜登録画面・登録項目 更新指示書」を受けて、「自分の道を作る」「試したことを記録」の
+  登録項目を DB/API/UI の三者で一致させた。
+- **Road（自分の道を作る）**:
+  - `previouslyAble`（以前できていたこと）を `roadCreateSchema` で必須化。あわせて `difficulty`
+    （できなくなったこと）・`goal`（できるようになりたいこと）も必須化（従来は「どちらか一方でよい」
+    だった）。DB カラムは nullable のまま変更していない（過去データ・ロールバックの安全のため。
+    必須はあくまで登録 API・UI の制約）。
+  - `road-form.tsx`（作成画面）に「以前は何ができていましたか？」を新規追加し、指示書の並び順
+    （以前できていたこと → できなくなったこと → できるようになりたいこと → いつ頃から → 場面 → メモ）
+    に合わせた。3 項目とも未入力なら、最初に空いている項目にフォーカスしてエラーを出す。
+  - `road-edit-form.tsx`（編集画面）はもともと `previouslyAble` の入力欄を持っていたため変更は
+    小さい。3 項目とも `required` 表示を追加し、空文字を送ると保存済みの値を消してしまう問題を
+    修正（送信前に空なら該当キーをボディから省略するよう変更。update スキーマは必須型の
+    partial なので、`null` は元々受け付けない設計だった）。
+  - 指示書 §10（道のタイトル）・§13（Road の公開設定=visibility）は、現行実装との前提が食い違って
+    いたため実装しなかった: `title` 列は既に別指示書で削除済み（一覧の見出しは `difficulty` が代替）。
+    Road に `visibility` 列は無く、公開は個別の Attempt 単位（`is_published`）——これは指示書 §13
+    の末尾（「個別の Attempt だけを『経験』として公開できる現在の設計を維持する」）にも整合するため、
+    新しい列は追加していない。
+- **Attempt（試したことを記録）**: `achievementPercent`（できた度）／`feeling`（気持ち）／
+  `stateAfter`（その後）／`previousAttemptId`（前に試した方法）を登録・編集画面と書き込み API
+  （`attemptCreateSchema`/`attemptUpdateSchema`）から削除。「気持ち」「その後」は既存の
+  「メモ・気づき」（`memo`）へ統合（フォームには元々 `memo` 欄が独立して存在していたため、実質的には
+  「気持ち」「その後」のセクションを削除するだけで済んだ）。
+  - **実装前に利用者へ確認した重要な事実誤認**: 指示書は「Attempt 同士を直接つなぐ項目がない」
+    「これらの項目に対応する DB/API 仕様がない」という前提だったが、実際には逆で、この 4 項目は
+    既存の「道の見える化」機能（`branching-paths.tsx` / `road-detail.ts`）に深く組み込まれていた
+    ——`previousAttemptId` は分岐ツリーの親子関係そのもの、`stateAfter` は各枝の「現在」ラベルの
+    出典、`feeling` は分岐ツリー・経験詳細に表示、`achievementPercent` は検索結果カード・方法
+    カード・道カードの「できた度」バッジの出典。指示書どおり実装すると、これらの表示機能自体は
+    壊れないが、**この変更以降に作成される新規 Attempt では二度と表示されなくなる**（分岐ツリーは
+    今後すべて独立ノードになり、バッジ・現在ラベルは付かなくなる）。この点を明示して確認を取り、
+    「指示書どおり 4 項目とも削除する」の回答を得てから実装した。
+  - DB カラム（`achievement_percent`/`feeling`/`state_after`/`previous_attempt_id`）・
+    表示コード（`branching-paths.tsx`/`road-detail.ts`/`road-card.tsx`/`method-card.tsx`/
+    `experiences/[id]/page.tsx`）・シリアライザ（`serializers.ts`）は一切変更していない。
+    既存の過去データはそのまま表示され続ける（指示書 §29 の「既存の検索・経験表示・自分の道表示を
+    壊していない」を満たす）。
+  - `src/lib/attempts.ts`（`assertValidPreviousAttempt`、previousAttemptId 専用のバリデータ）は
+    呼び出し元が無くなったため削除。
+  - `attempt-form.tsx` から `siblingAttempts` prop（「前に試した方法」の選択肢）を削除し、
+    呼び出し元の 2 ページ（`attempts/new` / `attempts/[attemptId]/edit`）のフェッチ・受け渡しも削除。
+- **テスト**: `tests/unit/validation.test.ts`（roadCreateSchema の必須化・attemptCreateSchema が
+  廃止 4 項目を黙って無視することを確認）、`tests/integration/roads.authz.test.ts`（既存の
+  CSRF テストが 3 必須項目を送るように更新）を修正。`tests/integration/attempt-v6.test.ts`
+  （廃止された v6 API 契約のテスト）を削除し、`tests/integration/attempt-registration.test.ts`
+  （新規）で新しい契約（Road 3 項目必須・Attempt 4 項目は送っても保存されない）を確認。
+  `npx tsc --noEmit` / `npm run lint` / `npx vitest run`（394/394）緑。
+  - **e2e（`tests/e2e/`）**: 作業中にユーザーの `npm run dev` が停止したタイミングを確認できたため
+    （`lsof -nP -iTCP:3000` で未使用を確認）、実際に `npx playwright test`（desktop / mobile
+    両プロジェクト）を最後まで実行した。関連して更新したファイル:
+    `road-create.spec.ts`（必須メッセージの文言変更・3 項目必須入力・新規に「2 番目・3 番目の必須」
+    テストを追加）、`critical-flow.spec.ts`（道作成に `previouslyAble` の入力を追加）、
+    `account/admin/likes/reads/reads-carryover.spec.ts`（`/api/v1/roads` への直接 POST に
+    `previouslyAble` を追加）、`branching-paths.spec.ts`（3 箇所の道作成に `previouslyAble` を追加、
+    かつ 1 テストで `stateAfter`/`previousAttemptId` を Prisma 直書きに変更——公開 API では
+    設定できなくなったため、分岐ツリー表示ロジックの検証用フィクスチャとして `../../src/lib/db` を
+    相対 import した。`scripts/*.ts` と同じ理由で `@/` エイリアスは使わない）。
+  - 1 回目の実行で 3 件失敗したが、うち 2 件は新規に書いた `road-create.spec.ts` のテスト自体の
+    バグ（`getByText` が「バナー」と「フィールド直下」の同一文言 2 箇所にヒットする strict mode
+    違反）で `.first()` を足して解消。残り 1 件（「経験を探す」のカードは方法別ではなく道別）は、
+    このローカル DB に過去のテスト実行で溜まった大量データ（`published+approved` の Attempt が
+    8000 件超）による順序依存の既知フレーク——単体で再実行すると通ることを確認済み。今回の変更とは
+    無関係（他の統合テストでも同種のフレークを別途確認済み。`docs/implementation-decisions.md` の
+    admin-hold 関連の記述を参照）。
+  - 最終的に **desktop 60/60・mobile 60/60、あわせて 120/120 で緑**。検証後は `.next` を削除して
+    ユーザーの次の `npm run dev` に影響が残らないようにした。
+
+### 2026-09-11 Road登録・編集画面 必須項目修正指示（previouslyAble を任意に戻す）
+
+- 直前の指示書で必須化した `previouslyAble`（以前できていたこと）を、後続の指示書
+  「Road登録・編集画面 必須項目修正指示」により**任意に戻した**。理由は「全員が明確に答えられる
+  とは限らない」ため。`difficulty`（できなくなったこと）・`goal`（できるようになりたいこと）は
+  引き続き必須のまま（今回の指示書 §6 でも明示的に維持）。
+- `roadCreateSchema`（`src/lib/validation.ts`）: `previouslyAble` を `trimmedRequired` から
+  `trimmedOptional` に戻した。`difficulty`/`goal` は変更していない。
+- `road-form.tsx`（作成画面）: `REQUIRED_ORDER` から `previouslyAble` を除去（必須チェック対象は
+  `difficulty`→`goal` の 2 つに）。「以前は何ができていましたか？」の `required` プロパティを外し
+  （＝ラベル横の「*」と sr-only「（必須）」が付かなくなる）、送信時は空なら省略（`|| undefined`）。
+- `road-edit-form.tsx`（編集画面）: 同様に `required` を外し、`previouslyAble` を空にして保存すれば
+  そのままクリアされる（他の任意項目と同じ挙動）よう戻した（前回の「空なら省略する」という必須
+  項目向けの特別扱いを撤回）。
+- **テスト**: `tests/unit/validation.test.ts`・`tests/integration/attempt-registration.test.ts`
+  （previouslyAble 省略で作成できる／`previouslyAble` が無くても 400 にならないことを確認する形へ
+  反転）。`tests/e2e/road-create.spec.ts` の必須順序テストを「できなくなったこと→できるようになり
+  たいこと」の 2 段階に書き直し、新たに「『以前は何ができていましたか？』に必須マークが出ない・
+  未入力でも作成できる」テストを追加（`label` 要素のテキストに「必須」を含むかどうかで判定。
+  `required` prop は DOM上 `aria-required` を付与しない実装だったため、最初に書いたアサーションは
+  誤りと気づき修正した）。
+- **検証**: `npx tsc --noEmit` / `npm run lint` / `npx vitest run`（395/395）に加え、ユーザーの
+  `npm run dev` が停止していたタイミングで e2e フルスイートを実行——desktop 61/61・mobile 61/61
+  （合計 122/122）で緑。1 回失敗した「送信ボタンは連打しても道は 1 件しか作られない」は単体では
+  即座に通過し、無関係な一過性フレークと判断。検証後は `.next` を削除。
+
+### 2026-09-11 「試したことを記録」公開設定の初期値修正指示
+
+- 指示書どおり、「試したことを記録」画面の「この記録を『経験』として公開する」チェックボックスの
+  新規時の初期状態を ON → OFF（オプトイン）に変更した。
+- 変更箇所は `src/components/attempt-form.tsx` の 1 行のみ:
+  `useState(attempt?.isPublished ?? true)` → `useState(attempt?.isPublished ?? false)`。
+  編集時は既存の `attempt.isPublished` をそのまま使うため、公開済み Attempt を編集しても
+  勝手に非公開へ戻る心配はない（`?? false` は attempt が無い＝新規作成時にしか効かない）。
+- 指示書 §6 のチェックリスト（新規作成時のデフォルト・API 未指定時の扱い・DB デフォルト・編集時の
+  保持・公開経験検索への影響）は、UI の初期値以外すべて**もともと `false` 前提で実装済み**だったこと
+  を確認した: `prisma/schema.prisma` の `isPublished Boolean @default(false)`、
+  `POST /api/v1/roads/{roadId}/attempts` の `input.isPublished ?? false`、
+  `PATCH /api/v1/attempts/{attemptId}` の `input.isPublished !== undefined` ガード（未指定なら
+  既存値を保持）、公開検索のゲート（`isPublished=true && moderationStatus=approved`）——いずれも
+  変更不要。**UI だけ直せば済む理由はここにある**（指示書 §6 の「UIだけ必須マークを外して～は禁止」
+  という趣旨に反していないか確認した上での判断）。
+  - なお `attemptCreateSchema` に `.default(false)` を足す誘惑があったが、それをやると
+    `attemptUpdateSchema`（`.partial()`）側でも zod のデフォルト適用により `isPublished` 未指定の
+    PATCH が常に `false` に化けてしまい、「公開済み Attempt を編集しても勝手に非公開にしない」
+    という要件を壊す。そのため意図的に手を付けなかった（ルート側の `?? false` 分岐だけで十分）。
+- **テスト**: `tests/integration/attempt-registration.test.ts` に新規 describe を追加
+  （isPublished 未指定→非公開で作成／true 明示→公開／編集で isPublished を送らなければ公開状態が
+  保持されることを確認）。`tests/e2e/critical-flow.spec.ts` は新規記録 2 件とも「初期状態は未チェック」
+  を確認したうえで明示的にチェックするよう修正（従来は初期値 ON に依存して何もクリックしていなかった）。
+- `npx tsc --noEmit` / `npm run lint` / `npx vitest run`（398/398）緑。e2e は着手時点でユーザーの
+  `npm run dev` が起動中だったため（`.next` 競合を避ける方針）今回は実行せず、ソースレビューのみで
+  済ませた。次回 dev サーバー停止時に `npx playwright test` を実行して確認する必要がある。
+
+### 2026-09-11 「道を編集」画面の編集可否修正指示（difficulty のロック廃止）
+
+- 「できなくなったこと」（`difficulty`）を一度設定すると変更できない、という既存の制限
+  （`再作成指示書「作成エラー対策」` 以来の仕様。道の同一性を保つ目的で導入されていた）を廃止し、
+  `goal`/`previouslyAble` と同じ通常の編集可能項目にした。`goal` は必須のまま、`previouslyAble` は
+  任意のまま——変更したのは `difficulty` の「編集不可」制限だけ（指示書 §12「変更範囲」どおり）。
+- `src/app/api/v1/roads/[roadId]/route.ts`（PATCH）: ロック検証（`current.difficulty` の事前読み取り
+  → 値が違えば `409 conflict`）と、それに付随していた「まだ null であることを条件にした原子的
+  `updateMany`」（同時に 2 リクエストが初回設定を競合させたときの防止機構）を丸ごと削除し、
+  素直な `prisma.road.update` に戻した。`assertRoadOwner` が呼び出し時点で存在・所有権を検証済み
+  のため、単純化しても安全（`Prisma` 型 import も不要になり削除）。
+  - 「空文字にすると 400」は `roadUpdateSchema`（`trimmedRequired` を `.partial()` した型）が
+    もともと検証している——`difficulty` キーを含める場合は空文字を許さない。追加コード不要。
+- `src/components/road-edit-form.tsx`: `difficultyLocked`/`lockHint`（「一度設定したため、変更
+  できません」の表示・`readOnly`）を削除。「できなくなったこと」を「やりたいこと・目標」と同じ
+  通常の必須テキスト欄にした。送信前に difficulty/goal が空なら画面内で止めてエラー表示する
+  バリデーションを追加（従来は goal も含めて「空なら黙って送らない」という設計だったが、指示書
+  §2/§11 の「空にして保存しようとした場合はバリデーションエラーとする」に合わせて、初回登録画面
+  （`road-form.tsx`）と同じ「エラーを見せて止める」方式に統一した）。
+- **テスト**: `tests/integration/roads.authz.test.ts` の「一度設定すると変更不可」describe を全面
+  差し替え（変更できる・空文字は 400・省略時は他項目だけ更新できる・未設定 Road でも何度でも再設定
+  できることを確認）。同時初回設定の競合テストは、ロック自体が無くなり意味を成さなくなったため削除。
+  `tests/e2e/road-edit.spec.ts`（新規、道編集画面の e2e が今まで無かったため追加）で、変更不可表示が
+  出ないこと・通常の入力欄として編集でき再表示されること・空にすると保存できずエラーが出ること・
+  `previouslyAble` は空のままでも保存できることを確認。
+- `npx tsc --noEmit` / `npm run lint` / `npx vitest run`（398/398）緑。今回はユーザーの
+  `npm run dev` が停止していたタイミングで e2e フルスイートも実行——desktop 64/64・mobile 64/64
+  （合計 128/128）で緑。検証後は `.next` を削除。
+
+### 2026-09-11 Road・Attempt 登録／検索／公開設定の最終動作確認指示書
+
+- 「実装変更を目的とせず、まず調査・検証する」指示のとおり、コード調査＋テスト実行で確認した。
+  **実装済みの動作に不具合は見つからなかった**（`roadCreateSchema`・`attemptCreateSchema`・
+  `PATCH /roads/{roadId}`・`PATCH /attempts/{attemptId}`・`PUBLIC_ATTEMPT_WHERE`・
+  `buildExperienceWhere` はいずれも前 3 回の指示どおりの状態のまま）。
+- **AI検索が架空の経験を作っていないかの確認（§14）**: `src/lib/ai/search.ts`
+  （`expandSearchIntent`）のプロンプトを確認。「経験・事実・体験談を作り出さない。検索語だけを出す」
+  と明記されており、そもそも検索結果の中身（Road/Attempt の実データ）を AI が生成する経路自体が
+  存在しない——AI は検索語（キーワード）を広げるだけで、実際にカードとして表示される内容は常に
+  `searchRoads`/`searchMethods` が DB から取得した実データ。`POST /api/v1/ai/summarize-experiences`
+  も入力を `PUBLIC_ATTEMPT_WHERE` で絞った実データのみに限定しており、架空の経験を作る余地がない
+  ことを確認した。
+- **previouslyAble の検索利用（§6/§7）**: `src/lib/search.ts` の OR 句で `previouslyAble` は
+  `difficulty`/`goal`/`method`/`memo`/`situation`/タグと並ぶ**一つの追加条件**に過ぎず、null の
+  Road は単にその条件にヒットしないだけで、クエリ全体が失敗したり他の条件を妨げたりしない
+  （コードを読んで確認。これは元々そうだったため実装変更なし）。
+- 唯一「調査で気づいた・直した」のはテストのギャップ:
+  `tests/integration/attempt-registration.test.ts` に previouslyAble 有無・公開境界の検索テストが
+  無かったため追加した。追加時に、**ローカル環境（`ANTHROPIC_API_KEY` 未設定）では
+  `POST /api/v1/roads/{roadId}/attempts` に `isPublished: true` を渡しても、AI 審査のフォールバック
+  （`verdict: "unknown"`）により `moderationStatus` が `pending` のまま止まり、
+  `PUBLIC_ATTEMPT_WHERE`（`isPublished && moderationStatus=approved`）を満たさず検索に出てこない**
+  ことを実際にテストの失敗で確認した。これはバグではなく、モデレーション機能自体の既知の仕様
+  （AI 未設定時は運営レビュー待ちにする、という元々の設計）。テストは `experiences.api.test.ts` と
+  同じ慣習に倣い、公開可視性だけを見たい箇所は `prisma.attempt.create` で `moderationStatus:
+  "approved"` を直接指定する形に修正して解消した（本番で `ANTHROPIC_API_KEY` があれば
+  `POST` 経由でも実際の AI 審査を経て同じ結果になる）。
+- 非公開 Attempt 編集で false が維持されることの明示的なテストが無かった点も追加した
+  （true 維持のテストはあったが false 維持のテストが無かった）。
+- `npx tsc --noEmit` / `npm run lint` / `npx vitest run`（402/402、新規 5 件追加）緑。e2e は今回
+  ソースコードを変更していない（テスト追加のみ）ため、直前の指示書検証時に確認済みの
+  desktop 64/64・mobile 64/64（合計 128/128）がそのまま有効と判断し、再実行はしていない
+  （着手時点でユーザーの `npm run dev` が起動中だったため）。

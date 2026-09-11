@@ -26,7 +26,7 @@
 | 用語 | 実体 | 説明 |
 | --- | --- | --- |
 | **道**（Road） | `roads` | 一人の「困りごと・目標」から始まる試行錯誤のまとまり。以前できていたこと／できなくなったこと／やりたいこと／場面／進捗／次に試すこと／メモ／タグ など。一覧の見出しは「できなくなったこと」 |
-| **試したこと**（Attempt） | `attempts` | 道の中で試した 1 つの方法と結果。方法・結果（5 分類）・時期・気づき・できた％・気持ち・その後の状態・次に試すこと・前に試した方法（因果） |
+| **試したこと**（Attempt） | `attempts` | 道の中で試した 1 つの方法と結果。方法・結果（5 分類）・時期・メモ・気づき・次に試すこと。できた％／気持ち／その後の状態／前に試した方法（因果）は 2026-09-11 に登録項目から外した（列は残り、過去データの表示のみ継続） |
 | **経験**（Experience） | 独立テーブルなし | 「公開された Attempt」を経験と呼ぶ。他ユーザーはこれを検索・閲覧する |
 
 ### 結果の 5 分類（変更不可・色だけに頼らず必ず文言を添える）
@@ -84,8 +84,8 @@
 | `/me/account` | **アカウント設定**。あなたのデータ（自分の道／試したこと／公開した経験 の件数）＋アカウント削除。プロフィール編集項目は持たない |
 | `/me/roads/new` | 道を作る（段階入力可） |
 | `/me/roads/[roadId]` | 道の詳細（本人ビュー）。試したことの一覧、各試したことの公開トグル、道の編集、削除 |
-| `/me/roads/[roadId]/edit` | 道を編集。**できなくなったことは一度値が入ると変更不可** |
-| `/me/roads/[roadId]/attempts/new` | 試したことを記録（音声入力対応、タグ、**公開トグルは新規で既定 ON**） |
+| `/me/roads/[roadId]/edit` | 道を編集。「できなくなったこと」も他の必須項目と同じく編集可能（2026-09-11 に「一度値が入ると変更不可」を廃止） |
+| `/me/roads/[roadId]/attempts/new` | 試したことを記録（音声入力対応、タグ、**公開トグルは新規で既定 OFF**。2026-09-11 変更） |
 | `/me/roads/[roadId]/attempts/[attemptId]/edit` | 記録を編集 |
 
 **広告は `/me/*`・各フォーム・ログイン画面には出さない。**
@@ -110,13 +110,30 @@
 
 ### 5.1 経験の記録と公開
 
-1. `/me/roads/new` で道を作る。「できなくなったこと」が一覧の見出しになる（別途タイトルは持たない）。
-2. 道に「試したこと」を追加。結果は 5 分類から選ぶ。
-3. 公開トグル（新規は既定 ON）で「経験として公開」する。
-4. できなくなったことは一度確定すると変更不可（道の同一性を保つため）。
+1. `/me/roads/new` で道を作る。**必須は「できなくなったこと」「できるようになりたいこと」の 2 つだけ**。
+   「以前できていたこと」「いつ頃から難しくなったか」「困っている場面」「メモ」は任意
+   （2026-09-11・登録画面・登録項目 更新指示書 §4/§21/§25 で「以前できていたこと」`previouslyAble`
+   を画面に追加し 3 項目とも必須化したが、同日付の後続指示書「Road登録・編集画面 必須項目修正指示」で
+   `previouslyAble` は「全員が明確に答えられるとは限らない」との理由で任意に戻した）。
+   「できなくなったこと」が一覧の見出しになる（別途タイトルは持たない。`title` 列は無い）。
+2. 道に「試したこと」を追加。**必須は「何を試したか」「結果」「公開設定」だけ**。
+   結果は 5 分類から選ぶ。「試した時期」「メモ・気づき」「次に試すこと」は任意。
+3. 公開トグル（新規は既定 OFF・オプトイン。2026-09-11 に「新規は既定 ON」から変更）で
+   「経験として公開」する。
+4. 「できなくなったこと」は他の必須項目と同じく、あとから何度でも編集できる（2026-09-11 に
+   「一度確定すると変更不可」を廃止。空にして保存しようとするとエラーになる点は変わらない）。
 
 道そのものに公開 / 非公開の設定は無い（**道は公開前提**）。公開面に出るかどうかは、その道で
 「経験として公開」した Attempt が承認済みかどうかだけで決まる。
+
+**登録項目の整理（2026-09-11・登録画面・登録項目 更新指示書）:** Attempt の「どのくらいできる
+ようになりましたか？」（`achievementPercent`）「そのとき、どんな気持ちでしたか？」（`feeling`）
+「その後、どうなりましたか？」（`stateAfter`）「前に試した方法（つながりがある場合）」
+（`previousAttemptId`）は、登録・編集画面と書き込み API（`attemptCreateSchema`/`attemptUpdateSchema`）
+から外した。「気持ち」「その後」は 1 項目「メモ・気づき」（`memo`）に統合。DB カラム自体は残して
+おり（過去データは消えない）、既存の表示（検索結果カードの「できた度」バッジ・分岐ツリーの「現在」
+ラベル・経験詳細の「気持ち」表示など）もそのまま動くが、**この変更以降に作成・編集された Attempt は
+これらの値を持たない**（API へ送っても無視される）。
 
 ### 5.2 経験の検索・閲覧
 
@@ -317,8 +334,8 @@ Embedding プロバイダの選定（Anthropic に Embeddings API は無い。�
 | テーブル | 主なカラム | 関係・削除 |
 | --- | --- | --- |
 | `users` | `google_sub`(unique), `display_name`, `avatar_url` | → roads / attempt_likes / attempt_reads / notifications（すべて cascade） |
-| `roads` | `user_id`, `previously_able?`, `difficulty?`, `goal?`, `started_at?`, `situation?`, `memo?`, `status?`, `progress?`, `next_action?`, `is_seed_data`(既定 false), `data_origin`(既定 `"user"`／仮データは `"ai_seed"`), `seed_keyword?`(仮データの生成テーマ／再生成の重複回避用) | `user` cascade。attempts / road_tags は cascade。道自体はモデレーション状態を持たない |
-| `attempts` | `road_id`, `method`, `result`(enum 5), `tried_at?`, `memo?`, `achievement_percent?`, `feeling?`, `state_after?`, `next_action?`, `previous_attempt_id?`, `is_published`(既定 false／フォームは新規 ON), `moderation_status`(既定 pending), `moderation_held`(既定 false／運営の「保留」。公開ゲートには無関係) ＋ AI 判定・手動判断カラム | `road` cascade。likes / reads / notifications は cascade。`previous_attempt` は SetNull |
+| `roads` | `user_id`, `previously_able?`, `difficulty?`, `goal?`, `started_at?`, `situation?`, `memo?`, `status?`, `progress?`, `next_action?`, `is_seed_data`(既定 false), `data_origin`(既定 `"user"`／仮データは `"ai_seed"`), `seed_keyword?`(仮データの生成テーマ／再生成の重複回避用) | `user` cascade。attempts / road_tags は cascade。道自体はモデレーション状態を持たない。DB は 3 列とも nullable。登録 API（`roadCreateSchema`）は `difficulty`/`goal` を必須にする（2026-09-11）。`previously_able` は一度必須にしたが、同日付の後続指示書で任意に戻した |
+| `attempts` | `road_id`, `method`, `result`(enum 5), `tried_at?`, `memo?`, `next_action?`, `is_published`(既定 false／フォームも新規は既定 OFF・オプトイン。2026-09-11 に「新規は既定 ON」から変更), `moderation_status`(既定 pending), `moderation_held`(既定 false／運営の「保留」。公開ゲートには無関係) ＋ AI 判定・手動判断カラム ＋ `achievement_percent?`/`feeling?`/`state_after?`/`previous_attempt_id?`（列は残るが 2026-09-11 以降は書き込み API・登録画面から外れた過去互換カラム） | `road` cascade。likes / reads / notifications は cascade。`previous_attempt` は SetNull |
 | `tags` | `name`(unique) | 共有マスタ。ユーザー削除では消えない |
 | `road_tags` | `road_id` + `tag_id`（複合 PK） | 両側 cascade |
 | `admin_users` | `email`(unique), `password_hash`(scrypt), `display_name?`, `is_active`, `last_login_at?` | 利用者とは無関係 |

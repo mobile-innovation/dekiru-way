@@ -2,7 +2,11 @@ import { test, expect } from "@playwright/test";
 
 /**
  * 「自分の道を作る」→「この道を作る」→「自分の道が表示される」を確実に通す
- * (再作成指示書「作成エラー対策」)。
+ * (再作成指示書「作成エラー対策」／登録画面・登録項目 更新指示書／
+ * Road登録・編集画面 必須項目修正指示)。
+ *
+ * 必須は difficulty（できなくなったこと）／goal（できるようになりたいこと）の 2 つだけ。
+ * previouslyAble（以前できていたこと）は任意で、未入力でも作成できる。
  */
 
 async function login(page: import("@playwright/test").Page) {
@@ -16,7 +20,36 @@ test("必須が空なら送信せず、画面にエラーを出す", async ({ pa
   await login(page);
   await page.getByRole("button", { name: "この道を作る" }).click();
   await expect(page).toHaveURL(/\/me\/roads\/new$/);
-  await expect(page.getByText(/どちらかは書いてください/)).toBeVisible();
+  // 先頭の必須項目（できなくなったこと）から埋まっていない旨が出る
+  // (バナーとフィールド直下の両方に同文言が出るため、先頭の一致だけ確認する)
+  await expect(page.getByText(/できなくなったこと」を書いてください/).first()).toBeVisible();
+});
+
+test("2 番目の必須（できるようになりたいこと）が空でもエラーになる", async ({ page }) => {
+  await login(page);
+  await page.getByLabel("何ができなくなりましたか？").fill("できなくなった");
+  await page.getByRole("button", { name: "この道を作る" }).click();
+  await expect(page.getByText(/できるようになりたいこと」を書いてください/).first()).toBeVisible();
+});
+
+test("「以前は何ができていましたか？」に必須マークが出ない。未入力でも道を作成できる", async ({
+  page,
+}) => {
+  await login(page);
+  // 必須項目は label 内に "*"（aria-hidden）＋ sr-only「（必須）」が付く（form.tsx の Field 実装）。
+  // 「以前は何ができていましたか？」のラベルにはどちらも付かないことを確認する。
+  const previouslyAbleLabel = page.locator("label", { hasText: "以前は何ができていましたか？" });
+  await expect(previouslyAbleLabel).not.toContainText("必須");
+  await expect(previouslyAbleLabel.getByText("*", { exact: true })).toHaveCount(0);
+  // 対照: 「できなくなったこと」（必須のまま）には付いている
+  const difficultyLabel = page.locator("label", { hasText: "何ができなくなりましたか？" });
+  await expect(difficultyLabel).toContainText("必須");
+
+  const marker = `以前任意テスト ${Date.now()}`;
+  await page.getByLabel("何ができなくなりましたか？").fill(marker);
+  await page.getByLabel("何ができるようになりたいですか？").fill("できるようになりたい");
+  await page.getByRole("button", { name: "この道を作る" }).click();
+  await expect(page).toHaveURL(/\/me\/roads\/[0-9a-f-]{36}$/);
 });
 
 test("入力欄に最大文字数と残り文字数が出る", async ({ page }) => {
@@ -37,6 +70,7 @@ test("長い「できなくなったこと」でも道を作成でき、作っ�
     "できれば、道具を使ってでもいいので、自分のペースで身支度を整えられるようになりたい。";
   expect(long.length).toBeGreaterThan(120);
 
+  await page.getByLabel("以前は何ができていましたか？").fill("以前は自分でボタンを留められていた");
   await page.getByLabel("何ができなくなりましたか？").fill(long);
   await page.getByLabel("何ができるようになりたいですか？").fill("朝、自分で着替えを済ませたい");
   await page.getByRole("button", { name: "この道を作る" }).click();
@@ -61,7 +95,9 @@ test("長い「できなくなったこと」でも道を作成でき、作っ�
 test("送信ボタンは連打しても道は 1 件しか作られない", async ({ page }) => {
   await login(page);
   const marker = `二重送信テスト ${Date.now()}`;
+  await page.getByLabel("以前は何ができていましたか？").fill("以前はできていた");
   await page.getByLabel("何ができなくなりましたか？").fill(marker);
+  await page.getByLabel("何ができるようになりたいですか？").fill("できるようになりたい");
 
   const btn = page.getByRole("button", { name: /この道を作る|作成しています/ });
   await Promise.all([

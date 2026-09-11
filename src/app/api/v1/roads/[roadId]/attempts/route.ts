@@ -5,7 +5,6 @@ import { enforceRateLimit, RATE_PRESETS } from "@/lib/ratelimit";
 import { attemptCreateSchema } from "@/lib/validation";
 import { serializeAttempt, sortAttemptsChronologically } from "@/lib/serializers";
 import { toDbDate } from "@/lib/dates";
-import { assertValidPreviousAttempt } from "@/lib/attempts";
 import { applyModerationOnPublish } from "@/lib/moderation";
 
 // GET /api/v1/roads/{roadId}/attempts — 本人のみ。時系列順。
@@ -28,7 +27,6 @@ export const POST = handle(async (req, ctx) => {
   enforceRateLimit({ key: `attempt:create:${userId}`, ...RATE_PRESETS.write });
 
   const input = await parseJson(req, attemptCreateSchema);
-  await assertValidPreviousAttempt(input.previousAttemptId, roadId);
 
   const attempt = await prisma.attempt.create({
     data: {
@@ -38,11 +36,7 @@ export const POST = handle(async (req, ctx) => {
       triedAt: toDbDate(input.triedAt) ?? null,
       memo: input.memo ?? null,
       isPublished: input.isPublished ?? false,
-      achievementPercent: input.achievementPercent ?? null,
-      feeling: input.feeling ?? null,
-      stateAfter: input.stateAfter ?? null,
       nextAction: input.nextAction ?? null,
-      previousAttemptId: input.previousAttemptId ?? null,
     },
   });
 

@@ -45,9 +45,13 @@ const tagNameList = z
 // ---- Road ----
 
 export const roadCreateSchema = z.object({
+  // 「以前できていたこと」は任意（Road登録・編集画面 必須項目修正指示）。
+  // 全員が明確に答えられるとは限らないため、未入力でも作成・保存できる。
   previouslyAble: trimmedOptional(FIELD_MAX.text),
-  difficulty: trimmedOptional(FIELD_MAX.text),
-  goal: trimmedOptional(FIELD_MAX.text),
+  // 「できなくなったこと」「できるようになりたいこと」は必須のまま
+  // (登録画面・登録項目 更新指示書 §21 / §25。Road登録・編集画面 必須項目修正指示 §6 でも維持)。
+  difficulty: trimmedRequired(FIELD_MAX.text, "できなくなったこと"),
+  goal: trimmedRequired(FIELD_MAX.text, "できるようになりたいこと"),
   startedAt: isoDateOptional,
   situation: trimmedOptional(FIELD_MAX.text),
   memo: trimmedOptional(FIELD_MAX.longText),
@@ -65,21 +69,11 @@ export const attemptCreateSchema = z.object({
   method: trimmedRequired(FIELD_MAX.text, "試したこと"),
   result: z.enum(ATTEMPT_RESULTS, { required_error: "結果を選んでください" }),
   triedAt: isoDateOptional,
+  // メモ・気づき。以前は「気持ち」「その後」に分かれていたが 1 項目へ統合
+  // (登録画面・登録項目 更新指示書 §18)。
   memo: trimmedOptional(FIELD_MAX.longText),
   isPublished: z.boolean().optional(),
-  // v6: 本人入力の「できた％」。AI は関与しない。result とは別情報。
-  achievementPercent: z.coerce
-    .number({ invalid_type_error: "0〜100 の数値で入力してください" })
-    .int()
-    .min(0, "0〜100 で入力してください")
-    .max(100, "0〜100 で入力してください")
-    .nullable()
-    .optional(),
-  feeling: trimmedOptional(FIELD_MAX.text),
-  stateAfter: trimmedOptional(FIELD_MAX.text),
   nextAction: trimmedOptional(FIELD_MAX.text),
-  // 実際にこの方法の前に試した Attempt (同じ Road 内)。日付/並びから推測して設定しない。
-  previousAttemptId: z.string().uuid("不正な指定です").nullable().optional(),
 });
 
 export const attemptUpdateSchema = attemptCreateSchema.partial();

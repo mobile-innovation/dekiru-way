@@ -51,15 +51,16 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
 | GET | `/roads` | 自分の道一覧 `{ items: Road[] }`（新しい更新順） |
 | POST | `/roads` | 道を作成。201。 |
 | GET | `/roads/{roadId}` | 道の詳細（attempts / tags 込み）。他人は 403、無ければ 404。 |
-| PATCH | `/roads/{roadId}` | 部分更新。空ボディは 400。`difficulty` は一度値が入ると変更不可（別の値を送ると `409`。同値・省略は許可）。 |
+| PATCH | `/roads/{roadId}` | 部分更新。空ボディは 400。`difficulty` は他の必須項目と同じ通常の編集可能項目（2026-09-11 に「一度値が入ると変更不可」を廃止。空文字を送ると 400、省略は許可）。 |
 | DELETE | `/roads/{roadId}` | 削除（attempts は cascade）。204。 |
 
 ### Road 作成 / 更新ボディ
 ```jsonc
 {
-  "previouslyAble": "string|null", // 以前できていた
-  "difficulty": "string|null",     // できなくなった（一覧の見出しにも使う）
-  "goal": "string|null",           // やりたいこと
+  "previouslyAble": "string|null", // 以前できていた。任意（2026-09-11: 一度必須にしたが、
+                                    // 「全員が明確に答えられるとは限らない」ため任意に戻した）
+  "difficulty": "string",          // できなくなった（一覧の見出しにも使う）。作成時は必須
+  "goal": "string",                // やりたいこと。作成時は必須
   "startedAt": "YYYY-MM-DD|null",
   "situation": "string|null",
   "memo": "string|null",
@@ -69,7 +70,8 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
   "tags": ["string", ...]          // 指定時のみ同期。Tag は自動 upsert
 }
 ```
-更新はすべて optional。`tags` を省略するとタグは変更されない。
+作成時（POST）は `difficulty`/`goal` が必須（空文字・省略は 400）。`previouslyAble` を含む
+それ以外は任意。更新（PATCH）はすべて optional。`tags` を省略するとタグは変更されない。
 `difficulty` は「まだ空なら初回だけ設定可、値が入ったら以後は変更不可」（道の同一性を保つため）。
 
 #### 道の公開について
@@ -97,20 +99,18 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
   "method": "string",   // 必須（作成時）
   "result": "success|partial|no_change|failed|ongoing", // 必須（作成時）
   "triedAt": "YYYY-MM-DD|null",
-  "memo": "string|null",
-  "isPublished": false, // 既定 false
-
-  // v6（すべて任意・NULL 可）
-  "achievementPercent": 60,      // 0〜100 の整数。本人入力の「できた％」。AI 計算しない。result とは独立
-  "feeling": "string|null",      // そのときの気持ち（成功時に限らない）
-  "stateAfter": "string|null",   // その方法を試した後の状態（result より具体的）
-  "nextAction": "string|null",   // この方法のあと次に試すことにしたこと（Road.nextAction とは別）
-  "previousAttemptId": "uuid|null" // 実際にこの方法の前に試した Attempt（同じ Road のみ・自己参照/循環不可）
+  "memo": "string|null",         // メモ・気づき（旧「気持ち」「その後」はここへ統合）
+  "isPublished": false,          // 既定 false
+  "nextAction": "string|null"    // この方法のあと次に試すことにしたこと（Road.nextAction とは別）
 }
 ```
 `failed` も他の結果と同じ経路で保存される。
-`achievementPercent` が範囲外 / `previousAttemptId` が別 Road・自己・循環 のときは `400`。
-公開 Attempt では v6 の項目も経験（`/experiences`）の公開情報として返る。非公開 Attempt では一切返さない。
+
+**廃止（2026-09-11・登録画面・登録項目 更新指示書）**: `achievementPercent`（できた％）・
+`feeling`（気持ち）・`stateAfter`（その後の状態）・`previousAttemptId`（前に試した方法）は
+リクエストボディから外した。送っても zod が黙って無視するため `400` にはならないが、値は
+保存されない（既存の値も上書きされない）。GET のレスポンスには読み取り専用として引き続き
+含まれる（過去データ・分岐ツリー表示用。値は常に `null`／未設定のままになる新規 Attempt を除く）。
 
 #### 公開時の AI モデレーション
 
@@ -129,7 +129,7 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
 
 - `ok` → `approved`（そのまま公開）
 - `ng` / `unknown`（`ANTHROPIC_API_KEY` 未設定時も含む）→ `pending`（公開検索に出ない。運営レビュー待ち）
-- 公開中の Attempt の本文（`method`/`memo`/`feeling`/`stateAfter`/`nextAction`）を変更した場合も再審査され、
+- 公開中の Attempt の本文（`method`/`memo`/`nextAction`）を変更した場合も再審査され、
   `ng`/`unknown` なら `pending` に戻る。
 - 公開検索（`/experiences*`・`/tags*`）に出るのは `isPublished=true` かつ `moderationStatus=approved` のものだけ。
 

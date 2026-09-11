@@ -5,7 +5,6 @@ import { enforceRateLimit, RATE_PRESETS } from "@/lib/ratelimit";
 import { attemptUpdateSchema } from "@/lib/validation";
 import { serializeAttempt } from "@/lib/serializers";
 import { toDbDate } from "@/lib/dates";
-import { assertValidPreviousAttempt } from "@/lib/attempts";
 import { applyModerationOnPublish } from "@/lib/moderation";
 
 // GET /api/v1/attempts/{attemptId} — 本人のみ (編集用ビュー)。公開閲覧は /experiences 経由。
@@ -23,15 +22,12 @@ export const GET = handle(async (_req, ctx) => {
 export const PATCH = handle(async (req, ctx) => {
   const userId = await requireUserId();
   const { attemptId } = await ctx.params;
-  const { roadId } = await assertAttemptOwner(attemptId, userId);
+  await assertAttemptOwner(attemptId, userId);
   enforceRateLimit({ key: `attempt:update:${userId}`, ...RATE_PRESETS.write });
 
   const input = await parseJson(req, attemptUpdateSchema);
   if (Object.keys(input).length === 0) {
     throw new ApiError("bad_request", "更新する項目がありません");
-  }
-  if (input.previousAttemptId !== undefined) {
-    await assertValidPreviousAttempt(input.previousAttemptId, roadId, attemptId);
   }
 
   const before = await prisma.attempt.findUniqueOrThrow({
@@ -40,8 +36,6 @@ export const PATCH = handle(async (req, ctx) => {
       isPublished: true,
       method: true,
       memo: true,
-      feeling: true,
-      stateAfter: true,
       nextAction: true,
     },
   });
@@ -54,23 +48,15 @@ export const PATCH = handle(async (req, ctx) => {
       ...(input.triedAt !== undefined ? { triedAt: toDbDate(input.triedAt) } : {}),
       ...(input.memo !== undefined ? { memo: input.memo } : {}),
       ...(input.isPublished !== undefined ? { isPublished: input.isPublished } : {}),
-      ...(input.achievementPercent !== undefined
-        ? { achievementPercent: input.achievementPercent }
-        : {}),
-      ...(input.feeling !== undefined ? { feeling: input.feeling } : {}),
-      ...(input.stateAfter !== undefined ? { stateAfter: input.stateAfter } : {}),
       ...(input.nextAction !== undefined ? { nextAction: input.nextAction } : {}),
-      ...(input.previousAttemptId !== undefined
-        ? { previousAttemptId: input.previousAttemptId }
-        : {}),
     },
   });
 
   // AI 審査が必要か:
   //  - 非公開→公開に切り替えた
-  //  - もともと公開中で、本文フィールド (method/memo/feeling/stateAfter/nextAction) を書き換えた
+  //  - もともと公開中で、本文フィールド (method/memo/nextAction) を書き換えた
   // → いずれも applyModerationOnPublish で再審査 (OK なら公開維持 / NG・不明は運営レビューへ戻る)。
-  const CONTENT_FIELDS = ["method", "memo", "feeling", "stateAfter", "nextAction"] as const;
+  const CONTENT_FIELDS = ["method", "memo", "nextAction"] as const;
   const becamePublished = input.isPublished === true && !before.isPublished;
   const contentChanged = CONTENT_FIELDS.some(
     (f) => input[f] !== undefined && input[f] !== before[f],

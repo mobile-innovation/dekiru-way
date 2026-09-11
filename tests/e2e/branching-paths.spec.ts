@@ -1,4 +1,8 @@
 import { test, expect } from "@playwright/test";
+// stateAfter / previousAttemptId は「登録画面・登録項目 更新指示書」で公開 API の登録項目から
+// 外したため、これらのテスト用フィクスチャは Prisma を直接使って用意する
+// (scripts/*.ts と同じ理由で相対 import。"@/" は Next のエイリアスで e2e では解決を保証しない)。
+import { prisma } from "../../src/lib/db";
 
 /**
  * 「この人がたどった道」= 枝分かれ型フロー (UI修正指示書 v2 §21)。
@@ -163,7 +167,11 @@ test("経験を探す: 方法カードのタップ先は、その方法が実際
   await page.request.post("/api/test/login", { data: { sub: `deep-${Date.now()}`, name: "Deep" } });
   const road = await (
     await page.request.post("/api/v1/roads", {
-      data: { difficulty: "検索の深い方法テストの道", goal: "12件目を見たい" },
+      data: {
+        previouslyAble: "以前はできていた",
+        difficulty: "検索の深い方法テストの道",
+        goal: "12件目を見たい",
+      },
     })
   ).json();
   for (let i = 1; i <= 12; i++) {
@@ -246,7 +254,11 @@ test("経験を探す: 方法カードも道カードとは別に ?mp= でペー
   await page.request.post("/api/test/login", { data: { sub: `mp-${Date.now()}`, name: "Mp" } });
   const road = await (
     await page.request.post("/api/v1/roads", {
-      data: { difficulty: "方法が多い道", goal: "たくさん試す" },
+      data: {
+        previouslyAble: "以前はできていた",
+        difficulty: "方法が多い道",
+        goal: "たくさん試す",
+      },
     })
   ).json();
   for (let i = 1; i <= 25; i++) {
@@ -297,23 +309,35 @@ test("方法が多いとページが切り替わるが、枝分かれ（親子�
     data: { sub: `pager-${Date.now()}`, name: "Pager" },
   });
   const roadRes = await page.request.post("/api/v1/roads", {
-    data: { difficulty: "ページ分割テストの道", goal: "10件ごとに区切りたい" },
+    data: {
+      previouslyAble: "以前はできていた",
+      difficulty: "ページ分割テストの道",
+      goal: "10件ごとに区切りたい",
+    },
   });
   const road = await roadRes.json();
 
   const ids: string[] = [];
   for (let i = 1; i <= 12; i++) {
-    const body: Record<string, unknown> = {
-      method: `ページ分割の方法 ${i}`,
-      result: "ongoing",
-      isPublished: true,
-      triedAt: `2025-01-${String(i).padStart(2, "0")}`,
-      stateAfter: `方法 ${i} のあとの状態`,
-    };
-    // 11 件目は 10 件目（方法J）の続き。10 件目に親が来るケース。
-    if (i === 11) body.previousAttemptId = ids[9];
-    const r = await page.request.post(`/api/v1/roads/${road.id}/attempts`, { data: body });
-    ids.push((await r.json()).id);
+    const r = await page.request.post(`/api/v1/roads/${road.id}/attempts`, {
+      data: {
+        method: `ページ分割の方法 ${i}`,
+        result: "ongoing",
+        isPublished: true,
+        triedAt: `2025-01-${String(i).padStart(2, "0")}`,
+      },
+    });
+    const created = await r.json();
+    ids.push(created.id);
+    // stateAfter / previousAttemptId (11 件目は 10 件目「方法J」の続き) は登録 API では
+    // 設定できなくなったため、表示ロジック（road-detail.ts）の検証用に DB へ直接書き込む。
+    await prisma.attempt.update({
+      where: { id: created.id },
+      data: {
+        stateAfter: `方法 ${i} のあとの状態`,
+        ...(i === 11 ? { previousAttemptId: ids[9] } : {}),
+      },
+    });
   }
 
   // --- 1 ページ目: 方法J と その子 方法J-2 は同じページに収まる（10 で切らない） ---

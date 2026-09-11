@@ -37,16 +37,7 @@ export default async function EditAttemptPage({
         </h1>
       </div>
 
-      <AttemptForm
-        roadId={roadId}
-        initialTags={road.tags}
-        attempt={attempt}
-        siblingAttempts={road.attempts.map((a) => ({
-          id: a.id,
-          method: a.method,
-          triedAt: a.triedAt,
-        }))}
-      />
+      <AttemptForm roadId={roadId} initialTags={road.tags} attempt={attempt} />
     </div>
   );
 }

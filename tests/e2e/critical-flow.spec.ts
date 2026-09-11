@@ -29,6 +29,7 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
   await page.waitForURL(/\/me\/roads\/new$/);
 
   // --- 道を作る (1 画面のフォーム) ---
+  await page.getByLabel("以前は何ができていましたか？").fill("以前は自分で結べていた");
   await page
     .getByLabel("何ができなくなりましたか？")
     .fill("エコバッグの結び目がほどけない");
@@ -44,10 +45,12 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
 
     // --- Attempt: failed ---
     await page.getByRole("link", { name: "試したことを記録" }).click();
-    // 新規記録は「経験として公開」が既定 ON
-    await expect(
-      page.getByRole("checkbox", { name: /この記録を「経験」として公開する/ }),
-    ).toBeChecked();
+    // 新規記録は「経験として公開」が既定 OFF（オプトイン。公開設定の初期値修正指示）
+    const publishCheckbox1 = page.getByRole("checkbox", {
+      name: /この記録を「経験」として公開する/,
+    });
+    await expect(publishCheckbox1).not.toBeChecked();
+    await publishCheckbox1.check();
     await page.getByLabel("何を試しましたか？").fill("片手で結ぼうとした");
     await page.getByRole("radio", { name: /^うまくいかなかった/ }).click();
     await page.getByRole("button", { name: "記録する" }).click();
@@ -55,6 +58,10 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
 
     // --- Attempt: success ---
     await page.getByRole("link", { name: "試したことを記録" }).click();
+    await expect(
+      page.getByRole("checkbox", { name: /この記録を「経験」として公開する/ }),
+    ).not.toBeChecked();
+    await page.getByRole("checkbox", { name: /この記録を「経験」として公開する/ }).check();
     await page.getByLabel("何を試しましたか？").fill("マグネット式のバッグ留めに替えた");
     await page.getByRole("radio", { name: /^できるようになった/ }).click();
     await page.getByRole("button", { name: "記録する" }).click();
@@ -83,7 +90,7 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
     await expect(page).toHaveURL(/\/experiences\/[0-9a-f-]{36}$/);
     await expect(page.getByRole("heading", { name: "この人がたどった道" })).toBeVisible();
   } finally {
-    // 公開トグルが既定 ON になったため、この道の経験が公開一覧に残らないよう削除する。
+    // 公開トグルを ON にして記録したため、この道の経験が公開一覧に残らないよう削除する。
     await page.request.delete(`/api/v1/roads/${roadId}`);
   }
 });

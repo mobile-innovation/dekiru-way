@@ -30,13 +30,15 @@ function Section({
   );
 }
 
+/**
+ * 道を編集（道を編集画面の編集可否修正指示）。
+ *
+ * 「できなくなったこと」は以前「一度設定すると変更できない」制限があったが廃止した。
+ * 「やりたいこと・目標」と同じ、通常の必須項目として扱う（空にして保存しようとすると
+ * 画面内バリデーションで止め、API へは送らない）。
+ */
 export function RoadEditForm({ road }: { road: RoadDTO }) {
   const router = useRouter();
-  // 「できなくなったこと」は、一度設定すると変更できない (道の同一性を保つため)。
-  const difficultyLocked = Boolean(road.difficulty);
-  // 確定済みなら「変更できません」、まだ空なら「保存後は変更できません」と先に知らせる。
-  const lockHint = (locked: boolean) =>
-    locked ? "一度設定したため、変更できません" : "保存すると、あとから変更できません";
   const [v, setV] = useState({
     previouslyAble: road.previouslyAble ?? "",
     difficulty: road.difficulty ?? "",
@@ -61,15 +63,27 @@ export function RoadEditForm({ road }: { road: RoadDTO }) {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
     setError(null);
     setFieldErrors({});
+
+    // 「できなくなったこと」「やりたいこと・目標」は必須。空にして保存しようとしたら
+    // API へ送らず、その場でエラーにする（登録画面と同じ必須ルール）。
+    const fe: Record<string, string> = {};
+    if (!v.difficulty.trim()) fe.difficulty = "「できなくなったこと」を書いてください";
+    if (!v.goal.trim()) fe.goal = "「やりたいこと・目標」を書いてください";
+    if (Object.keys(fe).length > 0) {
+      setFieldErrors(fe);
+      setError("必須項目が空です。内容を確認してください。");
+      return;
+    }
+
+    setBusy(true);
     try {
       await api.patch(`/api/v1/roads/${road.id}`, {
-        // 確定済みの項目は送らない (サーバー側でも変更を拒否する)
+        // previouslyAble は任意項目なので、空にして保存すればそのままクリアされる。
         previouslyAble: v.previouslyAble || null,
-        ...(difficultyLocked ? {} : { difficulty: v.difficulty || null }),
-        goal: v.goal || null,
+        difficulty: v.difficulty,
+        goal: v.goal,
         startedAt: v.startedAt || null,
         situation: v.situation || null,
         memo: v.memo || null,
@@ -87,9 +101,9 @@ export function RoadEditForm({ road }: { road: RoadDTO }) {
       if (e2 instanceof ClientApiError) {
         setError(e2.message);
         if (Array.isArray(e2.details)) {
-          const fe: Record<string, string> = {};
-          for (const d of e2.details as { field: string; message: string }[]) fe[d.field] = d.message;
-          setFieldErrors(fe);
+          const newFe: Record<string, string> = {};
+          for (const d of e2.details as { field: string; message: string }[]) newFe[d.field] = d.message;
+          setFieldErrors(newFe);
         }
       } else {
         setError("保存できませんでした。");
@@ -109,23 +123,28 @@ export function RoadEditForm({ road }: { road: RoadDTO }) {
         </p>
       )}
 
-      {/* ① この道について。「できなくなったこと」= 道の見出し・確定項目なので先頭に置く。
-          「変更できません」は各項目の hint（lockHint）で個別に伝えるため、まとめ Callout は出さない。 */}
+      {/* ① この道について。「できなくなったこと」= 道の見出し・必須項目なので先頭に置く。 */}
       <Section icon={IconRoute} title="この道について">
         <TextAreaField
           label="できなくなったこと"
+          required
           {...bind("difficulty")}
-          readOnly={difficultyLocked}
-          hint={lockHint(difficultyLocked)}
           error={fieldErrors.difficulty}
           maxLength={FIELD_MAX.text}
         />
         <TextAreaField
           label="以前できていたこと"
           {...bind("previouslyAble")}
+          error={fieldErrors.previouslyAble}
           maxLength={FIELD_MAX.text}
         />
-        <TextAreaField label="やりたいこと・目標" {...bind("goal")} maxLength={FIELD_MAX.text} />
+        <TextAreaField
+          label="やりたいこと・目標"
+          required
+          {...bind("goal")}
+          error={fieldErrors.goal}
+          maxLength={FIELD_MAX.text}
+        />
       </Section>
 
       {/* ② 今の状態 */}

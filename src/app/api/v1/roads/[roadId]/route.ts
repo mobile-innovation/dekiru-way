@@ -1,4 +1,3 @@
-import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { handle, ok, noContent, parseJson, ApiError } from "@/lib/api";
 import { requireUserId, assertRoadOwner } from "@/lib/authz";
@@ -35,44 +34,17 @@ export const PATCH = handle(async (req, ctx) => {
   }
   const { tags, startedAt, ...rest } = input;
 
-  // 「できなくなったこと」は、一度値が入ると変更できない (道の同一性を保つため)。
-  // まだ空のものは初回だけ設定できる。同じ値の再送信・省略は許可。
-  const current = await prisma.road.findUniqueOrThrow({
-    where: { id: roadId },
-    select: { difficulty: true },
-  });
-  const locked: { field: string; message: string }[] = [];
-  if (current.difficulty && rest.difficulty !== undefined && rest.difficulty !== current.difficulty) {
-    locked.push({
-      field: "difficulty",
-      message: "「できなくなったこと」は一度設定すると変更できません",
-    });
-  }
-  if (locked.length > 0) {
-    throw new ApiError("conflict", locked.map((l) => l.message).join(" / "), locked);
-  }
-  // すでに確定している項目は書き込み対象から外す (同値でも無駄な更新をしない)。
-  if (current.difficulty) delete rest.difficulty;
-
-  // ここまでの読み取り (current) と書き込みの間に他のリクエストが同じ未設定項目を
-  // 先に埋める競合を防ぐため、「まだ null であること」を書き込み条件に含めて原子的に更新する
-  // (read-then-write では両者が確認を通り、後勝ちで一方の入力が黙って消えてしまう)。
+  // 「できなくなったこと」は他の必須項目 (goal) と同じ通常の編集可能項目
+  // (道を編集画面の編集可否修正指示。以前は一度値が入ると変更不可だったが、その制限は廃止した)。
+  // roadUpdateSchema 自体が「difficulty を送るなら空文字は不可」を検証済みなので、ここでの
+  // 追加チェックは不要。
   const updateData = {
     ...rest,
     ...(startedAt !== undefined ? { startedAt: toDbDate(startedAt) } : {}),
   };
   // タグだけの更新など、road テーブルに書く scalar 項目が無いときは空の UPDATE を発行しない。
   if (Object.keys(updateData).length > 0) {
-    const guardWhere: Prisma.RoadWhereInput = { id: roadId };
-    if (rest.difficulty !== undefined) guardWhere.difficulty = null;
-
-    const { count } = await prisma.road.updateMany({ where: guardWhere, data: updateData });
-    if (count === 0) {
-      const stillExists = await prisma.road.findUnique({ where: { id: roadId }, select: { id: true } });
-      if (!stillExists) throw new ApiError("not_found", "道が見つかりません");
-      // 直前の読み取り後に、別のリクエストが difficulty を先に確定させた。
-      throw new ApiError("conflict", "他の変更と競合しました。もう一度お試しください");
-    }
+    await prisma.road.update({ where: { id: roadId }, data: updateData });
   }
   await syncRoadTags(roadId, tags);
 

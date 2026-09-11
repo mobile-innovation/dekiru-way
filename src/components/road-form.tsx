@@ -10,21 +10,23 @@ import { api, ClientApiError } from "@/lib/client/api";
 import type { RoadDTO } from "@/lib/serializers";
 
 /**
- * ⑤ 自分の道を作る（再作成指示書「作成エラー対策」）。
+ * ⑤ 自分の道を作る（登録画面・登録項目 更新指示書）。
  *
  * 一連の作成フローを 1 つの画面で完結させる:
  *   入力 → 画面内バリデーション → POST /api/v1/roads → 作成された road.id で自分の道へ遷移
  *
- * ここで作るのは Road だけ。Attempt（方法・結果・できた％・気持ち・現在・次に試すこと）は
+ * ここで作るのは Road だけ。Attempt（方法・結果・メモ・気づき・次に試すこと）は
  * このあと「試したことを記録」から追加する。ここでは一切作らない。
  *
  * - 送信中は二重送信を防ぐ（submitting ガード＋ボタン無効化）。
  * - 失敗しても入力内容は消さない。エラー種別ごとに利用者向けの文言を出す。
- * - タイトルは入力させない。API/DB とも任意なので送らない（一覧見出しは difficulty で代替、
- *   あとから道の編集で個別に付けられる）。
+ * - タイトルは入力させない。API/DB とも存在しないので送らない（一覧見出しは difficulty で代替）。
+ * - 必須は「できなくなったこと」「できるようになりたいこと」の 2 つだけ。「以前できていたこと」は
+ *   任意（Road登録・編集画面 必須項目修正指示。全員が明確に答えられるとは限らないため）。
  */
 
 type Values = {
+  previouslyAble: string;
   difficulty: string;
   goal: string;
   startedAt: string;
@@ -32,11 +34,19 @@ type Values = {
   memo: string;
 };
 
-const EMPTY: Values = { difficulty: "", goal: "", startedAt: "", situation: "", memo: "" };
+const EMPTY: Values = {
+  previouslyAble: "",
+  difficulty: "",
+  goal: "",
+  startedAt: "",
+  situation: "",
+  memo: "",
+};
 
-const REQUIRED_MESSAGE =
-  "「できなくなったこと」か「できるようになりたいこと」の、どちらかは書いてください。";
-const REQUIRED_FIELD_MESSAGE = "ここか「できるようになりたいこと」のどちらかを書いてください。";
+const REQUIRED_ORDER: { key: "difficulty" | "goal"; label: string }[] = [
+  { key: "difficulty", label: "できなくなったこと" },
+  { key: "goal", label: "できるようになりたいこと" },
+];
 
 /** ClientApiError を、利用者が次に何をすればいいか分かる文言へ。 */
 function messageForError(e: unknown): string {
@@ -67,11 +77,18 @@ export function RoadForm() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const alertRef = useRef<HTMLParagraphElement>(null);
+  const previouslyAbleId = useId();
   const difficultyId = useId();
+  const goalId = useId();
+  const FIELD_ID: Record<string, string> = {
+    previouslyAble: previouslyAbleId,
+    difficulty: difficultyId,
+    goal: goalId,
+  };
 
-  const focusDifficulty = () => {
+  const focusField = (id: string) => {
     if (typeof document !== "undefined") {
-      document.getElementById(difficultyId)?.focus();
+      document.getElementById(id)?.focus();
     }
   };
 
@@ -80,7 +97,7 @@ export function RoadForm() {
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setV((prev) => ({ ...prev, [k]: e.target.value }));
 
-  const appendVoice = (k: "difficulty" | "goal") => (t: string) =>
+  const appendVoice = (k: "previouslyAble" | "difficulty" | "goal") => (t: string) =>
     setV((prev) => ({ ...prev, [k]: prev[k] ? `${prev[k]} ${t}` : t }));
 
   function focusAlert() {
@@ -91,13 +108,19 @@ export function RoadForm() {
     e.preventDefault();
     if (submitting) return;
 
-    const difficulty = v.difficulty.trim();
-    const goal = v.goal.trim();
+    const trimmed = {
+      previouslyAble: v.previouslyAble.trim(),
+      difficulty: v.difficulty.trim(),
+      goal: v.goal.trim(),
+    };
 
-    if (!difficulty && !goal) {
-      setFieldErrors({ difficulty: REQUIRED_FIELD_MESSAGE });
-      setError(REQUIRED_MESSAGE);
-      focusDifficulty();
+    // 「以前できていたこと」「できなくなったこと」「できるようになりたいこと」は 3 つとも必須。
+    // 最初に空いている項目にエラーを出してそこへフォーカスする。
+    const missing = REQUIRED_ORDER.find(({ key }) => !trimmed[key]);
+    if (missing) {
+      setFieldErrors({ [missing.key]: `「${missing.label}」を書いてください` });
+      setError(`「${missing.label}」を書いてください。`);
+      focusField(FIELD_ID[missing.key] ?? missing.key);
       return;
     }
 
@@ -107,8 +130,9 @@ export function RoadForm() {
     setFieldErrors({});
     try {
       const road = await api.post<RoadDTO>("/api/v1/roads", {
-        difficulty: difficulty || undefined,
-        goal: goal || undefined,
+        previouslyAble: trimmed.previouslyAble || undefined,
+        difficulty: trimmed.difficulty,
+        goal: trimmed.goal,
         startedAt: v.startedAt || undefined,
         situation: v.situation.trim() || undefined,
         memo: v.memo.trim() || undefined,
@@ -167,7 +191,22 @@ export function RoadForm() {
 
         <div className="space-y-2">
           <TextAreaField
+            label="以前は何ができていましたか？"
+            hint="いつもできていたこと、以前は問題なくできていたことを書いてください。"
+            value={v.previouslyAble}
+            onChange={bind("previouslyAble")}
+            error={fieldErrors.previouslyAble}
+            placeholder="例：以前は、一人でシャツのボタンを留められていた"
+            id={previouslyAbleId}
+            maxLength={FIELD_MAX.text}
+          />
+          <VoiceInputButton onResult={appendVoice("previouslyAble")} />
+        </div>
+
+        <div className="space-y-2">
+          <TextAreaField
             label="何ができなくなりましたか？"
+            required
             hint="いつもの言葉で。病名や年齢は要りません。あとから変更できません。"
             value={v.difficulty}
             onChange={bind("difficulty")}
@@ -182,10 +221,12 @@ export function RoadForm() {
         <div className="space-y-2">
           <TextAreaField
             label="何ができるようになりたいですか？"
+            required
             value={v.goal}
             onChange={bind("goal")}
             error={fieldErrors.goal}
             placeholder="例：朝、自分で着替えを済ませたい"
+            id={goalId}
             maxLength={FIELD_MAX.text}
           />
           <VoiceInputButton onResult={appendVoice("goal")} />

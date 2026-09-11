@@ -18,7 +18,7 @@ async function loginAs(page: Page, name: string) {
 async function createPublicExperience(page: Page, word: string) {
   const road = await (
     await page.request.post("/api/v1/roads", {
-      data: { difficulty: `${word} で困っている`, goal: "できるように" },
+      data: { previouslyAble: "以前はできていた", difficulty: `${word} で困っている`, goal: "できるように" },
     })
   ).json();
   const attempt = await (

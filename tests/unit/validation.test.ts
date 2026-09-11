@@ -28,40 +28,63 @@ describe("attemptCreateSchema", () => {
     expect(attemptCreateSchema.safeParse({ method: "x", result: "success", triedAt: "2025/01/02" }).success).toBe(false);
   });
 
-  it("v6: できた％ は 0〜100 の整数、または null/未指定", () => {
+  it("できた％／気持ち／その後／前に試した方法は登録項目から外され、送っても無視される（登録画面・登録項目 更新指示書）", () => {
     const base = { method: "x", result: "success" as const };
-    expect(attemptCreateSchema.safeParse({ ...base, achievementPercent: 0 }).success).toBe(true);
-    expect(attemptCreateSchema.safeParse({ ...base, achievementPercent: 100 }).success).toBe(true);
-    expect(attemptCreateSchema.safeParse({ ...base, achievementPercent: 60 }).success).toBe(true);
-    expect(attemptCreateSchema.safeParse({ ...base, achievementPercent: 101 }).success).toBe(false);
-    expect(attemptCreateSchema.safeParse({ ...base, achievementPercent: -5 }).success).toBe(false);
-    expect(attemptCreateSchema.safeParse({ ...base, achievementPercent: null }).success).toBe(true);
-    expect(attemptCreateSchema.safeParse({ ...base }).success).toBe(true);
-  });
-
-  it("v6: previousAttemptId は UUID か null", () => {
-    const base = { method: "x", result: "success" as const };
-    expect(
-      attemptCreateSchema.safeParse({
-        ...base,
-        previousAttemptId: "00000000-0000-0000-0000-000000000000",
-      }).success,
-    ).toBe(true);
-    expect(attemptCreateSchema.safeParse({ ...base, previousAttemptId: "nope" }).success).toBe(false);
-    expect(attemptCreateSchema.safeParse({ ...base, previousAttemptId: null }).success).toBe(true);
+    const r = attemptCreateSchema.safeParse({
+      ...base,
+      achievementPercent: 60,
+      feeling: "うれしい",
+      stateAfter: "できるようになった",
+      previousAttemptId: "00000000-0000-0000-0000-000000000000",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      // zod は未知キーを黙って除去する（エラーにはしない）ので、パース結果にそもそも残らない。
+      expect(r.data).not.toHaveProperty("achievementPercent");
+      expect(r.data).not.toHaveProperty("feeling");
+      expect(r.data).not.toHaveProperty("stateAfter");
+      expect(r.data).not.toHaveProperty("previousAttemptId");
+    }
   });
 });
 
 describe("roadCreateSchema", () => {
-  it("空文字は null に正規化される", () => {
-    const r = roadCreateSchema.parse({ difficulty: "  ", goal: "歩きたい" });
-    expect(r.difficulty).toBeNull();
-    expect(r.goal).toBe("歩きたい");
+  // previouslyAble / difficulty / goal は「できる道」の中心となる変化を必ず残すための必須項目
+  // (登録画面・登録項目 更新指示書 §4/§21/§25)。
+  const REQUIRED_BASE = {
+    previouslyAble: "以前はできていた",
+    difficulty: "できなくなった",
+    goal: "できるようになりたい",
+  };
+
+  it("difficulty / goal は必須（空白だけも不可）", () => {
+    expect(roadCreateSchema.safeParse(REQUIRED_BASE).success).toBe(true);
+    expect(roadCreateSchema.safeParse({ ...REQUIRED_BASE, difficulty: "  " }).success).toBe(false);
+    expect(roadCreateSchema.safeParse({ ...REQUIRED_BASE, goal: "" }).success).toBe(false);
+  });
+
+  it("previouslyAble は任意（未入力・空文字でも作成できる。Road登録・編集画面 必須項目修正指示）", () => {
+    expect(
+      roadCreateSchema.safeParse({ ...REQUIRED_BASE, previouslyAble: undefined }).success,
+    ).toBe(true);
+    const { previouslyAble: _omit, ...withoutPreviouslyAble } = REQUIRED_BASE;
+    expect(roadCreateSchema.safeParse(withoutPreviouslyAble).success).toBe(true);
+    const r = roadCreateSchema.parse({ ...REQUIRED_BASE, previouslyAble: "  " });
+    expect(r.previouslyAble).toBeNull();
+  });
+
+  it("任意項目は省略できる", () => {
+    const r = roadCreateSchema.parse(REQUIRED_BASE);
+    expect(r.situation).toBeUndefined();
+    expect(r.memo).toBeUndefined();
   });
 
   it("タグは最大 10 個", () => {
     const tags = Array.from({ length: 11 }, (_, i) => `t${i}`);
-    expect(roadCreateSchema.safeParse({ tags }).success).toBe(false);
+    expect(roadCreateSchema.safeParse({ ...REQUIRED_BASE, tags }).success).toBe(false);
+    expect(
+      roadCreateSchema.safeParse({ ...REQUIRED_BASE, tags: tags.slice(0, 10) }).success,
+    ).toBe(true);
   });
 });
 
