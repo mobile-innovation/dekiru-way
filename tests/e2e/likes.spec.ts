@@ -97,7 +97,7 @@ test("他人の経験のハートを付けて外せる／数は出ない／自�
   }
 });
 
-test("いいねを受けた投稿者のトップに通知が出て、閉じると消える", async ({ page }) => {
+test("いいねを受けた投稿者が「自分の道」を開くと通知が出て、閉じると消える", async ({ page }) => {
   const word = `ツウチ${Date.now()}`;
   const owner = `notif-owner-${Date.now()}`;
   const liker = `notif-liker-${Date.now()}`;
@@ -111,14 +111,21 @@ test("いいねを受けた投稿者のトップに通知が出て、閉じる�
     const likeRes = await page.request.post(`/api/v1/attempts/${attemptId}/like`);
     expect(likeRes.status()).toBe(200);
 
-    // owner でトップを開くと通知ボックス
+    // owner が「自分の道」を開くと通知ボックス（トップページには出さない）
     await loginAs(page, owner);
     await page.goto("/");
-    const box = page.getByText("あなたの経験が、誰かの次の一歩になりました");
+    await expect(
+      page.getByText("あなたの経験が、誰かの次の一歩になりました"),
+    ).toHaveCount(0);
+
+    await page.goto("/me");
+    // 通知ボックス自体（role="status"）で絞り込む。「自分の道」ページには
+    // 道カードの「試したこと N 件」等、無関係な「件」表記があるため。
+    const box = page.getByRole("status").filter({ hasText: "あなたの経験が、誰かの次の一歩になりました" });
     await expect(box).toBeVisible();
     // 誰がいいねしたか・件数は出さない
-    await expect(page.getByText(liker)).toHaveCount(0);
-    await expect(page.getByText(/\d+\s*件/)).toHaveCount(0);
+    await expect(box.getByText(liker)).toHaveCount(0);
+    await expect(box.getByText(/\d+\s*件/)).toHaveCount(0);
 
     // 閉じると消え、再訪しても出ない（既読化の完了を待ってから再訪する）
     await Promise.all([
@@ -129,7 +136,7 @@ test("いいねを受けた投稿者のトップに通知が出て、閉じる�
       page.getByRole("button", { name: "閉じる" }).click(),
     ]);
     await expect(box).toHaveCount(0);
-    await page.goto("/");
+    await page.goto("/me");
     await expect(
       page.getByText("あなたの経験が、誰かの次の一歩になりました"),
     ).toHaveCount(0);

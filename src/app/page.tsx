@@ -5,7 +5,6 @@ import { SearchBox } from "@/components/search-box";
 import { StoryStrip } from "@/components/story-strip";
 import { Card, LinkButton } from "@/components/ui";
 import { RateLimitedNotice } from "@/components/rate-limited-notice";
-import { LikeNotice } from "@/components/like-notice";
 import {
   IconArrowRight,
   IconEye,
@@ -16,10 +15,7 @@ import {
 } from "@/components/icons";
 import { ATTEMPT_RESULTS, resultMeta, SEARCH_EXAMPLES } from "@/lib/constants";
 import { getPathClusters } from "@/lib/queries";
-import { getOptionalUserId } from "@/lib/authz";
 import { guardPublicPage } from "@/lib/page-guard";
-import { prisma } from "@/lib/db";
-import { LIKE_NOTIFICATION_TYPE } from "@/lib/likes";
 
 // トップページだけは検索エンジンへの登録を許可する (露出方針: トップ以外は noindex)。
 export const metadata: Metadata = {
@@ -32,18 +28,8 @@ export default async function TopPage() {
 
   const clusters = await getPathClusters({ limit: 3 });
 
-  // ログイン中なら「あなたの経験にいいねが届いた」未読通知の有無を見る (件数は前面に出さない)。
-  const viewerUserId = await getOptionalUserId();
-  const hasLikeNotice = viewerUserId
-    ? (await prisma.notification.count({
-        where: { userId: viewerUserId, type: LIKE_NOTIFICATION_TYPE, isRead: false },
-      })) > 0
-    : false;
-
   return (
     <>
-      {hasLikeNotice && <LikeNotice />}
-
       {/* ── ① ヒーロー = head.png を全面背景にしたファーストビュー
           (指示書「ヘッド画像を背景化する更新指示」)。
           画像はカード化しない（角丸・枠線・影を付けない）。ヘッダーと同じ幅まで、
@@ -51,9 +37,7 @@ export default async function TopPage() {
           画像内の baked-in テキストとは別に、実際に読み上げ・選択できる本物の見出しを重ねる。 */}
       <section
         aria-labelledby="hero-heading"
-        className={`relative isolate -mx-4 overflow-hidden sm:-mx-6 ${
-          hasLikeNotice ? "" : "-mt-6"
-        }`}
+        className="relative isolate -mx-4 -mt-6 overflow-hidden sm:-mx-6"
       >
         <Image
           src="/head.png"

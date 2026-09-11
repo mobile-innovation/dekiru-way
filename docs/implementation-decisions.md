@@ -2359,3 +2359,35 @@ SNS 的な人気競争にしないことを最優先に置く。
 - 検証: `npx tsc --noEmit` / `npm run lint` / `npx vitest run`（413/413）緑。ユーザーの許可を得て
   ローカルの `npm run start` プレビューを再度停止し、e2e フルスイート実行——desktop 64/64・
   mobile 64/64（合計 128/128）で緑。検証後は `.next` を削除。
+
+### 2026-09-11 いいね通知：表示場所をトップページから「自分の道」へ移動
+
+- 「いいねをしてもらったら表示するメッセージですが、トップに出るのですが自分の道のページを
+  表示したときにする」の指示で実装。`LikeNotice`（コンポーネント自体は変更なし）の呼び出し元を
+  `src/app/page.tsx`（トップ `/`）から `src/app/me/page.tsx`（自分の道 `/me`）へ移した。
+  - `src/app/page.tsx`: `hasLikeNotice` の判定（`prisma.notification.count(...)`）と
+    `LikeNotice` の描画、および関連 import（`getOptionalUserId` / `prisma` / `LIKE_NOTIFICATION_TYPE` /
+    `LikeNotice`）を削除。ヒーロー section の className も、通知ボックスの有無で `-mt-6` を
+    出し分けていた条件分岐が不要になったので、常時 `-mt-6` の単純な文字列に戻した。
+  - `src/app/me/page.tsx`: `requirePageUserId()` で確定済みの `userId` を使って同じ
+    `prisma.notification.count({ where: { userId, type: LIKE_NOTIFICATION_TYPE, isRead: false } })`
+    をこちらに移設し、ページ本文の先頭（見出し行より上）に `{hasLikeNotice && <LikeNotice />}` を追加。
+  - `/me` はログイン必須ページ（`requirePageUserId` が未ログインなら redirect 済み）なので、
+    トップページ側にあった「未ログインなら null」的な分岐は元々不要で、移設に伴う追加考慮なし。
+  - 通知の既読化 API（`POST /api/v1/notifications/read`）・`LikeNotice` コンポーネント自体・
+    通知の作成ロジック（いいね時の `notifications` 行作成）はすべて無変更。表示場所のみの変更。
+- **テスト**: `tests/e2e/likes.spec.ts` の通知テストを更新。テスト名を
+  「いいねを受けた投稿者が『自分の道』を開くと通知が出て、閉じると消える」に変更し、
+  まず `/` へ遷移して通知が出ないことを確認するアサーションを追加、続けて `/me` へ遷移して
+  通知が出ることを確認する形にした。また「誰がいいねしたか・件数は出さない」の確認を
+  `page.getByText(...)` から `role="status"` の通知ボックスに `.filter()` で絞り込んだ
+  locator 経由に変更（`/me` の道カードに「試したこと N 件」等、通知と無関係な「件」表記が
+  複数あり、ページ全体を対象にすると `/\d+\s*件/` が意図せず複数ヒットしてテストが落ちたため）。
+  閉じたあとの再訪確認も `page.goto("/")` から `page.goto("/me")` に変更。
+  通知データ自体（API・DB）を検証する `tests/integration/likes.api.test.ts` /
+  `tests/integration/account.api.test.ts` はページ非依存のため変更不要（grep で確認済み）。
+- 検証: `npx tsc --noEmit` / `npm run lint` ともにクリーン。`npx vitest run` 413/413 緑
+  （ページ表示のみの変更のため無影響）。ローカルの `npm run start` プレビュー
+  （またも port 3000 を占有していた。ユーザーの許可を得て停止済みのパターンを踏襲し kill -9）を
+  停止してから e2e フルスイート実行——desktop 64/64・mobile 64/64（合計 128/128）で緑。
+  検証後は `.next` を削除。

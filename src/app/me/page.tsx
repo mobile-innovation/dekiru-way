@@ -4,6 +4,9 @@ import { requirePageUserId } from "@/lib/session";
 import { getMyRoads } from "@/lib/queries";
 import { Callout, EmptyState, LinkButton, ResultBadge } from "@/components/ui";
 import { IconEye, IconFootprints, IconSprout } from "@/components/icons";
+import { LikeNotice } from "@/components/like-notice";
+import { prisma } from "@/lib/db";
+import { LIKE_NOTIFICATION_TYPE } from "@/lib/likes";
 
 export const metadata: Metadata = { title: "自分の道" };
 
@@ -11,11 +14,20 @@ export default async function MyRoadsPage() {
   const userId = await requirePageUserId();
   const roads = await getMyRoads(userId);
 
+  // 「あなたの経験にいいねが届いた」未読通知の有無を見る (件数は前面に出さない)。
+  // トップページではなく、自分の道を表示したときに出す。
+  const hasLikeNotice =
+    (await prisma.notification.count({
+      where: { userId, type: LIKE_NOTIFICATION_TYPE, isRead: false },
+    })) > 0;
+
   // まだ「試したこと」を 1 件も記録していない道。これらは公開する経験がない。
   const roadsWithoutAttempts = roads.filter((r) => r.attempts.length === 0);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
+      {hasLikeNotice && <LikeNotice />}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-[var(--color-primary-hover)]">自分の道</h1>
         <LinkButton href="/me/roads/new">道を作る</LinkButton>
