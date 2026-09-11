@@ -138,7 +138,10 @@ export interface ExperienceDTO {
    * - `likedByMe`: 閲覧者が既にいいね済み
    */
   like: { isMine: boolean; canLike: boolean; likedByMe: boolean };
-  /** 閲覧者がこの経験を既に開いたか (未ログインは false)。既読数は含めない。 */
+  /**
+   * 閲覧者がこの経験を既に開いたか (未ログインは false)。既読数は含めない。
+   * 自分自身の投稿は、実際に開いていなくても既読扱いにする（検索で自分の投稿が未読と出るのは不自然なため）。
+   */
   isRead: boolean;
 }
 
@@ -164,7 +167,7 @@ export function serializeExperience(
       canLike: viewerId != null && !isMine,
       likedByMe: opts?.viewer?.likedAttemptIds?.has(row.id) ?? false,
     },
-    isRead: opts?.viewer?.readAttemptIds?.has(row.id) ?? false,
+    isRead: isMine || (opts?.viewer?.readAttemptIds?.has(row.id) ?? false),
     method: row.method,
     result: row.result,
     triedAt: dateOnly(row.triedAt),

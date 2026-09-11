@@ -6,7 +6,8 @@ import { test, expect, type Page } from "@playwright/test";
  *   - 経験詳細を開くと既読になり、検索に戻るとカードが既読表示になる
  *   - 未読/既読は色だけでなく「未読」「既読」の文字＋アイコンで判別できる
  *   - 既読数などの数字は出さない
- *   - 自分の経験は既読登録されない
+ *   - 自分の経験は既読レコードとしては登録されない（attempt_reads に行を作らない）が、
+ *     検索結果の表示上は常に「既読」扱いにする（自分の投稿が未読と出るのは不自然なため）
  */
 
 async function loginAs(page: Page, name: string) {
@@ -71,17 +72,12 @@ test("検索結果カードは詳細を開くまで未読、開くと既読に�
     await expect(card2.getByText("既読", { exact: true })).toBeVisible();
     await expect(card2.getByText("未読", { exact: true })).toHaveCount(0);
 
-    // --- 自分の経験は既読にならない ---
+    // --- 自分の経験は、一度も開いていなくても検索結果では「既読」表示になる ---
     await loginAs(page, owner);
     await page.goto(`/experiences?q=${encodeURIComponent(word)}&kind=road`);
     const ownCard = page.locator("article").filter({ hasText: `${word} を試した` });
-    await expect(ownCard.getByText("未読", { exact: true })).toBeVisible();
-    await ownCard.getByRole("link", { name: /この道を見る/ }).click();
-    await expect(page.getByRole("heading", { name: "この人がたどった道" })).toBeVisible();
-    await page.goto(`/experiences?q=${encodeURIComponent(word)}&kind=road`);
-    await expect(
-      page.locator("article").filter({ hasText: `${word} を試した` }).getByText("未読", { exact: true }),
-    ).toBeVisible();
+    await expect(ownCard.getByText("既読", { exact: true })).toBeVisible();
+    await expect(ownCard.getByText("未読", { exact: true })).toHaveCount(0);
   } finally {
     await loginAs(page, owner);
     await page.request.delete(`/api/v1/roads/${roadId}`);

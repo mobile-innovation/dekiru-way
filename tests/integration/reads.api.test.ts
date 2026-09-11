@@ -162,10 +162,18 @@ describe("検索・詳細 API が閲覧者視点の is_read を返す", () => {
     await readPost(readReq(publicAttemptId), ctx(publicAttemptId));
 
     expect(await listIsRead(readerId)).toBe(true);
-    // 別ユーザーから見ればまだ未読
-    expect(await listIsRead(ownerId)).toBe(false);
     // 未ログインは false
     expect(await listIsRead(null)).toBe(false);
+  });
+
+  it("自分の投稿は、実際に開いていなくても既読扱いになる（検索で自分の投稿が未読と出るのは不自然なため）", async () => {
+    // readerId はまだ一度も開いていないので、reader 視点では未読のまま
+    expect(await listIsRead(readerId)).toBe(false);
+    // ownerId（この経験の投稿者本人）から見ると、既読レコードが無くても true
+    expect(await listIsRead(ownerId)).toBe(true);
+    expect(
+      await prisma.attemptRead.count({ where: { attemptId: publicAttemptId, userId: ownerId } }),
+    ).toBe(0);
   });
 
   it("経験詳細 API にも isRead が入る", async () => {
