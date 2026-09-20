@@ -2,6 +2,7 @@ import { ModerationStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { moderateAttemptContent } from "@/lib/ai/moderation";
+import { notifyAdminOfNewPending } from "@/lib/admin-notify";
 import type { QuickExperienceInput } from "@/lib/validation";
 
 /**
@@ -77,8 +78,11 @@ export async function createQuickSubmission(
       aiCategories: ai?.categories ?? [],
       aiCheckedAt: ai ? new Date() : null,
     },
-    select: { id: true },
+    select: { id: true, createdAt: true },
   });
+
+  // 必ず pending で作るため、常に管理者へ通知する (二重送信対策は notifyAdminOfNewPending 側)。
+  await notifyAdminOfNewPending(attempt.id, attempt.createdAt);
 
   return { attemptId: attempt.id, roadId: road.id };
 }

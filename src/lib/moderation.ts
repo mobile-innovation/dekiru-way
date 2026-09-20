@@ -2,6 +2,7 @@ import { ModerationStatus, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { moderateAttemptContent, type ModerationVerdict } from "@/lib/ai/moderation";
+import { notifyAdminOfNewPending } from "@/lib/admin-notify";
 
 export { publishStateOf, PUBLISH_STATE_LABEL, type PublishState } from "@/lib/publish-state";
 
@@ -31,7 +32,7 @@ export async function applyModerationOnPublish(attemptId: string): Promise<Moder
   if (!env.ai.moderationEnabled) {
     const { roadId } = await prisma.attempt.update({
       where: { id: attemptId },
-      data: { moderationStatus: ModerationStatus.approved },
+      data: { moderationStatus: ModerationStatus.approved, pendingNotifiedAt: null },
       select: { roadId: true },
     });
     await bumpRoadUpdatedAt(roadId);
@@ -42,6 +43,7 @@ export async function applyModerationOnPublish(attemptId: string): Promise<Moder
     where: { id: attemptId },
     select: {
       roadId: true,
+      createdAt: true,
       method: true,
       memo: true,
       feeling: true,
@@ -89,12 +91,16 @@ export async function applyModerationOnPublish(attemptId: string): Promise<Moder
     // 自動再審査では手動判断の記録はクリアする (最新の状態は AI 由来)
     moderatedByAdmin: { disconnect: true },
     moderatedAt: null,
+    ...(result.verdict === "ok" ? { pendingNotifiedAt: null } : {}),
   };
 
   await prisma.attempt.update({ where: { id: attemptId }, data });
-  // approved になった = その道の公開経験が増えた / 更新された → 道を浮上させる。
   if (result.verdict === "ok") {
+    // approved になった = その道の公開経験が増えた / 更新された → 道を浮上させる。
     await bumpRoadUpdatedAt(attempt.roadId);
+  } else {
+    // 運営レビュー待ちになった → 管理者へ通知 (二重送信対策は notifyAdminOfNewPending 側)。
+    await notifyAdminOfNewPending(attemptId, attempt.createdAt);
   }
   return result;
 }

@@ -150,6 +150,10 @@ model Attempt {
   /// 運営が「今は公開できない」として脇に置いた記録。却下 (rejected) ではない。
   /// 確認待ちキューの既定表示から外し、「保留している」タブでのみ見える。公開ゲートには無関係。
   moderationHeld     Boolean          @default(false) @map("moderation_held")
+  /// 「審査待ちになりました」管理者通知メールを送った時刻。moderationStatus が pending から
+  /// approved/rejected に変わるたびに null へ戻す。null かつ pending のときだけ送信対象になる
+  /// (条件付き UPDATE で 1 回だけ通知を確定させ、二重送信・再送を防ぐ)。
+  pendingNotifiedAt  DateTime?        @map("pending_notified_at")
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 

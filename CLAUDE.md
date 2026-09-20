@@ -66,6 +66,24 @@ Phase 2（ベクトル類似検索）に必要なのは主にインフラと判�
 3. 生成物は必ず非公開で保存され、公開は管理画面から 1 件ずつ。一括公開・一括削除は無い
 4. 同じテーマで何度でも生成でき、2 回目以降は保存済みと重複しない切り口が出る（`roads.seed_keyword` で照合）
 
+### 審査待ち登録の管理者通知メール — コード実装済み、実配信は未了
+
+新規登録が「審査待ち」（既存の `attempts.moderation_status = pending`。新しいステータスは
+追加していない）になったタイミングで、管理者へ Resend 経由でメール通知する。実装は
+`src/lib/mail.ts`（Resend への HTTP 送信）／`src/lib/admin-notify.ts`
+（`notifyAdminOfNewPending`、`attempts.pending_notified_at` による二重送信対策）。呼び出し元は
+`src/lib/moderation.ts`（通常投稿が AI ng/unknown で pending になったとき）と
+`src/lib/quick-submit.ts`（SNS 簡易登録 `/try` は常に pending）。詳細は
+`docs/implementation-decisions.md` 2026-09-12。
+
+本番反映で必要なのはコードではなく運用手順:
+
+1. マイグレーション `20260912003800_add_attempt_pending_notified_at` を適用（`attempts` への ADD COLUMN のみで安全）
+2. Resend でアカウント作成 → 送信ドメイン（`dekirumichi.net`）の SPF/DKIM を DNS に追加してドメイン認証 → API キー発行
+3. 本番 env に `MAIL_PROVIDER_API_KEY` / `ADMIN_NOTIFICATION_EMAIL`（管理者の受信アドレス）/ `MAIL_FROM_ADDRESS`（認証済みドメインの送信元）を設定
+4. 3 つとも設定するまでは送信せずログに `status:"skipped"` を残すだけ（登録処理自体は失敗しない）
+5. 実際に登録して本番でメールが届くことを確認
+
 ### 本番ホスティング
 
 さくら VPS（Ubuntu、mycarenote スタックと相乗り）に**既にデプロイ済み**。

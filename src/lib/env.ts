@@ -108,6 +108,32 @@ export const env = {
   },
 
   /**
+   * 管理者への「新しい登録があります」通知メール (Resend API 経由)。
+   * 3 つすべて揃わない限り送信しない (configured=false のときはログに残すだけで実送信しない)。
+   */
+  mail: {
+    /** Resend の API キー。クライアントには絶対に渡さない。 */
+    get apiKey() {
+      return optional("MAIL_PROVIDER_API_KEY");
+    },
+    /** 通知の送り先 (管理者本人のメールアドレス)。公開 API レスポンスには出さない。 */
+    get adminEmail() {
+      return optional("ADMIN_NOTIFICATION_EMAIL");
+    },
+    /** 送信元アドレス。Resend 側でドメイン認証済みである必要がある。 */
+    get fromAddress() {
+      return optional("MAIL_FROM_ADDRESS");
+    },
+    get configured() {
+      return Boolean(
+        process.env.MAIL_PROVIDER_API_KEY &&
+          process.env.ADMIN_NOTIFICATION_EMAIL &&
+          process.env.MAIL_FROM_ADDRESS,
+      );
+    },
+  },
+
+  /**
    * E2E / ローカル開発用モックログインを許可するか。
    * `E2E_TEST_LOGIN=true` を明示的に設定したときのみ有効。
    * 本番デプロイでは絶対にこの変数を設定しないこと (README に明記)。

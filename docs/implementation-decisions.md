@@ -2474,3 +2474,98 @@ SNS 的な人気競争にしないことを最優先に置く。
   （ページ文言のみの変更のため無影響）。port 3000 は空きだったため停止操作なしで e2e フルスイート
   実行——desktop 65/65・mobile 65/65（合計 130/130、`a11y.spec.ts` の `/terms` テストを含む）で
   緑。検証後は `.next` を削除。
+
+### 2026-09-12 審査待ち登録の管理者通知メール
+
+- **要件**: 新規登録が「審査待ち」になったことを管理者へメールで知らせる。登録データの保存を
+  最優先とし、メール送信の成否で登録処理を失敗扱いにしない。VPS 自体をメールサーバーにせず、
+  外部サービスの API を叩く方式。
+- **既存の「審査待ち」をそのまま使った**: 新しいステータスは追加していない。既存の
+  `attempts.moderation_status = pending`（`isPublished: true` の投稿が AI 判定で ng/unknown の
+  ときに入る運営レビュー待ち。§5 のモデレーション設計、`docs/spec.md` の該当箇所）をそのまま
+  「審査待ち」として扱う。管理画面の未審査件数表示（`dashboardStats().pendingActive` /
+  `/admin/moderation`）も既存のまま流用し、メール通知はその「気づくための補助」という位置づけ
+  （指示書 §8・§13 の設計方針どおり）。
+- **メール送信サービスは Resend を採用**: SendGrid / SES と比較し、HTTP API 1 本で送れて
+  SDK 追加が不要（`fetch` で完結）な点を優先した。`docs/deployment.md` の VPS 手順は
+  「`npm ci` は package-lock 変更時のみ・全消し厳禁」という制約があり、新規依存を増やすと
+  デプロイ手順が複雑になるため、SDK を入れない選択をした。実装は `src/lib/mail.ts`
+  （`sendAdminMail`、Resend の `POST https://api.resend.com/emails` を叩くだけ）。
+  環境変数 `MAIL_PROVIDER_API_KEY` / `ADMIN_NOTIFICATION_EMAIL` / `MAIL_FROM_ADDRESS`
+  が 3 つとも揃わない限り送信しない（`env.mail.configured`）。API キーはサーバー側 (`src/lib/env.ts`)
+  でのみ参照し、クライアント・公開 API レスポンスには一切出さない。
+- **通知のトリガーとフロー制御は `src/lib/admin-notify.ts` の `notifyAdminOfNewPending`**:
+  - 投稿 (`Attempt`) が新規に `moderationStatus: pending` になったタイミングで呼ぶ。呼び出し元は
+    3 箇所: `src/lib/moderation.ts` の `applyModerationOnPublish`（通常の投稿 API で公開しようと
+    して AI が ng/unknown と判定したとき）と `src/lib/quick-submit.ts` の `createQuickSubmission`
+    （SNS からの匿名簡易登録 `/try`。既存仕様どおり AI 判定に関係なく必ず pending で作るため、
+    常に通知する）。
+  - **二重送信対策**: 新カラム `attempts.pending_notified_at`（migration
+    `20260912003800_add_attempt_pending_notified_at`）を使い、
+    `updateMany({ where: { id, moderationStatus: "pending", pendingNotifiedAt: null }, data: { pendingNotifiedAt: now } })`
+    という条件付き UPDATE で「送信権」を確定させる。影響行数が 0 なら「既に通知済み」または
+    「もう pending ではない」ので何もしない。これで API のリトライ・同時呼び出しに対しても
+    確実に 1 回だけ送信される（別テーブルのロックや排他処理を足さずに Postgres の行更新だけで
+    済ませた）。
+  - 管理者が承認・却下すると（`POST /api/admin/moderation/{attemptId}`）`pendingNotifiedAt` を
+    `null` に戻す。本人が編集して再審査に回り、再び pending になったときは改めて通知される
+    （「同じ登録に何度も送らない」であって「その投稿が二度と通知されない」ではない、という
+    解釈）。
+  - メール送信自体の成否は `notifyAdminOfNewPending` の中で完結させ、例外を上位（登録 API）へ
+    投げない。未設定時は送らずに `status: "skipped"` としてログに残すだけ。
+- **本文に登録内容を載せない**: 件名は固定文言「【できる道】新しい登録があります」。本文は
+  状態・登録日時（`Asia/Tokyo`）・管理画面 URL (`${SITE_URL}/admin/moderation`) のみ。困りごとの
+  内容・氏名等は一切含めない（指示書 §4・§7）。
+- **ログ**: `console.log` で `{tag:"admin-notify", notification_type, registration_id, status,
+  error_message?, sent_at}` の 1 行 JSON のみ（`access-log.ts` の構造化ログと同じ流儀）。
+  本文・宛先・個人情報は出さない。永続テーブルは作らず、既存の `journalctl` 運用（本番は
+  systemd）で足りる規模と判断した。
+- **本番反映で必要なのはコードではなく運用手順**（AdSense・仮データと同じ構図）:
+  1. Resend でアカウント作成 → 送信ドメイン (`dekirumichi.net`) の SPF/DKIM を Resend の案内どおり
+     DNS に追加 → ドメイン認証
+  2. Resend で API キーを発行
+  3. 本番 `.env` に `MAIL_PROVIDER_API_KEY` / `ADMIN_NOTIFICATION_EMAIL`（管理者本人の受信用
+     アドレス）/ `MAIL_FROM_ADDRESS`（認証済みドメインの送信元）を設定
+  4. マイグレーション `20260912003800_add_attempt_pending_notified_at` を
+     `docs/deployment.md` の手順どおり適用（`attempts` への `ADD COLUMN` のみで安全）
+  5. 実際に登録して本番でメールが届くことを確認
+- **テスト**: `tests/unit/mail.test.ts`（`fetch` をモックし、未設定時に送らない・Resend への
+  リクエスト形状・API キーがボディ/URL に漏れない・HTTP エラー/ネットワークエラーで例外を
+  投げず `ok:false` を返す、を検証）。`tests/integration/admin-notify.test.ts`（実 DB で:
+  公開 API 経由で pending になると通知される・同じ投稿への多重呼び出しは 1 回だけ送信・承認後に
+  再度 pending に戻ると再通知される・簡易登録は必ず通知される・メール送信失敗でも登録データは
+  残り `status:"failed"` としてログに残る・メール未設定でも登録は成功し `status:"skipped"` で
+  ログに残る）。既存の `moderation.flow.test.ts` / `quick-experiences.api.test.ts` 等は無変更で
+  426/426 緑（新規 11 件含む）、`tsc --noEmit` / `npm run lint` ともにクリーン。dev サーバーが
+  起動中だったため `next build` / e2e は実行していない（`.next` 競合を避けるため。CLAUDE.md の
+  注意事項どおり）。
+
+### 2026-09-20 検索エンジン露出方針の改定：経験詳細ページも index 対象に
+- 変更前: 索引に載せるのはトップページ `/` だけ（2026-09-10 決定）。他の公開ページはすべて `noindex`。
+- 変更後: トップ `/` に加え、**公開・承認済みの経験詳細 `/experiences/[id]` も index, follow**にする
+  （ユーザー要望）。検索一覧 `/experiences`・タグ絞り込み・`/experiences/paths`（道の見える化）
+  などの一覧系ページは対象外のまま `noindex, follow`（変更なし）。
+- 実装:
+  - `src/middleware.ts`: `robotsTagFor` に `EXPERIENCE_DETAIL_PATH`
+    (`/^\/experiences\/(?!paths(?:\/|$))[^/]+\/?$/`) を追加。`/experiences/:id` だけ
+    `index, follow` にし、`/experiences`・`/experiences/paths` は既存どおり `noindex, follow`。
+  - `src/app/experiences/[id]/page.tsx`: `generateMetadata` に `robots: { index: true, follow: true }`
+    を追加してルート layout の既定 (`noindex`) を上書き。`getExperience` は常に
+    `PUBLIC_ATTEMPT_WHERE`（`isPublished && approved`）でしか行を返さないため、非公開・審査中の
+    Attempt は 404 経路（`robots` 上書きなし＝既定の `noindex` のまま）に落ちる。index 対象になるのは
+    公開・承認済みのものだけ。
+  - `src/app/sitemap.ts`: `PUBLIC_ATTEMPT_WHERE` で公開 Attempt を取得し、`/experiences/{id}` を
+    `lastModified: updatedAt` 付きで列挙（`changeFrequency: monthly`, `priority: 0.5`）。トップは
+    従来どおり `priority: 1`。`export const revalidate = 3600` で 1 時間キャッシュ（毎リクエスト
+    DB を叩かない）。件数の上限・ページ分割（Next.js の `generateSitemaps`）は現状の件数では
+    不要と判断（要件化するのは実運用で 50,000 件に近づいてから）。
+- AI クローラー全体不可（`robots.txt` の `Disallow: /`）は変更なし。今回の変更は一般検索エンジンの
+  index 可否のみに影響する。
+- ドキュメント: `docs/spec.md` §8「検索エンジンへの露出」「管理機能の露出低減」の記述を新方針に
+  合わせて更新。
+- テスト: 既存 426 件は無変更で緑（ロジック変更は `robotsTagFor`（非公開関数）と `generateMetadata`
+  ／`sitemap()` のみで、既存テストが直接カバーしていた箇所ではない。新規テストは追加していない）。
+- 検証: ローカルの `localhost:3000` は `npm run start`（`next start`、`.next` は 2026-09-16 ビルド）で
+  動いており、今回のソース変更を実機反映するには再ビルド・再起動が必要（未実施。実行中のプロセスの
+  `.next` を上書きする形になるため、CLAUDE.md の `.next` 競合の注意に従いユーザー確認前には行わない）。
+  ロジックは `vitest run`（426/426 緑）と正規表現・コードレビューで確認。

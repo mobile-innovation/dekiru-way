@@ -6,10 +6,11 @@ import { screenEdgeRequest, resolveClientId } from "@/lib/bot-guard";
  *   - 環境変数の IP ブロックリスト
  *   - 収集目的が明確な既知 AI クローラー UA の拒否
  *   - X-Robots-Tag: 露出方針に沿って付与
- *       トップ (/)       → index, follow
- *       本人 (/me*) / ログイン → noindex, nofollow
- *       管理 (/admin*)   → noindex, nofollow, noarchive ＋ Cache-Control: no-store
- *       その他の公開ページ → noindex, follow
+ *       トップ (/)               → index, follow
+ *       経験詳細 (/experiences/:id) → index, follow (2026-09-20 改定。一覧・タグ等は対象外)
+ *       本人 (/me*) / ログイン       → noindex, nofollow
+ *       管理 (/admin*)           → noindex, nofollow, noarchive ＋ Cache-Control: no-store
+ *       その他の公開ページ         → noindex, follow
  *     いずれにも noai, noimageai を付ける (既存の AI オプトアウト)。
  *
  * ここはステートレス。頻度・巡回パターンの検知は各公開 API / SSR 側が担当する。
@@ -17,11 +18,14 @@ import { screenEdgeRequest, resolveClientId } from "@/lib/bot-guard";
  * レート制限の主担当にはしない (指示書 10/18: 複数の層を組み合わせる)。
  */
 
+/** `/experiences/:id` (経験詳細) にだけマッチ。`/experiences`・`/experiences/paths` 等の一覧系は除外。 */
+const EXPERIENCE_DETAIL_PATH = /^\/experiences\/(?!paths(?:\/|$))[^/]+\/?$/;
+
 /** パスごとの X-Robots-Tag。検索結果からの除外は robots.txt でなく noindex で行う (指示書 §10)。 */
 function robotsTagFor(pathname: string): string {
   const AI = "noai, noimageai";
   if (pathname.startsWith("/admin")) return `noindex, nofollow, noarchive, ${AI}`;
-  if (pathname === "/") return `index, follow, ${AI}`;
+  if (pathname === "/" || EXPERIENCE_DETAIL_PATH.test(pathname)) return `index, follow, ${AI}`;
   if (pathname === "/login" || pathname === "/me" || pathname.startsWith("/me/")) {
     return `noindex, nofollow, ${AI}`;
   }

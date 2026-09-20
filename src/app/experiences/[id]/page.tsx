@@ -32,6 +32,9 @@ export async function generateMetadata({
   return {
     title: exp.road.difficulty ?? exp.road.goal ?? "経験の詳細",
     description: `試したこと: ${exp.method.slice(0, 80)}`,
+    // 検索エンジン露出方針 (2026-09-20 改定): 経験詳細はトップと並んで index 対象。
+    // ルート layout の既定 (noindex) をここだけ上書きする。
+    robots: { index: true, follow: true },
   };
 }
 

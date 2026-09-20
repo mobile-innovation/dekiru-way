@@ -438,10 +438,10 @@ noindex のまま。§ 中間層 `robotsTagFor` を参照）。
 | アクセシビリティ | WCAG 2.1 A/AA。色だけで情報を伝えない、ラベルと `aria-*` の関連付け、キーボード操作、文字サイズトグル（標準／大／特大）、`prefers-reduced-motion` 尊重。主要画面は axe-core で重大違反 0 を確認 |
 | レート制限 | メモリ内（単一プロセス前提）。プリセット: 書き込み 60/分、AI 15/分。簡易登録は 6/分・IP 単位 |
 | スクレイピング対策 | `src/middleware.ts`（IP ブロックリスト・AI クローラー UA 遮断）＋ `src/lib/bot-guard.ts`（巡回・バースト検知）＋ ページング上限＋ `robots.txt`（一般クローラーは `/api/` と `/admin` のみ Disallow、既知 AI クローラーは全体不可） |
-| 検索エンジンへの露出 | 索引に載せるのは**トップページ `/` だけ**。他の公開ページは `noindex`（`robots.txt` では塞がずクローラーに `noindex` を読ませる）。`/login`・`/me*`・`/admin*` は `noindex,nofollow`。`sitemap.xml` はトップのみ。方針の詳細は `implementation-decisions.md`（2026-09-10 検索エンジン露出方針） |
+| 検索エンジンへの露出 | 索引に載せるのは**トップページ `/` と経験詳細 `/experiences/[id]`（公開・承認済みのみ）**。検索一覧・タグ・道の見える化などの一覧系ページは引き続き `noindex`（`robots.txt` では塞がずクローラーに `noindex` を読ませる）。`/login`・`/me*`・`/admin*` は `noindex,nofollow`。`sitemap.xml` はトップ＋公開経験詳細を列挙。方針の詳細は `implementation-decisions.md`（2026-09-10 検索エンジン露出方針、2026-09-20 改定） |
 | 個人情報 | ユーザー属性は最小限。公開経験に氏名・アバターを含めない。画像投稿なし。AI 審査・広告カテゴリ変換に個人識別情報を渡さない。アクセスログの識別子は匿名化 |
 | モデレーション独立性 | 管理者セッションは利用者と別 Cookie・別テーブル。ガードは middleware ではなく Server Component layout ＋ API ハンドラ |
-| 管理機能の露出低減 | 公開ページから `/admin` へリンクしない。`sitemap.xml` はトップのみ（`/admin` は載せない）。ログイン画面に「管理画面／管理者／運営者」の語を出さない（`<title>` も「ログイン」）。`/admin/*` は layout metadata ＋ middleware で `noindex,nofollow,noarchive` ＋ `Cache-Control: no-store`。ログインは IP 単位 10/分でロック、失敗メッセージは「メールアドレスまたはパスワードが違います」で存在を漏らさない（ダミーハッシュ検証でタイミング差も抑制）。※URL 秘匿は防御にしない — 認証・認可が本体 |
+| 管理機能の露出低減 | 公開ページから `/admin` へリンクしない。`sitemap.xml` に管理系は載せない。ログイン画面に「管理画面／管理者／運営者」の語を出さない（`<title>` も「ログイン」）。`/admin/*` は layout metadata ＋ middleware で `noindex,nofollow,noarchive` ＋ `Cache-Control: no-store`。ログインは IP 単位 10/分でロック、失敗メッセージは「メールアドレスまたはパスワードが違います」で存在を漏らさない（ダミーハッシュ検証でタイミング差も抑制）。※URL 秘匿は防御にしない — 認証・認可が本体 |
 | 監査 | 管理操作は `admin_audit_logs` に記録。消せない |
 
 ---
@@ -479,6 +479,7 @@ noindex のまま。§ 中間層 `robotsTagFor` を参照）。
 | `NEXT_PUBLIC_ADSENSE_CLIENT` / `NEXT_PUBLIC_ADSENSE_SLOT_SEARCH` / `NEXT_PUBLIC_ADSENSE_SLOT_ROAD` | ✕ | Google AdSense（非パーソナライズ）。空ならプレースホルダのまま |
 | `BLOCKED_IPS` | ✕ | 手動ブロックする IP（カンマ区切り） |
 | `ACCESS_LOG_SALT` | ✕ | アクセスログの識別子匿名化ソルト |
+| `MAIL_PROVIDER_API_KEY` / `ADMIN_NOTIFICATION_EMAIL` / `MAIL_FROM_ADDRESS` | ✕ | 審査待ち登録の管理者通知メール（Resend API）。3 つ揃わないと送信しない（ログにのみ記録、登録処理は失敗させない） |
 | `E2E_TEST_LOGIN` | ✕ | `true` で開発／E2E 用モックログイン（`/api/test/login`）を有効化。**本番では設定しない** |
 
 ---

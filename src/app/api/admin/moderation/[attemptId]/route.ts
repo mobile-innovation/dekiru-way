@@ -50,6 +50,9 @@ export const POST = handle(async (req, ctx) => {
       moderationHeld: false,
       moderatedByAdmin: { connect: { id: admin.id } },
       moderatedAt: new Date(),
+      // pending を抜けたので通知フラグもリセットする。再び pending に戻ったとき
+      // (本人が編集して再審査に回った等) に改めて管理者へ通知されるようにするため。
+      pendingNotifiedAt: null,
       ...(note !== undefined ? { moderationNote: note || null } : {}),
     },
   });
