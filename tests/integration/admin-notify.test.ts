@@ -63,6 +63,13 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // Road を先に削除する（Road → Attempt は Cascade）。beforeAll で作った road（difficulty に
+  // MARK を含む）に加え、「SNSからの簡易登録」テストが作る road は匿名の共有ユーザー
+  // (quick-submit.ts の ANON_SUBMITTER_SUB) に紐づき、そのユーザーは削除対象外なので
+  // user 経由のカスケード削除では拾えない。difficulty に MARK を含む road を直接消すことで
+  // どちらも確実に片付ける（「経験を探す」改善指示書 v1 §23/§24 で発覚した notify-... 経験の
+  // 残留原因）。
+  await prisma.road.deleteMany({ where: { difficulty: { contains: MARK } } });
   await prisma.adminUser.deleteMany({ where: { email: { startsWith: MARK } } });
   await prisma.user.deleteMany({ where: { googleSub: { startsWith: MARK } } });
   if (savedAiKey !== undefined) process.env.ANTHROPIC_API_KEY = savedAiKey;

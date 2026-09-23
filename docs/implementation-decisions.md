@@ -2595,6 +2595,10 @@ SNS 的な人気競争にしないことを最優先に置く。
   検索語のうち実データに一致するものが無いこと（「靴下」「ペットボトル」「クッション」は 0 件、
   「ボタン」「料理」はヒットする）を確認した。これは検索処理自体の不具合ではなく、ダミーデータ
   中心のローカル DB にその語を含む記録が無いだけ。ブラウザでの実見た目確認は未実施。
+- **取り消し（同日）**: この直後に受け取った「Cloud Code UI・入力フォーム改善指示書 v2」§3-1 が
+  「トップページの中心となる質問『何ができなくて困っていますか？』は変更しない」と明記していたため、
+  ユーザー確認のうえ本変更（見出し・補足文・入力欄ラベル・placeholder・気づきチップ・気づきカード）
+  はすべて元に戻した。詳細は次の「Cloud Code UI・入力フォーム改善指示書 v2」の記録を参照。
 
 ### 2026-09-23 記録を編集画面 入力項目簡略化
 - 目的: 「記録を編集」（`/me/roads/[roadId]/attempts/[attemptId]/edit`）および新規記録
@@ -2609,8 +2613,8 @@ SNS 的な人気競争にしないことを最優先に置く。
     （`initialTags` プロップと `syncTags()` 呼び出しごと削除）
 - 残した入力: 「試したこと」（見出しを「どんな方法を試しましたか？」に変更）・「結果」（5 分類、
   無変更）・「メモ・気づき（任意）」（見出し・説明・placeholder を更新、最大 4000 文字は維持）・
-  「公開設定」（無変更）。編集時の保存ボタンラベルを「変更を保存」→「保存する」に変更（新規作成
-  時の「記録する」は変更していない）。
+  「公開設定」（このあと同日の v2 指示書でチェックボックス文言を変更。次項参照）。編集時の保存
+  ボタンラベルを「変更を保存」→「保存する」に変更（新規作成時の「記録する」は変更していない）。
 - **既存データを壊さない実装**: `AttemptForm` の保存ペイロードから `triedAt`/`nextAction`/タグの
   キー自体を外した（`null` を明示送信しない）。`PATCH /api/v1/attempts/[attemptId]`
   （`src/app/api/v1/attempts/[attemptId]/route.ts`）は元々 `input.field !== undefined` のときだけ
@@ -2623,3 +2627,289 @@ SNS 的な人気競争にしないことを最優先に置く。
 - 検証: `tsc --noEmit` エラーなし。既存データ（DB 上の `triedAt`/`nextAction`/タグを持つレコード）
   が編集後も保持されることはコードレビュー（PATCH ハンドラの部分更新ロジック）で確認。ブラウザでの
   実見た目確認・`vitest`/e2e は未実施（作業時、ローカル `next-server` の状態が不安定だったため）。
+
+### 2026-09-23〜24 Cloud Code UI・入力フォーム改善指示書 v2
+- 目的: 「できる道」の思想・データ構造・API・既存機能を壊さず、トップページと入力フォームの
+  分かりやすさを改善する。大幅な作り直しではなく、必要最小限のUI・文言変更として実装する
+  （AI検索新規実装・高度なレコメンド・SNS機能・大幅なDB/API/画面再設計などは今回行わない）。
+- **v1（同日先に実装した「トップページ変更指示書 v1」）との矛盾をユーザーに確認**:
+  1. トップページの見出し「何ができなくて困っていますか？」— v2 §3-1 は「これは変更しない」と
+     明記。v1 で変更済みだったため、**ユーザー確認のうえ元の見出し・文言・気づきチップ/カードを
+     すべて削除してロールバック**（`src/components/search-box.tsx` / `src/app/page.tsx` /
+     `src/lib/constants.ts` から `NOTICE_CHANGE_PROMPTS` / `NOTICE_CARDS` を削除）。
+  2. Attempt の公開設定チェックボックス文言 — v1 は「この記録を『経験』として公開する」を維持、
+     v2 §13 は「この経験を公開する」を基本とする。**ユーザー確認のうえ v2 の文言を採用**。
+  上記以外は v1・v2 間に矛盾なし（v1 のトップページ以外の変更＝記録を編集画面の入力項目簡略化は
+  v2 の方針とも整合するためそのまま維持）。
+- 実装:
+  - `src/components/search-box.tsx`: 見出し・補足文・入力欄ラベル・placeholder を元の文言
+    （「何ができなくて困っていますか？」「あなたの困りごと」等）に戻した。
+  - `src/app/page.tsx` / `src/lib/constants.ts`: 「こんな変化、ありませんか？」チップと
+    「これも、できなくなったことかも」カード、および裏付けの定数 `NOTICE_CHANGE_PROMPTS` /
+    `NOTICE_CARDS` を削除。
+  - `src/components/attempt-form.tsx`（④ 公開設定）: チェックボックスの表示文言を「この記録を
+    『経験』として公開する」→「**この経験を公開する**」に、説明文を v2 §14 の推奨文（「あなたの
+    経験が、誰かの次の一歩になるかもしれません。成功した方法だけでなく、うまくいかなかった方法も、
+    同じことで困っている人にとって大切な情報になります。」）をベースに、既存の実務的な補足
+    （名前は非表示／あとから公開停止できる）を残して統合した。
+  - `src/components/road-form.tsx`（「自分の道を作る」／v2 §5-10・§16）: 質問文言を自然な表現へ
+    更新。「以前は何ができていましたか？」→「以前は、どうしていましたか？」、「何ができるように
+    なりたいですか？」→「これから、何ができるようになりたいですか？」（+ hint「『完全にできる』
+    ではなくても大丈夫です。」）、「困っている場面（任意）」→「どんな場面で困っていますか？」、
+    「メモ（任意）」→「メモ・気づき」（+ hint を v2 の文言に更新）。「何ができなくなりましたか？」
+    は v2 も同文言のため維持しつつ、hint から実態と食い違っていた「あとから変更できません」を削除
+    （道の編集画面ではとっくに編集可能になっている。2026-09-11 の別指示で編集可否は既に修正済み
+    だったが、作成画面側の hint 文言の更新が漏れていた）。入力順序（以前→できなくなった→やりたい
+    →いつから→場面→メモ）は元から v2 §16 と一致していたため変更なし。音声入力は元々このフォームに
+    あり、v2 §22「音声入力を利用できる箇所では維持」とも整合するためそのまま。
+  - `src/components/road-edit-form.tsx` は対象外。v2 §4 は「自分の道を作る」（作成画面）のみを
+    対象にしており、編集画面は別画面・別レイアウトとして元から確立していたため、スコープ外として
+    変更していない（必要最小限の変更、の方針に沿う）。
+- **意図的に実装しなかった項目（要判断のため保留）**:
+  - v2 §8「いつ頃から難しくなりましたか？」の曖昧な時期選択肢（最近／半年くらい前／2024年頃など）。
+    v2 自身が「`started_at` は DATE 型。曖昧な時期を選べるようにするなら DB/API との整合性を確認し、
+    勝手に DB を変更しない」と釘を刺しており、実装するには「時期区分」用の新しいカラムなど設計判断
+    が要る。今回は既存の正確な日付入力（`type="date"`、値があるときだけ「日付を消す」ボタン）の
+    ままとし、UI・DB とも変更していない。着手する場合は改めてスキーマ案を提示する。
+  - v2 §11「試したことを複数登録できることを分かりやすくする」: `/me/roads/[roadId]` の道詳細
+    画面が、すでに `StepFlow`／`road-guide` の連結表示＋「試したことを記録」ボタン＋「小さなことでも、
+    試したことと結果を残しておくと道になります」という文言で複数 Attempt の連続性を伝えている。
+    v2 が例示する矢印つき図とほぼ同じ内容がすでに実装済みと判断し、新規の変更はしていない。
+  - v2 §15「失敗の価値をUIに反映する」: `RESULT_META.failed` の description は既に
+    「試したが、うまくいかなかった（これも大切な経験）」で、v2 の例（「この方法では改善しません
+    でした」という事実ベースの記述）が意図する「失敗を隠さず、悪印象にもしない」を既に満たしている
+    と判断。多くの画面でラベル文字列を直接参照しているため、リスクに見合う効果が薄いとみて変更を
+    見送った。
+- データ構造・検索 API・認証・Road/Attempt の基本構造は変更していない。
+- **既存テストの追随**: `tests/unit/clear-field.test.tsx`／`tests/e2e/critical-flow.spec.ts`／
+  `tests/e2e/road-create.spec.ts` に残っていた、変更前・変更後どちらか一方の文言に依存する
+  セレクタ（ラベルテキスト・チェックボックス名）を、最終的な文言に合わせてすべて更新した。
+- ドキュメント: `docs/spec.md` §4 画面一覧の `/` 行を元の説明に戻した。road-form・
+  attempt-form の質問文言はもともと spec.md に一言一句引用されていなかったため、他の記述は
+  変更不要と判断した。
+- 検証: `tsc --noEmit` エラーなし。`npm run test`（vitest）426/426 緑（今回の文言変更で壊れた
+  1 件を含め、テスト側を新しい文言に合わせて修正済み）。`npx playwright test` はローカルで未実行
+  （CLAUDE.md の `.next` 競合の注意に従い、ユーザー確認なしに実行していない）。ブラウザでの実見た目
+  確認も未実施。
+
+### 2026-09-24 「経験を探す」ページ改善指示書 v1 — `notify-...` の原因調査とテストデータ汚染の一掃
+- 目的: 検索結果カードに `notify-1789173667615...` のような内部的な文字列がタイトルとして
+  表示される問題を修正する（指示書 §23「最優先」）。
+- **調査結果（§22/§23）: UI・表示ロジックのバグではなかった。** `RoadCard`
+  （`src/components/road-card.tsx`）のタイトルは `road.difficulty ?? road.goal ?? "困っていたこと"`
+  で、ID へのフォールバックは無い。`notify-...` は **`road.difficulty`/`attempt.method` に実際に
+  格納されていた文字列**で、原因は `tests/integration/admin-notify.test.ts` の「SNSからの簡易登録」
+  テストケースだった。
+  - `createQuickSubmission`（`src/lib/quick-submit.ts`）は匿名投稿の受け皿として **全テスト・全
+    利用者で共有される 1 つの実ユーザー**（`ANON_SUBMITTER_SUB = "system:anonymous-submissions"`）
+    を使う設計。このテストは `afterAll` で `googleSub` が MARK（`notify-<timestamp>`）で始まる
+    User/AdminUser だけを消しており、共有の匿名ユーザーが所有する Road/Attempt はそのまま
+    ローカル DB に残り続けていた（`tests/integration/quick-experiences.api.test.ts` は同じ状況を
+    正しく後始末しており、`admin-notify.test.ts` だけが漏れていた）。
+  - 残っていた `notify-...` Attempt は 9 件、うち 4 件は `moderationStatus: approved` で実際に
+    公開検索に出る状態だった（残り 5 件は pending のまま。おそらく管理者が `/admin/moderation`
+    でテスト由来と気づかず承認したもの）。
+- **もっと大きな汚染を発見**: 調査を広げたところ、ローカル DB の「公開経験」データの大半が
+  他の e2e テストの残骸だった。
+  - `tests/e2e/branching-paths.spec.ts` の 2 テスト（`?mp=` ページ送り確認・ツリー分割確認）が
+    `/api/test/login` → `POST /api/v1/roads` → `POST /api/v1/roads/{id}/attempts`
+    （`isPublished: true`）を実アプリ API 経由で叩いて道を作るのに、**後始末が一切無かった**。
+    `method` に `オオイホウホウ<timestamp>` / `ページ分割の方法 N` という目印文字列が入っており、
+    調査時点でそれぞれ 4,850 件・2,328 件、DB 全 Attempt 9,856 件のうち 7,187 件（約73%）を占めていた。
+  - さらに、e2e のモックログイン（`src/app/api/test/login/route.ts`）は作成する User の
+    `googleSub` に必ず `e2e:` 接頭辞を付ける（本番では `E2E_TEST_LOGIN` を絶対に有効化しないため、
+    本物の Google ログインでは絶対に出ない目印）。この接頭辞で数えたところ、User 3,417 件中
+    3,411 件（99.8%）・Road 936 件中 775 件・Attempt 2,669 件中 2,492 件（うち公開中 2,344 件）が
+    e2e 由来で、`branching-paths.spec.ts` 以外の複数の e2e 仕様にも後始末漏れが広く存在していた。
+- **修正（コード）**:
+  - `tests/integration/admin-notify.test.ts`: `afterAll` の先頭で
+    `prisma.road.deleteMany({ where: { difficulty: { contains: MARK } } })` を追加。
+    beforeAll で作る road（MARK を含む difficulty）と、匿名受け皿ユーザー経由で作る
+    quick-submission の road を、所有ユーザーに関係なく確実に消す。
+  - `tests/e2e/branching-paths.spec.ts`: 上記 2 テストの本体を `try/finally` で包み、
+    `finally` で `page.request.delete(`/api/v1/roads/${road.id}`)` を呼ぶよう変更
+    （`critical-flow.spec.ts` と同じパターン）。
+- **データ削除（ユーザー確認のうえ実施。DB/API/テスト以外のコードは触っていない）**:
+  1. `notify-...`／`オオイホウホウ...`／`ページ分割の方法 N` に一致する Road を特定して削除
+     （397 Road・7,187 Attempt をカスケード削除）。
+  2. 残った内訳を確認したところ、依然として大半が e2e 由来だったため、`googleSub` が `e2e:`
+     で始まる User を一括削除（3,411 User・カスケードで Road 775 件・Attempt 2,492 件を削除）。
+  3. 最終状態: User 6 件（`seed:taro`/`seed:hana`/`seed:mika` ＝正規のシードデータ、
+     `system:anonymous-submissions`／`system:ai-seed-data` ＝システム用、実 Google アカウント 1 件）、
+     Road 161 件、Attempt 177 件（うち公開中 47 件）。「経験を探す」の件数表示は、これで実データに
+     近い数を反映するはずである。
+- **本番への影響は無いと判断**: `/api/test/login` は `E2E_TEST_LOGIN=true` のときだけ有効
+  （CLAUDE.md で本番設定を明示的に禁止）で、`admin-notify.test.ts` はローカル/CI 専用の統合テスト。
+  本番 DB に対してこれらが実行された形跡はない。
+- **残課題（今回は対応していない）**: `tests/e2e/` 配下で `deleteMany`/`request.delete` 等の
+  後始末コードを一切持たないファイルが他に 9 本ある（`a11y` / `account` / `ads` / `permissions` /
+  `quick-submit` / `road-create` / `road-edit` / `search-ai` / `search-restore`）。このうち
+  `isPublished: true` を使っているのは `account.spec.ts` の 1 箇所のみで、これはアカウント削除の
+  検証テストなので削除対象ユーザー自身が消える設計（実質後始末できている）。他は非公開データの
+  作成にとどまるため「経験を探す」への汚染リスクは低いと見たが、User/Road テーブルが
+  無期限に増え続ける点は変わらないため、必要なら改めて棚卸しする。
+- 既存の RoadCard/MethodCard の表示ロジック・DB スキーマ・API は変更していない
+  （§25「DB/APIを変更せずにUI・表示ロジックで解決する」を上回り、UI 変更すら不要だった）。
+- 検証: `tsc --noEmit` エラーなし。`npm run test`（vitest）426/426 緑。データ削除後の件数を
+  Prisma で直接確認（上記の最終状態）。ブラウザでの実見た目確認・`npx playwright test` は未実施。
+
+### 2026-09-24 「自分の道」ページ改善指示書 v1 — localhost URL・テストデータの原因調査
+- 目的: 「自分の道」（`/me`）に `http://localhost:3000/me/roads/.../attempts/new` という内部 URL や
+  「いいい」「aa」「あああ…」といったテストらしき文字列が表示される問題を調査する。
+- **調査結果: コードのバグではなかった。** `src/app/me/page.tsx` のタイトルは
+  `road.difficulty ?? "（無題の道）"` で ID/URL へのフォールバックは無く、`getMyRoads`/`getMyRoad`
+  （`src/lib/queries.ts`）は DB クエリ自体が `userId` でスコープ済み、`assertRoadOwner`/
+  `assertAttemptOwner`（`src/lib/authz.ts`）が API 層でも所有者チェックを行っている。公開状態も
+  `pending`/`approved` 等の内部値ではなく「公開中」「確認中」「見送り」「非公開」に変換済み。
+  エラー画面（`src/app/error.tsx`）もスタックトレース等を出さない安全な文言のみ。
+- **実データを直接確認**: 本番相当のユーザーアカウント（`googleSub: "110582840814252892801"`、
+  表示名「天谷正史」＝このプロジェクトの開発者本人の実アカウント）配下の Road を調べたところ、
+  4 件とも明らかな動作確認用の入力だった。
+  - `difficulty: "何ができなくなりましたか？"` / `goal: "何ができるようになりたいですか？"`
+    （フォームの質問文そのものを試しに入力したもの）、その Attempt の一つに
+    `method: "http://localhost:3000/me/roads/<このroadId>/attempts/new"`
+    （作成日 2026-09-09。ブラウザの URL を誤ってそのまま貼り付けたと見られる）。
+  - `difficulty: "あああ"` / `"aa"` / `"いいい"` と、対応する `method: "いいいいい…"` /
+    `"ああああ…"` / `"bb"` / `"おおお"` など。うち 1 件（`difficulty: "いいい"`）は
+    2026-09-23 10:59 作成で、同日のこのセッション内で「いいい」を検索語として動作確認した直後に
+    作られたもの（本人が実際に手を動かして試した記録）。
+  - つまりテストの自動実行が残した汚染ではなく、**開発者本人が自分の実アカウントで手動確認した
+    際の入力**だった。
+- 対応: コード変更は無し。ユーザー（アカウント本人）確認のうえ、上記 4 Road・Attempt 6 件を
+  `prisma.road.deleteMany`（カスケードで Attempt も削除）で削除。削除後、このユーザーの Road は
+  0 件。
+- 変更していないもの: Road/Attempt/公開設定/認証・権限の設計、DB スキーマ、API。
+- 検証: `npm run test`（vitest）426/426 緑。削除後の件数を Prisma で直接確認。ブラウザでの実見た目
+  確認・`npx playwright test` は未実施。
+
+### 2026-09-24 管理者「経験の詳細」改善指示書 v1 — 「AI：判定できず」の原因調査と結果表示追加
+- 目的: 管理者の経験詳細画面で AI 判定が常に「判定できず」になる原因を調べる／「試したこと」に
+  加えて「結果」を直接表示する。
+- **「AI：判定できず」は既知の仕様どおりの挙動であり、バグではなかった。**
+  `src/lib/ai/moderation.ts` の `runModeration`（14 行目付近）は
+  `if (!env.ai.configured) return FALLBACK;` で、`env.ai.configured`
+  （`src/lib/env.ts`）は `Boolean(process.env.ANTHROPIC_API_KEY)`。このローカル環境の `.env` に
+  `ANTHROPIC_API_KEY` が設定されていないため、AI を一切呼ばずに即座に
+  `{ verdict: "unknown", reason: "AIチェックを実行できませんでした。運営が確認します。" }`
+  を返している。「AI でもう一度チェック」ボタン →
+  `POST /api/admin/posts/{id}/recheck`（`src/app/api/admin/posts/[attemptId]/recheck/route.ts`）
+  → `moderateAttemptContent` → DB 保存 → 画面反映、という経路自体は正常に動作しており、
+  途中でエラーが握りつぶされているわけでもない。
+  - **この挙動は既にドキュメント化済み**（指示書 §4 ケースD「AI判定自体が現在利用できない仕様」に
+    該当）: `docs/admin-manual.md`（トラブルシュート表）に「すべての新規公開が『確認待ち』に
+    なってしまう→ `ANTHROPIC_API_KEY` 未設定の可能性。安全側で全件『確認待ち』になる仕様」、
+    `docs/spec.md`（環境変数一覧）にも同旨の記載が既にある。CLAUDE.md の「仮データ」節にある
+    「未設定でも決定的スタブで動く」（生成 AI 機能）とは異なり、**モデレーションには決定的スタブが
+    無く、キー未設定時は常に `unknown`（＝安全側で必ず人間のレビューに回す）という設計**。
+  - 指示書の「勝手に別仕様へ変更しない」に従い、スタブ判定やキー未設定時の自動承認などは
+    追加していない。
+- **修正した点（UIのみ、1箇所）**: `src/app/admin/posts/[attemptId]/page.tsx` の「経験の内容」に
+  「結果」を追加（「試したこと」の直後）。値は `RESULT_META[attempt.result].label`
+  （`src/lib/constants.ts`、既存の 5 分類の日本語ラベル）をそのまま使い、AI 等での文章生成はしない。
+  `attempt.result` は DB 上 NOT NULL のため、空表示になるケースは無い。
+- 確認して変更しなかった項目: 公開/非公開/保留ボタンと状態遷移（`ModerationDecisionButtons`/
+  `PostAdminControls`）、道の文脈、操作ログ、管理者権限チェック（ページは `requireAdmin()`、
+  moderate/status/recheck の 3 API はいずれも `requireAdminApi()` をサーバー側で必須にしている。
+  フロントの表示制御だけに依存していない）、AI API キーはクライアント・ログに一切出ていない
+  （`grep` で確認）。
+- DB/API は変更していない。
+- 検証: `tsc --noEmit` エラーなし。`npm run test`（vitest）426/426 緑。実際に `ANTHROPIC_API_KEY`
+  を設定して AI 判定が `ok`/`ng` を返すところまでは確認していない（本セッションに実キーが無いため）。
+  ブラウザでの実見た目確認・`npx playwright test` も未実施。
+
+### 2026-09-24 管理画面 UI表示・カラー統一指示書 v1
+- 目的: 管理画面（ダッシュボード／経験を確認／経験の詳細／公開されている経験／仮データ管理／
+  操作ログ）で色や背景の使い方に統一性が無かったのを、「同じ意味には同じ色」という意味ベースの
+  セマンティックカラーに揃える。カード本体の色は変えず、バッジ・ボタンだけで状態を示す方針。
+- **見つかった不統一（実装確認して洗い出した）**:
+  1. `StatusBadge`（`post-card.tsx`、moderationStatus のバッジ）: `approved`（公開中）が
+     `--color-accent`（コーラル/オレンジ、トークンの意図は「アクセント・強調」であって
+     「成功」ではない）で表示されていた。`rejected`（公開しない）は `--color-danger`（赤）で、
+     エラーでないものを赤で表示していた。
+  2. `ModerationDecisionButtons`/`PostAdminControls`（`admin-actions.tsx`）: 「公開する」
+     「やっぱり公開する」ボタンが `--color-accent` 系、「公開しない」「公開を停止」ボタンが
+     `--color-danger`（赤）だった。
+  3. `SeedRowActions`（`seed-data-actions.tsx`）: `admin-actions.tsx` とは別に、ほぼ同じ
+     `BTN`/`BTN_PRIMARY`/`BTN_DANGER`/`BTN_PLAIN` を独自に再実装しており、「公開」ボタンの色は
+     同じく `--color-accent`、かつサイズが `admin-actions.tsx` 側（`px-3 py-1.5 text-sm`）と
+     違っていた（`px-3 py-1 text-xs`）。
+  4. `/admin/seed-data` の `StateBadge`（`PublishState` ベース）も `published` に
+     `--color-accent` を使い、`post-card.tsx` の `StatusBadge` と別実装（色ロジック重複）。
+     ラベルも `reviewing` が「確認中」で、`post-card.tsx`／`admin/posts` の「確認待ち」
+     （`moderationStatus="pending"`）と表記が割れていた。
+  5. `/admin`（ダッシュボード）の「確認が必要なもの」アラート枠も `--color-accent` 系。
+  6. `AdminPostCard` の「結果」は `RESULT_LABEL`（`post-card.tsx` 内の独自コピー、
+     `src/lib/constants.ts` の `RESULT_META` と同じ内容を重複定義）をプレーンテキストで表示する
+     だけで、色もアイコンも無かった。経験詳細（`[attemptId]/page.tsx`）の「結果」表示（今回の
+     直前の指示書で追加）も同様にプレーンテキストだった。
+- **トークン追加（`src/styles/tokens.css`）**: `--color-status-success`/`-warning`/`-neutral`/
+  `-danger`（+ 各 `-soft`）を追加。success/neutral/danger は既存の `--color-primary`/
+  `--color-neutral`/`--color-danger` をそのまま意味づけしたエイリアスで新しい色は増やしていない。
+  warning（確認待ち・保留）だけ、既存パレットに無かったため `#7d6015`
+  （text, `--color-status-warning-soft` `#faf3d9` 背景に対し実測コントラスト比 約5.3:1 で AA 適合）
+  を新規追加。既存の warm/やわらかいトーンに合わせた、派手すぎないマスタード系アンバー。
+  `--color-result-*`（public 側の結果 5 分類の色。`failed` は既にレンガ色 `#b4480e` で純粋な赤
+  `--color-danger` `#b3261e` とは別トークン）は今回変更していない — この指示書は管理画面限定
+  （§23）であり、public 側の Road/Attempt カード・検索結果・自分の道など既存デザインへの影響が
+  大きいため、今回のスコープ外と判断した。管理画面の結果表示も同じ `--color-result-*`/
+  `ResultBadge` をそのまま再利用しており（後述）、public/admin で結果の見た目は統一されている。
+- **新規共有コンポーネント `src/components/admin/admin-ui.tsx`**: `AdminBadge`（tone:
+  success/warning/neutral/danger を渡すだけで高さ・padding・角丸・文字サイズ・枠線・アイコンが
+  揃う）と `ADMIN_BTN`（success/neutral/danger の 3 種、ボタンの色・サイズを 1 箇所に集約）を追加。
+  既存の `Button`/`LinkButton`（`src/components/ui.tsx`）は塗りつぶしスタイルで管理画面の
+  アウトラインスタイルとは見た目が異なるため、大規模な差し替えはせず、管理画面内で重複していた
+  アウトラインボタン実装（上記②③）だけを 1 箇所に統合した（指示書 §25「大規模なコンポーネント
+  再設計は今回行わない」）。
+- **修正した色**:
+  - `StatusBadge`: `pending`→warning、`approved`→success（緑系）、`rejected`→neutral
+    （赤をやめた）。
+  - `VerdictBadge`: `ok`→success、`ng`→danger（維持）、`unknown`→neutral
+    （「システムエラー」に見えないグレー系のまま、バッジ化して枠・背景を統一）。
+  - 「保留中」バッジ（`AdminPostCard`）→warning（確認待ちと同系統。指示書 §7）。
+  - 「公開する」「やっぱり公開する」→success（緑）、「公開しない」「公開を停止」→neutral
+    （危険操作ではないため赤をやめた。指示書 §8/§14）、「削除」は danger のまま。
+  - `StateBadge`（seed-data）: `private`→neutral、`reviewing`→warning、`published`→success、
+    `rejected`→neutral。ラベルも「確認中」→「確認待ち」に統一。
+  - ダッシュボードの「確認が必要なもの」枠 → warning。
+  - 結果表示（`AdminPostCard`・経験詳細）: 独自の `RESULT_LABEL` プレーンテキストをやめ、公開面と
+    同じ `ResultBadge`（`src/components/ui.tsx`、`RESULT_META`＋アイコン＋色）を再利用。
+    「うまくいかなかった」を含め、新しい色を追加していない（上記のとおり `--color-result-*` は
+    今回のスコープ外）。
+- 確認して変更しなかった項目: カード本体の背景・枠線（もともと全カード共通の白＋
+  `--color-border`。状態で全面着色していなかった）、AI カテゴリタグの赤（個人情報・医療断定等の
+  実際の違反フラグなので danger のまま維持が妥当と判断）、各種フォームのエラー表示の赤
+  （`role="alert"` の本物のバリデーションエラー）。
+- 変更していないもの: DB スキーマ、API、認証、公開フロー、AI モデレーションのロジック、
+  Road/Attempt のデータ構造、結果 5 分類そのもの、レイアウト構成。
+- 検証: `tsc --noEmit` エラーなし。`npm run test`（vitest）426/426 緑（クラス名の変更のみで、
+  既存テストは表示テキスト・ロールベースのセレクタを使っており影響なし）。`tests/e2e/admin.spec.ts`
+  はボタンのテキスト（「公開する」「公開しない」「保留」等）で操作しており、今回の色変更では
+  文言を変えていないため影響しないはずだが、`npx playwright test` 自体は未実行。ブラウザでの実見た目
+  確認・コントラスト比の実機検証（今回は手計算のみ）も未実施。
+
+### 2026-09-24 詳細画面カード表示改善 指示書 v3
+- 目的: 管理者の経験詳細（`/admin/posts/[attemptId]`）で「操作」「AI 判定」「経験の内容」
+  「道の文脈」「この経験の操作ログ」の 5 セクションが、ページ背景とほぼ同化して見える問題を直す。
+- 原因: 各 `<section>` が `border border-[var(--color-border)]` は持つが、背景色を一切
+  指定していなかった。ページ本体 (`body`, `src/app/globals.css`) の背景は
+  `--color-canvas`（`#fbf7f0`、淡いベージュ）で、管理画面レイアウト（`src/app/admin/layout.tsx`）
+  もこれを上書きしていないため、枠線だけが薄いベージュの上に浮いている状態だった。
+- 対応: 既存の共通スタイル `.card`（`src/app/globals.css`、`background: var(--color-surface)`
+  ＋ `border: 1px solid var(--color-border)` ＋ `border-radius: var(--radius-lg)` ＋
+  `box-shadow: var(--shadow-card)`）と同じ配色になるよう、5 セクションすべてに
+  `bg-[var(--color-surface)]`（白）を追加した。`.card` クラス自体への置き換えはせず、既存の
+  `rounded-[var(--radius-lg)] border border-[var(--color-border)] p-4` はそのまま維持し
+  背景色だけ足す最小差分にした（一覧側の `AdminPostCard` も影なしで白背景＋枠線のみなので、
+  一覧・詳細で見た目のルールを合わせる意味でも影は追加していない。指示書 §6 は影を必須として
+  いない）。
+- 確認して変更しなかった項目: 角丸（既存の `--radius-lg` のまま、全カード共通）、カード間の余白
+  （`space-y-6`、既存のまま）、カード内 padding（`p-4`、一覧画面の `AdminPostCard` と揃っている
+  ため変更なし）、文字色（`--color-ink`/`--color-ink-muted` は canvas/surface/sunken いずれでも
+  AA 準拠とトークン定義済みのため、白背景化にあたり変更不要と判断）、状態バッジ（前回の
+  「管理画面 UI表示・カラー統一指示書 v1」で導入した `AdminBadge`/`ResultBadge` をそのまま使用、
+  カード自体を状態色で塗りつぶす変更はしていない）。
+- 変更していないもの: DB、API、認証、権限、AI モデレーション、公開・非公開・保留の処理、
+  Road/Attempt/Result の構造、データ内容、検索ロジック、レイアウト構成（セクションの並び順・
+  中身は変更していない）。
+- 検証: `tsc --noEmit` エラーなし。`npm run test`（vitest）426/426 緑。ブラウザでの実見た目
+  確認（PC/スマートフォン）・`npx playwright test` は未実施。

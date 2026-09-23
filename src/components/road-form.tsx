@@ -193,12 +193,12 @@ export function RoadForm() {
 
         <div className="space-y-2">
           <TextAreaField
-            label="以前は何ができていましたか？"
-            hint="いつもできていたこと、以前は問題なくできていたことを書いてください。"
+            label="以前は、どうしていましたか？"
+            hint="いつもできていたことや、以前のやり方を書いてください。"
             value={v.previouslyAble}
             onChange={bind("previouslyAble")}
             error={fieldErrors.previouslyAble}
-            placeholder="例：以前は、一人でシャツのボタンを留められていた"
+            placeholder="例：一人でシャツのボタンを留めていた"
             id={previouslyAbleId}
             maxLength={FIELD_MAX.text}
           />
@@ -209,7 +209,7 @@ export function RoadForm() {
           <TextAreaField
             label="何ができなくなりましたか？"
             required
-            hint="いつもの言葉で。病名や年齢は要りません。あとから変更できません。"
+            hint="いつもの言葉で書いてください。病名や年齢は要りません。"
             value={v.difficulty}
             onChange={bind("difficulty")}
             error={fieldErrors.difficulty}
@@ -222,8 +222,9 @@ export function RoadForm() {
 
         <div className="space-y-2">
           <TextAreaField
-            label="何ができるようになりたいですか？"
+            label="これから、何ができるようになりたいですか？"
             required
+            hint="「完全にできる」ではなくても大丈夫です。"
             value={v.goal}
             onChange={bind("goal")}
             error={fieldErrors.goal}
@@ -243,16 +244,16 @@ export function RoadForm() {
         />
 
         <TextAreaField
-          label="困っている場面（任意）"
+          label="どんな場面で困っていますか？"
           value={v.situation}
           onChange={bind("situation")}
-          placeholder="例：急いでいる朝。指先に力が入りにくいとき。"
+          placeholder="例：朝の着替え、外出時、お風呂の時間など"
           maxLength={FIELD_MAX.text}
         />
 
         <TextAreaField
-          label="メモ（任意）"
-          hint="気づいたこと・気持ちなど。あとから追加・修正できます。"
+          label="メモ・気づき"
+          hint="試してみたいこと、気になったこと、周りの人とのやり取りなど、自由に書いてください。"
           value={v.memo}
           onChange={bind("memo")}
           maxLength={FIELD_MAX.longText}

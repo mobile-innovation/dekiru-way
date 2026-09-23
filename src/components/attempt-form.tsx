@@ -215,10 +215,11 @@ export function AttemptForm({ roadId, attempt }: Props) {
             className="mt-1 h-5 w-5"
           />
           <span>
-            <span className="block font-bold">この記録を「経験」として公開する</span>
+            <span className="block font-bold">この経験を公開する</span>
             <span className="block text-xs text-[var(--color-ink-muted)]">
-              公開すると、同じことで困っている人が検索で見つけられます。名前は表示されません。
-              あとから公開をやめることもできます。
+              あなたの経験が、誰かの次の一歩になるかもしれません。成功した方法だけでなく、
+              うまくいかなかった方法も、同じことで困っている人にとって大切な情報になります。
+              名前は表示されません。あとから公開をやめることもできます。
             </span>
           </span>
         </label>

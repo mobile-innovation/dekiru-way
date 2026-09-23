@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ResultBadge } from "@/components/ui";
+import { AdminBadge, type AdminTone } from "@/components/admin/admin-ui";
 
 const CATEGORY_LABEL: Record<string, string> = {
   personal_info: "個人情報",
@@ -15,18 +17,24 @@ const STATUS_LABEL: Record<string, string> = {
   rejected: "公開停止",
 };
 
+/** moderationStatus → 意味ベースの色調。公開しない/停止はエラーではないため neutral (指示書 §8)。 */
+const STATUS_TONE: Record<string, AdminTone> = {
+  pending: "warning",
+  approved: "success",
+  rejected: "neutral",
+};
+
 const VERDICT_LABEL: Record<string, string> = {
   ok: "問題なし",
   ng: "要確認",
   unknown: "判断できず",
 };
 
-const RESULT_LABEL: Record<string, string> = {
-  success: "できるようになった",
-  partial: "少しできた",
-  no_change: "変化はなかった",
-  failed: "うまくいかなかった",
-  ongoing: "まだ試している",
+/** AI 判定 → 意味ベースの色調。「不明」はシステムエラーと誤認しないよう neutral（指示書 §9）。 */
+const VERDICT_TONE: Record<string, AdminTone> = {
+  ok: "success",
+  ng: "danger",
+  unknown: "neutral",
 };
 
 /** 操作ログ (AdminAuditLog.action) の表示名。管理画面各所で共通利用する。 */
@@ -48,30 +56,18 @@ const ACTION_LABEL: Record<string, string> = {
 };
 
 export function StatusBadge({ status }: { status: string }) {
-  const tone =
-    status === "approved"
-      ? "border-[var(--color-accent)] text-[var(--color-accent-strong)]"
-      : status === "rejected"
-        ? "border-[var(--color-danger)] text-[var(--color-danger)]"
-        : "border-[var(--color-neutral)] text-[var(--color-ink-muted)]";
   return (
-    <span
-      className={`inline-flex rounded-[var(--radius-pill)] border px-2 py-0.5 text-xs font-bold ${tone}`}
-    >
-      {STATUS_LABEL[status] ?? status}
-    </span>
+    <AdminBadge tone={STATUS_TONE[status] ?? "neutral"}>{STATUS_LABEL[status] ?? status}</AdminBadge>
   );
 }
 
 export function VerdictBadge({ verdict }: { verdict: string | null }) {
   if (!verdict) return null;
-  const tone =
-    verdict === "ok"
-      ? "text-[var(--color-accent-strong)]"
-      : verdict === "ng"
-        ? "text-[var(--color-danger)]"
-        : "text-[var(--color-ink-muted)]";
-  return <span className={`text-xs font-bold ${tone}`}>AI: {VERDICT_LABEL[verdict] ?? verdict}</span>;
+  return (
+    <AdminBadge tone={VERDICT_TONE[verdict] ?? "neutral"}>
+      AI: {VERDICT_LABEL[verdict] ?? verdict}
+    </AdminBadge>
+  );
 }
 
 export interface AdminPostCardData {
@@ -96,9 +92,9 @@ export function AdminPostCard({ post }: { post: AdminPostCardData }) {
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge status={post.moderationStatus} />
         {post.moderationHeld && (
-          <span className="inline-flex rounded-[var(--radius-pill)] border border-[var(--color-neutral)] px-2 py-0.5 text-xs font-bold text-[var(--color-ink-muted)]">
+          <AdminBadge tone="warning" icon={null}>
             保留中
-          </span>
+          </AdminBadge>
         )}
         <VerdictBadge verdict={post.aiVerdict} />
         <span className="text-xs text-[var(--color-ink-muted)]">
@@ -132,7 +128,9 @@ export function AdminPostCard({ post }: { post: AdminPostCardData }) {
         </div>
         <div>
           <dt className="text-xs font-bold text-[var(--color-ink-muted)]">結果</dt>
-          <dd>{RESULT_LABEL[post.result] ?? post.result}</dd>
+          <dd>
+            <ResultBadge result={post.result} size="sm" />
+          </dd>
         </div>
         {post.memo && (
           <div>
@@ -165,4 +163,4 @@ export function AdminPostCard({ post }: { post: AdminPostCardData }) {
   );
 }
 
-export { CATEGORY_LABEL, STATUS_LABEL, VERDICT_LABEL, RESULT_LABEL, ACTION_LABEL };
+export { CATEGORY_LABEL, STATUS_LABEL, VERDICT_LABEL, ACTION_LABEL };

@@ -30,7 +30,7 @@ afterEach(() => {
 describe("検索・キーワード欄の × クリアボタン", () => {
   it("入力があるときだけ × が出て、押すと空になる（トップの検索）", () => {
     render(<SearchBox />);
-    const input = screen.getByLabelText("最近、やりにくくなったこと") as HTMLInputElement;
+    const input = screen.getByLabelText("あなたの困りごと") as HTMLInputElement;
 
     // 空のときは × 無し
     expect(screen.queryByRole("button", { name: "困りごとの入力を消す" })).toBeNull();

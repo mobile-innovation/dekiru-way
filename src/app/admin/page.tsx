@@ -86,7 +86,7 @@ export default async function AdminDashboardPage() {
             )}
           </div>
         ) : (
-          <div className="rounded-[var(--radius-lg)] border border-[var(--color-accent)] bg-[var(--color-accent-soft)] p-4">
+          <div className="rounded-[var(--radius-lg)] border border-[var(--color-status-warning)] bg-[var(--color-status-warning-soft)] p-4">
             <p className="text-base">
               <span className="text-2xl font-bold">{needsReview}</span> 件の経験があります
               {s.pendingHeld > 0 && (

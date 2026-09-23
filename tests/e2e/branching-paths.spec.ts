@@ -261,21 +261,27 @@ test("経験を探す: 方法カードも道カードとは別に ?mp= でペー
       },
     })
   ).json();
-  for (let i = 1; i <= 25; i++) {
-    await page.request.post(`/api/v1/roads/${road.id}/attempts`, {
-      data: { method: `${word} その${i}`, result: "ongoing", isPublished: true },
-    });
+  try {
+    for (let i = 1; i <= 25; i++) {
+      await page.request.post(`/api/v1/roads/${road.id}/attempts`, {
+        data: { method: `${word} その${i}`, result: "ongoing", isPublished: true },
+      });
+    }
+
+    await page.goto("/experiences?q=" + encodeURIComponent(word) + "&kind=method");
+    await expect(page.getByRole("heading", { name: /方法の中にあった記録/ })).toBeVisible();
+    // 20 件表示 + 次ページ
+    await expect(page.locator("article").filter({ hasText: "方法の記録" })).toHaveCount(20);
+    const nav = page.getByRole("navigation", { name: /方法の記録のページ送り/ });
+    await nav.getByRole("link", { name: /次のページ/ }).click();
+
+    await expect(page).toHaveURL(/[?&]mp=2(&|$)/);
+    await expect(page.locator("article").filter({ hasText: "方法の記録" })).toHaveCount(5);
+  } finally {
+    // 公開 Attempt を 25 件作るため、後始末しないと「経験を探す」の検索結果・件数表示に
+    // 恒久的なテストデータとして残り続ける（「経験を探すページ改善指示書 v1」§23/§24 で発覚）。
+    await page.request.delete(`/api/v1/roads/${road.id}`);
   }
-
-  await page.goto("/experiences?q=" + encodeURIComponent(word) + "&kind=method");
-  await expect(page.getByRole("heading", { name: /方法の中にあった記録/ })).toBeVisible();
-  // 20 件表示 + 次ページ
-  await expect(page.locator("article").filter({ hasText: "方法の記録" })).toHaveCount(20);
-  const nav = page.getByRole("navigation", { name: /方法の記録のページ送り/ });
-  await nav.getByRole("link", { name: /次のページ/ }).click();
-
-  await expect(page).toHaveURL(/[?&]mp=2(&|$)/);
-  await expect(page.locator("article").filter({ hasText: "方法の記録" })).toHaveCount(5);
 });
 
 test("v6: 「現在」は各方法カードの中にある（その方法を試した結果）", async ({ page, request }) => {
@@ -317,51 +323,57 @@ test("方法が多いとページが切り替わるが、枝分かれ（親子�
   });
   const road = await roadRes.json();
 
-  const ids: string[] = [];
-  for (let i = 1; i <= 12; i++) {
-    const r = await page.request.post(`/api/v1/roads/${road.id}/attempts`, {
-      data: {
-        method: `ページ分割の方法 ${i}`,
-        result: "ongoing",
-        isPublished: true,
-        triedAt: `2025-01-${String(i).padStart(2, "0")}`,
-      },
-    });
-    const created = await r.json();
-    ids.push(created.id);
-    // stateAfter / previousAttemptId (11 件目は 10 件目「方法J」の続き) は登録 API では
-    // 設定できなくなったため、表示ロジック（road-detail.ts）の検証用に DB へ直接書き込む。
-    await prisma.attempt.update({
-      where: { id: created.id },
-      data: {
-        stateAfter: `方法 ${i} のあとの状態`,
-        ...(i === 11 ? { previousAttemptId: ids[9] } : {}),
-      },
-    });
+  try {
+    const ids: string[] = [];
+    for (let i = 1; i <= 12; i++) {
+      const r = await page.request.post(`/api/v1/roads/${road.id}/attempts`, {
+        data: {
+          method: `ページ分割の方法 ${i}`,
+          result: "ongoing",
+          isPublished: true,
+          triedAt: `2025-01-${String(i).padStart(2, "0")}`,
+        },
+      });
+      const created = await r.json();
+      ids.push(created.id);
+      // stateAfter / previousAttemptId (11 件目は 10 件目「方法J」の続き) は登録 API では
+      // 設定できなくなったため、表示ロジック（road-detail.ts）の検証用に DB へ直接書き込む。
+      await prisma.attempt.update({
+        where: { id: created.id },
+        data: {
+          stateAfter: `方法 ${i} のあとの状態`,
+          ...(i === 11 ? { previousAttemptId: ids[9] } : {}),
+        },
+      });
+    }
+
+    // --- 1 ページ目: 方法J と その子 方法J-2 は同じページに収まる（10 で切らない） ---
+    await page.goto(`/experiences/${ids[0]}`);
+    await expect(page.getByRole("heading", { name: "この人がたどった道" })).toBeVisible();
+    await expect(page.getByText("1 / 2 ページ")).toBeVisible();
+    await expect(page.getByRole("link", { name: /次のページ/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /前のページ/ })).toHaveCount(0);
+    await expect(page.getByText("方法A", { exact: true })).toBeVisible();
+    await expect(page.getByText("方法J", { exact: true })).toBeVisible();
+    // 親（方法J）と子（方法J-2）が同じページ。境界をまたがないので続き表示は出ない。
+    await expect(page.getByText(/方法J-\d/)).toBeVisible();
+    await expect(page.getByText("方法K", { exact: true })).toHaveCount(0);
+    await expect(page.getByText(/からの続き/)).toHaveCount(0);
+    await expect(page.getByText("↓ この先は次のページに続きます")).toBeVisible();
+
+    // --- 2 ページ目: 独立した次の方法グループ（方法K）だけ。先頭が子にならない。 ---
+    await page.getByRole("link", { name: /次のページ/ }).click();
+    await expect(page).toHaveURL(new RegExp(`/experiences/${ids[0]}\\?p=2$`));
+    await expect(page.getByText("2 / 2 ページ")).toBeVisible();
+    await expect(page.getByText("方法A", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("方法K", { exact: true })).toBeVisible();
+    await expect(page.getByText(/方法J-\d/)).toHaveCount(0);
+    await expect(page.getByText(/からの続き/)).toHaveCount(0);
+    // 現在（state_after）はページを変えても各方法に残る
+    await expect(page.getByText("現在：", { exact: false }).first()).toBeVisible();
+  } finally {
+    // 公開 Attempt を 12 件作るため、後始末しないと「経験を探す」に恒久的に残り続ける
+    // （「経験を探すページ改善指示書 v1」§23/§24 で発覚）。
+    await page.request.delete(`/api/v1/roads/${road.id}`);
   }
-
-  // --- 1 ページ目: 方法J と その子 方法J-2 は同じページに収まる（10 で切らない） ---
-  await page.goto(`/experiences/${ids[0]}`);
-  await expect(page.getByRole("heading", { name: "この人がたどった道" })).toBeVisible();
-  await expect(page.getByText("1 / 2 ページ")).toBeVisible();
-  await expect(page.getByRole("link", { name: /次のページ/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /前のページ/ })).toHaveCount(0);
-  await expect(page.getByText("方法A", { exact: true })).toBeVisible();
-  await expect(page.getByText("方法J", { exact: true })).toBeVisible();
-  // 親（方法J）と子（方法J-2）が同じページ。境界をまたがないので続き表示は出ない。
-  await expect(page.getByText(/方法J-\d/)).toBeVisible();
-  await expect(page.getByText("方法K", { exact: true })).toHaveCount(0);
-  await expect(page.getByText(/からの続き/)).toHaveCount(0);
-  await expect(page.getByText("↓ この先は次のページに続きます")).toBeVisible();
-
-  // --- 2 ページ目: 独立した次の方法グループ（方法K）だけ。先頭が子にならない。 ---
-  await page.getByRole("link", { name: /次のページ/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/experiences/${ids[0]}\\?p=2$`));
-  await expect(page.getByText("2 / 2 ページ")).toBeVisible();
-  await expect(page.getByText("方法A", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("方法K", { exact: true })).toBeVisible();
-  await expect(page.getByText(/方法J-\d/)).toHaveCount(0);
-  await expect(page.getByText(/からの続き/)).toHaveCount(0);
-  // 現在（state_after）はページを変えても各方法に残る
-  await expect(page.getByText("現在：", { exact: false }).first()).toBeVisible();
 });

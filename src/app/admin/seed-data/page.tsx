@@ -2,29 +2,31 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/auth";
 import { listSeedData } from "@/lib/admin/seed-data";
 import { SeedRowActions } from "@/components/admin/seed-data-actions";
+import { AdminBadge, type AdminTone } from "@/components/admin/admin-ui";
 import type { PublishState } from "@/lib/publish-state";
 
 export const dynamic = "force-dynamic";
 
 type SearchParams = Promise<{ page?: string; state?: string }>;
 
+// 「確認待ち」は経験確認キュー（post-card.tsx の moderationStatus="pending"）と表記を揃える
+// （以前はここだけ「確認中」だった。指示書「管理画面 UI表示・カラー統一指示書 v1」§4）。
 const STATE_LABEL: Record<PublishState, string> = {
   private: "非公開",
-  reviewing: "確認中",
+  reviewing: "確認待ち",
   published: "公開中",
   rejected: "公開停止",
 };
 
+const STATE_TONE: Record<PublishState, AdminTone> = {
+  private: "neutral",
+  reviewing: "warning",
+  published: "success",
+  rejected: "neutral",
+};
+
 function StateBadge({ state }: { state: PublishState }) {
-  const tone =
-    state === "published"
-      ? "border-[var(--color-accent)] text-[var(--color-accent-strong)]"
-      : "border-[var(--color-neutral)] text-[var(--color-ink-muted)]";
-  return (
-    <span className={`inline-flex rounded-[var(--radius-pill)] border px-2 py-0.5 text-xs font-bold ${tone}`}>
-      {STATE_LABEL[state]}
-    </span>
-  );
+  return <AdminBadge tone={STATE_TONE[state]}>{STATE_LABEL[state]}</AdminBadge>;
 }
 
 function ymd(iso: string) {

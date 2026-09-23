@@ -51,6 +51,20 @@
   --color-neutral: #5a5a5a;
   --color-neutral-soft: #eeeeee;
 
+  /* 管理画面のステータス色 (指示書「管理画面 UI表示・カラー統一指示書 v1」)。
+     「同じ意味には同じ色」を管理画面全体で徹底するための意味ベースのエイリアス。
+     success/neutral/danger は既存トークンをそのまま意味づけしたもの。warning (確認待ち・保留)
+     だけ、既存パレットに無かったため新規追加した (派手な新色ではなく、canvas と同系統の
+     落ち着いたアンバー)。 */
+  --color-status-success: var(--color-primary);
+  --color-status-success-soft: var(--color-primary-soft);
+  --color-status-warning: #7d6015;
+  --color-status-warning-soft: #faf3d9;
+  --color-status-neutral: var(--color-neutral);
+  --color-status-neutral-soft: var(--color-neutral-soft);
+  --color-status-danger: var(--color-danger);
+  --color-status-danger-soft: var(--color-danger-soft);
+
   /* 角丸 */
   --radius-sm: 0.5rem;
   --radius-md: 0.875rem;

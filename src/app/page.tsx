@@ -13,13 +13,7 @@ import {
   IconSprout,
   resultIcon,
 } from "@/components/icons";
-import {
-  ATTEMPT_RESULTS,
-  NOTICE_CARDS,
-  NOTICE_CHANGE_PROMPTS,
-  resultMeta,
-  SEARCH_EXAMPLES,
-} from "@/lib/constants";
+import { ATTEMPT_RESULTS, resultMeta, SEARCH_EXAMPLES } from "@/lib/constants";
 import { getPathClusters } from "@/lib/queries";
 import { guardPublicPage } from "@/lib/page-guard";
 
@@ -102,47 +96,6 @@ export default async function TopPage() {
         本文 (max-w-5xl) より少し広く、xl 以上で max-w-6xl。個別に max-width を持たせず
         この 1 つの共通コンテナで幅を決める。 */}
       <div className="mx-auto w-full max-w-5xl space-y-10 pt-10 xl:max-w-6xl">
-        {/* ── 気づきの入口 (トップページ変更指示書 v1 §5 / §7)。「できなくなった」と
-          自覚していない人が、自分の変化パターンに気づくための短い選択肢と、
-          日常の小さな変化のカード。検索直後の空白を埋め、①なんとなく前と違う
-          という気づきから②探すへ自然につなげる。 */}
-        <section aria-labelledby="notice-heading" className="space-y-3">
-          <h2 id="notice-heading" className="text-lg font-bold">
-            こんな変化、ありませんか？
-          </h2>
-          <ul className="flex flex-wrap gap-2">
-            {NOTICE_CHANGE_PROMPTS.map((p) => (
-              <li key={p}>
-                <Link
-                  href={`/experiences?q=${encodeURIComponent(p)}`}
-                  className="inline-flex items-center rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3.5 py-2 text-sm no-underline transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]"
-                >
-                  {p}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section aria-labelledby="notice-cards-heading" className="space-y-3">
-          <h2 id="notice-cards-heading" className="text-lg font-bold">
-            「これも、できなくなったことかも」
-          </h2>
-          <ul className="grid gap-4 sm:grid-cols-2">
-            {NOTICE_CARDS.map((c) => (
-              <li key={c.title}>
-                <Link
-                  href={`/experiences?q=${encodeURIComponent(c.query)}`}
-                  className="block h-full rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 no-underline transition-shadow hover:shadow-[var(--shadow-lift)]"
-                >
-                  <p className="font-bold text-[var(--color-ink)]">{c.title}</p>
-                  <p className="mt-1.5 text-sm text-[var(--color-ink-muted)]">{c.desc}</p>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-
         {/* ── ② 8枚のストーリー。スライダーではなく ①→⑧ を並べて見せる。
           スマホ 1 列 / タブレット以上 2 列。画像内の日本語が読める大きさを優先。 */}
         <StoryStrip />

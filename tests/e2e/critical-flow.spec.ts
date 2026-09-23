@@ -10,7 +10,7 @@ import { test, expect } from "@playwright/test";
 test("困りごと入力 → 誰かの経験 → 自分の道に failed と success を残す", async ({ page }) => {
   // --- 未ログインでトップから検索 ---
   await page.goto("/");
-  await page.getByRole("searchbox", { name: "最近、やりにくくなったこと" }).fill("ボタン");
+  await page.getByRole("searchbox", { name: "あなたの困りごと" }).fill("ボタン");
   await page.getByRole("button", { name: "似た経験を探す" }).click();
 
   await expect(page).toHaveURL(/\/experiences\?q=/);
@@ -29,11 +29,13 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
   await page.waitForURL(/\/me\/roads\/new$/);
 
   // --- 道を作る (1 画面のフォーム) ---
-  await page.getByLabel("以前は何ができていましたか？").fill("以前は自分で結べていた");
+  await page.getByLabel("以前は、どうしていましたか？").fill("以前は自分で結べていた");
   await page
     .getByLabel("何ができなくなりましたか？")
     .fill("エコバッグの結び目がほどけない");
-  await page.getByLabel("何ができるようになりたいですか？").fill("買い物のあと自分で片付けたい");
+  await page
+    .getByLabel("これから、何ができるようになりたいですか？")
+    .fill("買い物のあと自分で片付けたい");
   await page.getByRole("button", { name: "この道を作る" }).click();
   await expect(page).toHaveURL(/\/me\/roads\/[0-9a-f-]{36}$/);
   const roadUrl = page.url();
@@ -47,7 +49,7 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
     await page.getByRole("link", { name: "試したことを記録" }).click();
     // 新規記録は「経験として公開」が既定 OFF（オプトイン。公開設定の初期値修正指示）
     const publishCheckbox1 = page.getByRole("checkbox", {
-      name: /この記録を「経験」として公開する/,
+      name: /この経験を公開する/,
     });
     await expect(publishCheckbox1).not.toBeChecked();
     await publishCheckbox1.check();
@@ -59,9 +61,9 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
     // --- Attempt: success ---
     await page.getByRole("link", { name: "試したことを記録" }).click();
     await expect(
-      page.getByRole("checkbox", { name: /この記録を「経験」として公開する/ }),
+      page.getByRole("checkbox", { name: /この経験を公開する/ }),
     ).not.toBeChecked();
-    await page.getByRole("checkbox", { name: /この記録を「経験」として公開する/ }).check();
+    await page.getByRole("checkbox", { name: /この経験を公開する/ }).check();
     await page.getByLabel("どんな方法を試しましたか？").fill("マグネット式のバッグ留めに替えた");
     await page.getByRole("radio", { name: /^できるようになった/ }).click();
     await page.getByRole("button", { name: "記録する" }).click();

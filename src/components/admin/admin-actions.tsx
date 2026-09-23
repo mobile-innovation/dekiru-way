@@ -3,12 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { api, ClientApiError } from "@/lib/client/api";
+import { ADMIN_BTN } from "@/components/admin/admin-ui";
 
-const BTN =
-  "tap-target inline-flex items-center justify-center gap-1 rounded-[var(--radius-pill)] border px-3 py-1.5 text-sm font-semibold disabled:opacity-50";
-const BTN_PRIMARY = `${BTN} border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-strong)]`;
-const BTN_DANGER = `${BTN} border-[var(--color-danger)] bg-[var(--color-surface)] text-[var(--color-danger)]`;
-const BTN_PLAIN = `${BTN} border-[var(--color-neutral)] bg-[var(--color-neutral-soft)] text-[var(--color-ink-muted)]`;
+// 主操作 (公開する 等) はブランドの緑系、非公開操作 (公開しない／公開を停止) は危険操作ではないため
+// ニュートラル、削除など本当に危険な操作だけ赤系にする (指示書「管理画面 UI表示・カラー統一指示書 v1」§8/§14)。
+const BTN_PRIMARY = ADMIN_BTN.success;
+const BTN_PLAIN = ADMIN_BTN.neutral;
 
 // 管理ログインの入力欄。16px（iOS の自動ズーム回避）＋ フォーカスで枠色とリング。
 const LOGIN_INPUT =
@@ -147,7 +147,7 @@ export function ModerationDecisionButtons({ id, held = false }: { id: string; he
         type="button"
         disabled={pending}
         onClick={() => run("reject", "公開しないにしました")}
-        className={BTN_DANGER}
+        className={BTN_PLAIN}
       >
         公開しない
       </button>
@@ -222,7 +222,7 @@ export function PostAdminControls({
           type="button"
           disabled={pending}
           onClick={() => setStatus("pending", `公開中の${ep.noun}を公開停止して確認待ちに戻しますか？`)}
-          className={BTN_DANGER}
+          className={BTN_PLAIN}
         >
           公開を停止
         </button>

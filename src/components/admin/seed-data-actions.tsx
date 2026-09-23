@@ -4,17 +4,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { api, ClientApiError } from "@/lib/client/api";
+import { ADMIN_BTN } from "@/components/admin/admin-ui";
 
 /**
  * 仮データ一覧の 1 行ぶんの操作 (実装指示書 4-1 / 10 / 11 / 12)。
  * 公開・非公開・削除はすべて 1 件ずつ。一括操作は用意しない。
+ * ボタンの色・サイズは他の管理画面（admin-actions.tsx）と共通の `ADMIN_BTN` を使う
+ * （指示書「管理画面 UI表示・カラー統一指示書 v1」§14/§15/§25。以前はこのファイル独自の
+ * サイズ・色で個別実装しており、他画面のボタンとサイズ・色が揃っていなかった）。
  */
 
-const BTN =
-  "tap-target inline-flex items-center justify-center rounded-[var(--radius-pill)] border px-3 py-1 text-xs font-semibold disabled:opacity-50";
-const BTN_PRIMARY = `${BTN} border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-strong)]`;
-const BTN_PLAIN = `${BTN} border-[var(--color-neutral)] bg-[var(--color-neutral-soft)] text-[var(--color-ink-muted)]`;
-const BTN_DANGER = `${BTN} border-[var(--color-danger)] bg-[var(--color-surface)] text-[var(--color-danger)]`;
+const BTN_PRIMARY = ADMIN_BTN.success;
+const BTN_PLAIN = ADMIN_BTN.neutral;
+const BTN_DANGER = ADMIN_BTN.danger;
 
 export function SeedRowActions({
   roadId,

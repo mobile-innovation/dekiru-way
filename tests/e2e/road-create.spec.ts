@@ -32,13 +32,13 @@ test("2 番目の必須（できるようになりたいこと）が空でもエ
   await expect(page.getByText(/できるようになりたいこと」を書いてください/).first()).toBeVisible();
 });
 
-test("「以前は何ができていましたか？」に必須マークが出ない。未入力でも道を作成できる", async ({
+test("「以前は、どうしていましたか？」に必須マークが出ない。未入力でも道を作成できる", async ({
   page,
 }) => {
   await login(page);
   // 必須項目は label 内に "*"（aria-hidden）＋ sr-only「（必須）」が付く（form.tsx の Field 実装）。
-  // 「以前は何ができていましたか？」のラベルにはどちらも付かないことを確認する。
-  const previouslyAbleLabel = page.locator("label", { hasText: "以前は何ができていましたか？" });
+  // 「以前は、どうしていましたか？」のラベルにはどちらも付かないことを確認する。
+  const previouslyAbleLabel = page.locator("label", { hasText: "以前は、どうしていましたか？" });
   await expect(previouslyAbleLabel).not.toContainText("必須");
   await expect(previouslyAbleLabel.getByText("*", { exact: true })).toHaveCount(0);
   // 対照: 「できなくなったこと」（必須のまま）には付いている
@@ -47,7 +47,7 @@ test("「以前は何ができていましたか？」に必須マークが出�
 
   const marker = `以前任意テスト ${Date.now()}`;
   await page.getByLabel("何ができなくなりましたか？").fill(marker);
-  await page.getByLabel("何ができるようになりたいですか？").fill("できるようになりたい");
+  await page.getByLabel("これから、何ができるようになりたいですか？").fill("できるようになりたい");
   await page.getByRole("button", { name: "この道を作る" }).click();
   await expect(page).toHaveURL(/\/me\/roads\/[0-9a-f-]{36}$/);
 });
@@ -70,9 +70,9 @@ test("長い「できなくなったこと」でも道を作成でき、作っ�
     "できれば、道具を使ってでもいいので、自分のペースで身支度を整えられるようになりたい。";
   expect(long.length).toBeGreaterThan(120);
 
-  await page.getByLabel("以前は何ができていましたか？").fill("以前は自分でボタンを留められていた");
+  await page.getByLabel("以前は、どうしていましたか？").fill("以前は自分でボタンを留められていた");
   await page.getByLabel("何ができなくなりましたか？").fill(long);
-  await page.getByLabel("何ができるようになりたいですか？").fill("朝、自分で着替えを済ませたい");
+  await page.getByLabel("これから、何ができるようになりたいですか？").fill("朝、自分で着替えを済ませたい");
   await page.getByRole("button", { name: "この道を作る" }).click();
 
   await expect(page).toHaveURL(/\/me\/roads\/[0-9a-f-]{36}$/);
@@ -115,9 +115,9 @@ test("「いつ頃から難しくなりましたか？」に値を入れると�
 test("送信ボタンは連打しても道は 1 件しか作られない", async ({ page }) => {
   await login(page);
   const marker = `二重送信テスト ${Date.now()}`;
-  await page.getByLabel("以前は何ができていましたか？").fill("以前はできていた");
+  await page.getByLabel("以前は、どうしていましたか？").fill("以前はできていた");
   await page.getByLabel("何ができなくなりましたか？").fill(marker);
-  await page.getByLabel("何ができるようになりたいですか？").fill("できるようになりたい");
+  await page.getByLabel("これから、何ができるようになりたいですか？").fill("できるようになりたい");
 
   const btn = page.getByRole("button", { name: /この道を作る|作成しています/ });
   await Promise.all([
