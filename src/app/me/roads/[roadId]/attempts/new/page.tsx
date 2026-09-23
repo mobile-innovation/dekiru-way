@@ -38,7 +38,7 @@ export default async function NewAttemptPage({
           うまくいったことも、いかなかったことも記録できます。どちらも次の誰かの役に立ちます。
         </p>
       </div>
-      <AttemptForm roadId={roadId} initialTags={road.tags} />
+      <AttemptForm roadId={roadId} />
     </div>
   );
 }

@@ -37,7 +37,7 @@ export default async function EditAttemptPage({
         </h1>
       </div>
 
-      <AttemptForm roadId={roadId} initialTags={road.tags} attempt={attempt} />
+      <AttemptForm roadId={roadId} attempt={attempt} />
     </div>
   );
 }

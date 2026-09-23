@@ -3,13 +3,11 @@
 import type { ComponentProps, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { TextField, TextAreaField, Field } from "@/components/form";
-import { VoiceInputButton } from "@/components/voice-input-button";
+import { TextAreaField, Field } from "@/components/form";
 import {
   IconCheckCircle,
   IconFlask,
   IconGlobe,
-  IconLightbulb,
   IconNotebookPen,
   resultIcon,
 } from "@/components/icons";
@@ -39,48 +37,35 @@ function Section({
 }
 
 /**
- * ⑥ 試したことを記録 / 編集（登録画面・登録項目 更新指示書）。
+ * ⑥ 試したことを記録 / 編集（記録を編集画面 変更指示書 v1）。
  * 5 分類は必須。failed も success と同じ経路で保存する (指示書 2/23)。
  *
- * 「できた度」「気持ち」「その後」「前に試した方法」は今回の更新で登録項目から外した
- * （現行 DB/API 仕様（method/result/triedAt/memo/isPublished/nextAction）に一致させるため。
- * 既存データの表示（分岐ツリー・カードのバッジ等）は変更していないので、過去の記録は
- * そのまま見える。「気持ち」「その後」の内容は 1 項目「メモ・気づき」に統合した）。
+ * 入力項目を「試したこと」「結果」「メモ・気づき（任意）」「公開設定」に絞り、
+ * 記録するハードルを下げる（v1 §2-7）。音声入力・次の一歩・試した時期・タグ入力は
+ * この画面からは外したが、DB/API 側の method/result/triedAt/memo/isPublished/nextAction
+ * ／タグ機能は変更しない。UI から集めていない項目は保存ペイロードに含めず、
+ * 既存値を意図せず NULL・空文字で上書きしない（指示書「実装時の注意」5）。
  */
 
 interface Props {
   roadId: string;
-  initialTags?: string[];
   attempt?: AttemptDTO; // あれば編集モード
 }
 
-export function AttemptForm({ roadId, initialTags = [], attempt }: Props) {
+export function AttemptForm({ roadId, attempt }: Props) {
   const router = useRouter();
   const editing = Boolean(attempt);
 
   const [method, setMethod] = useState(attempt?.method ?? "");
   const [result, setResult] = useState<string>(attempt?.result ?? "");
-  const [triedAt, setTriedAt] = useState(attempt?.triedAt ?? "");
   const [memo, setMemo] = useState(attempt?.memo ?? "");
   // 新規記録は既定で「公開」OFF（オプトイン。編集時は既存の値をそのまま尊重する。
   // 「試したことを記録」公開設定の初期値修正指示）。
   const [isPublished, setIsPublished] = useState(attempt?.isPublished ?? false);
-  const [tags, setTags] = useState(initialTags.join(", "));
-  const [nextAction, setNextAction] = useState(attempt?.nextAction ?? "");
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  async function syncTags() {
-    const list = tags
-      .split(/[,、\s]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    await api.patch(`/api/v1/roads/${roadId}`, { tags: list }).catch(() => {
-      /* タグ同期失敗は致命的でない */
-    });
-  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -98,13 +83,13 @@ export function AttemptForm({ roadId, initialTags = [], attempt }: Props) {
 
     setBusy(true);
     try {
+      // triedAt / nextAction / タグはこの画面から集めていない。キー自体を送らず、
+      // 編集時は既存値をそのまま残す（新規時は未設定のまま作成される）。
       const payload = {
         method: method.trim(),
         result,
-        triedAt: triedAt || null,
         memo: memo || null,
         isPublished,
-        nextAction: nextAction.trim() || null,
       };
 
       if (editing && attempt) {
@@ -112,8 +97,6 @@ export function AttemptForm({ roadId, initialTags = [], attempt }: Props) {
       } else {
         await api.post<AttemptDTO>(`/api/v1/roads/${roadId}/attempts`, payload);
       }
-
-      await syncTags();
 
       router.push(`/me/roads/${roadId}`);
       router.refresh();
@@ -146,15 +129,15 @@ export function AttemptForm({ roadId, initialTags = [], attempt }: Props) {
       {/* ① 何を試したか */}
       <Section icon={IconFlask} title="試したこと">
         <TextAreaField
-          label="何を試しましたか？"
+          label="どんな方法を試しましたか？"
+          hint="実際にやってみた方法を書いてください。"
           required
           value={method}
           onChange={(e) => setMethod(e.target.value)}
           error={fieldErrors.method}
-          placeholder="例：ボタンエイド（ボタンを通す道具）を使ってみた"
+          placeholder={"例：クッションを変えてみた\n例：別の道具を使ってみた"}
           maxLength={FIELD_MAX.text}
         />
-        <VoiceInputButton onResult={(t) => setMethod((v) => (v ? `${v} ${t}` : t))} />
       </Section>
 
       {/* ② 結果 */}
@@ -210,45 +193,19 @@ export function AttemptForm({ roadId, initialTags = [], attempt }: Props) {
         </Field>
       </Section>
 
-      {/* ③ 次の一歩 */}
-      <Section icon={IconLightbulb} title="次の一歩">
-        <TextField
-          label="このあと、次に試すことは？"
-          value={nextAction}
-          onChange={(e) => setNextAction(e.target.value)}
-          placeholder="例：音声タイマーを試す"
-          maxLength={FIELD_MAX.text}
-        />
-      </Section>
-
-      {/* ④ 記録情報 */}
-      <Section icon={IconNotebookPen} title="記録情報">
-        <TextField
-          label="試した時期"
-          type="date"
-          value={triedAt}
-          onChange={(e) => setTriedAt(e.target.value)}
-          error={fieldErrors.triedAt}
-        />
-
+      {/* ③ メモ・気づき */}
+      <Section icon={IconNotebookPen} title="メモ・気づき">
         <TextAreaField
-          label="メモ・気づき"
-          hint="試してみて感じたこと、気づいたこと、変化などを自由に書いてください。"
+          label="メモ・気づき（任意）"
+          hint="やってみて感じたこと、気づいたこと、変化などを自由に書いてください。"
           value={memo}
           onChange={(e) => setMemo(e.target.value)}
-          placeholder="やってみて感じたこと、次に活かせそうなこと"
+          placeholder="例：やってみて分かったこと、次に活かせそうなこと"
           maxLength={FIELD_MAX.longText}
-        />
-
-        <TextField
-          label="タグ（カンマ区切り。この道につきます）"
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-          placeholder="例：着替え, 手先, 朝の支度"
         />
       </Section>
 
-      {/* ⑤ 公開設定 */}
+      {/* ④ 公開設定 */}
       <Section icon={IconGlobe} title="公開設定">
         <label className="flex items-start gap-3">
           <input
@@ -280,7 +237,7 @@ export function AttemptForm({ roadId, initialTags = [], attempt }: Props) {
           disabled={busy}
           className="tap-target rounded-[var(--radius-pill)] bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-[var(--color-primary-ink)] disabled:opacity-60"
         >
-          {busy ? "保存中…" : editing ? "変更を保存" : "記録する"}
+          {busy ? "保存中…" : editing ? "保存する" : "記録する"}
         </button>
       </div>
     </form>

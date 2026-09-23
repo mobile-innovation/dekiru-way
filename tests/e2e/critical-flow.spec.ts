@@ -10,7 +10,7 @@ import { test, expect } from "@playwright/test";
 test("困りごと入力 → 誰かの経験 → 自分の道に failed と success を残す", async ({ page }) => {
   // --- 未ログインでトップから検索 ---
   await page.goto("/");
-  await page.getByRole("searchbox", { name: "あなたの困りごと" }).fill("ボタン");
+  await page.getByRole("searchbox", { name: "最近、やりにくくなったこと" }).fill("ボタン");
   await page.getByRole("button", { name: "似た経験を探す" }).click();
 
   await expect(page).toHaveURL(/\/experiences\?q=/);
@@ -51,7 +51,7 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
     });
     await expect(publishCheckbox1).not.toBeChecked();
     await publishCheckbox1.check();
-    await page.getByLabel("何を試しましたか？").fill("片手で結ぼうとした");
+    await page.getByLabel("どんな方法を試しましたか？").fill("片手で結ぼうとした");
     await page.getByRole("radio", { name: /^うまくいかなかった/ }).click();
     await page.getByRole("button", { name: "記録する" }).click();
     await expect(page).toHaveURL(roadUrl);
@@ -62,7 +62,7 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
       page.getByRole("checkbox", { name: /この記録を「経験」として公開する/ }),
     ).not.toBeChecked();
     await page.getByRole("checkbox", { name: /この記録を「経験」として公開する/ }).check();
-    await page.getByLabel("何を試しましたか？").fill("マグネット式のバッグ留めに替えた");
+    await page.getByLabel("どんな方法を試しましたか？").fill("マグネット式のバッグ留めに替えた");
     await page.getByRole("radio", { name: /^できるようになった/ }).click();
     await page.getByRole("button", { name: "記録する" }).click();
     await expect(page).toHaveURL(roadUrl);
