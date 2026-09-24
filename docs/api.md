@@ -13,9 +13,11 @@
 - 公開 GET（`/experiences*`, `/tags*`）は認証不要だが**無制限ではない**（追加指示書 v1）:
   - IP 単位のレート/バースト制限、`page` の高速連続巡回・同一クエリ連打の検知 → `429`（`Retry-After` 付き、悪質時は一時ブロック）
   - `limit ≤ 50`、`page ≤ 100`、かつ `(page-1)*limit < 500`（超過は `400`）。全件取得 API は無い
-  - 既知の AI クローラー UA は `403`（`GET` でもページでも）。`X-Robots-Tag` はパス別（トップ `/` は `index,follow`、他の公開ページは `noindex,follow`、`/login`・`/me*`・`/admin*` は `noindex,nofollow`）＋ どのページも `noai, noimageai`
+  - 既知の AI クローラー UA は `403`（`GET` でもページでも）。`X-Robots-Tag` はパス別（トップ `/` と
+    経験詳細 `/experiences/[id]` は `index,follow`、他の公開ページ（検索一覧・タグ・道の見える化等）は
+    `noindex,follow`、`/login`・`/me*`・`/admin*` は `noindex,nofollow`）＋ どのページも `noai, noimageai`
   - レスポンスに内部 ID（`user_id` / `google_sub` / `road_id`）は含めない
-  - `robots.txt` は一般クローラーに `/api/` と `/admin` のみ Disallow（他は `noindex` を読ませる）、AI クローラーは全体不可。`sitemap.xml` はトップのみ。詳細は `docs/implementation-decisions.md` §7-bis / 2026-09-10 変更ログ
+  - `robots.txt` は一般クローラーに `/api/` と `/admin` のみ Disallow（他は `noindex` を読ませる）、AI クローラーは全体不可。`sitemap.xml` はトップ＋公開・承認済みの経験詳細を列挙。詳細は `docs/implementation-decisions.md` 2026-09-10 変更ログ／2026-09-20 改定
 
 ---
 
@@ -72,7 +74,8 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
 ```
 作成時（POST）は `difficulty`/`goal` が必須（空文字・省略は 400）。`previouslyAble` を含む
 それ以外は任意。更新（PATCH）はすべて optional。`tags` を省略するとタグは変更されない。
-`difficulty` は「まだ空なら初回だけ設定可、値が入ったら以後は変更不可」（道の同一性を保つため）。
+`difficulty` は他の必須項目と同じ通常の編集可能項目（2026-09-11 に「一度値が入ると変更不可」を
+廃止）。ただし送る場合は空文字での保存はできない（省略は許可、空文字は 400）。
 
 #### 道の公開について
 
@@ -325,7 +328,7 @@ SNS からの流入者が、1 件の「試したこと」だけを最小入力�
 | パス | 説明 |
 | --- | --- |
 | `GET /robots.txt` | 一般クローラーは `/api/` と `/admin` のみ Disallow（他ページは巡回可＝各ページの `noindex` を読ませる方針）。既知 AI クローラーは全体不可。`Sitemap:` 行あり |
-| `GET /sitemap.xml` | トップページ (`/`) のみ 1 件。他の公開ページは各ページの `noindex` で除外する |
+| `GET /sitemap.xml` | トップページ (`/`) と公開・承認済みの経験詳細 (`/experiences/{id}`) を列挙（2026-09-20 改定。1 時間キャッシュ）。他の公開ページ（検索一覧・タグ・道の見える化等）は各ページの `noindex` で除外する |
 
 ## 開発専用
 

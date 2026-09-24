@@ -3,7 +3,7 @@
 > この文書は「いま実装されているもの」をまとめた現行仕様書です。
 > 決定の経緯・変更履歴は [`implementation-decisions.md`](implementation-decisions.md)、
 > API の詳細は [`api.md`](api.md)、運営者向けの手順は [`admin-manual.md`](admin-manual.md) を参照してください。
-> 最終更新: 2026-09-11
+> 最終更新: 2026-09-24
 
 ---
 
@@ -94,7 +94,7 @@
 
 | パス | 内容 |
 | --- | --- |
-| `/admin` | ダッシュボード。「確認が必要なもの」→「現在の状況」→「最近の動き（最近公開された経験／最近の管理操作）」→「管理メニュー（2×2・4 項目）」。準備中の項目は表示しない |
+| `/admin` | ダッシュボード。「確認が必要なもの」→「現在の状況」→「最近の動き（最近公開された経験／最近の管理操作）」の順で完結。管理機能への移動は画面上部のナビゲーション（`AdminNav`）に一本化しており、ダッシュボード下部に別途メニューは置かない（2026-09-10 に廃止）。準備中の項目は表示しない |
 | `/admin/login` | 運営者ログイン（メール＋パスワード、10 回失敗で約 1 分ロック） |
 | `/admin/moderation` | 確認待ちの**経験**キュー（新しい順）。困ったこと→試したこと→結果／AI の理由・カテゴリ／SNS 簡易登録の運営メモ。公開する／公開しない／**保留**（今は公開できない記録を却下せず脇に置く。上部で「保留していない（既定）／保留している」を切り替え） |
 | `/admin/posts` | 全経験の一覧（状態フィルタ・キーワード検索）。公開停止・再公開・AI 再チェック |
@@ -129,8 +129,9 @@
 4. 「できなくなったこと」は他の必須項目と同じく、あとから何度でも編集できる（2026-09-11 に
    「一度確定すると変更不可」を廃止。空にして保存しようとするとエラーになる点は変わらない）。
 
-道そのものに公開 / 非公開の設定は無い（**道は公開前提**）。公開面に出るかどうかは、その道で
-「経験として公開」した Attempt が承認済みかどうかだけで決まる。
+道そのものに公開 / 非公開の設定は持たせない。公開されたAttempt（「経験として公開」し承認済みの
+もの）が1件以上ある場合に、その道の公開可能な情報が経験の文脈として表示される。Road を作っただけ
+では公開されない。
 
 **登録項目の整理（2026-09-11・登録画面・登録項目 更新指示書）:** Attempt の「どのくらいできる
 ようになりましたか？」（`achievementPercent`）「そのとき、どんな気持ちでしたか？」（`feeling`）
@@ -414,7 +415,7 @@ noindex のまま。§ 中間層 `robotsTagFor` を参照）。
 | タグ（公開） | `GET /tags`, `GET /tags/{tagId}/experiences` |
 | 簡易登録（公開） | `POST /quick-experiences` |
 | いいね（本人） | `POST/DELETE /attempts/{attemptId}/like` |
-| 既読（本人） | `POST /attempts/{attemptId}/read` |
+| 既読（本人） | `POST /attempts/{attemptId}/read`, `GET /me/reads`（既読引き継ぎ用エクスポート）, `POST /me/reads/merge`（再ログイン時の統合。§5.6.1） |
 | 通知（本人） | `POST /notifications/read` |
 | AI 補助 | `POST /ai/experience-search`, `POST /ai/summarize-experiences` |
 | 管理（運営者） | `POST /api/admin/login`, `POST /api/admin/logout`, `POST /api/admin/moderation/{attemptId}`, `PATCH /api/admin/posts/{attemptId}`, `POST /api/admin/posts/{attemptId}/recheck` |
@@ -427,9 +428,10 @@ noindex のまま。§ 中間層 `robotsTagFor` を参照）。
 
 **公開 GET のガード:** IP 単位のレート／バースト制限、`page` 高速連続巡回・同一クエリ連打の検知 →
 `429`（`Retry-After` 付き、悪質時は一時ブロック）。既知の AI クローラー UA は `403`。
-`X-Robots-Tag` は `middleware.ts` がパス別に付与する: トップ `/` は `index, follow`／
-`/login`・`/me*` は `noindex, nofollow`／`/admin*` は `noindex, nofollow, noarchive`（＋ `Cache-Control: no-store`）／
-その他の公開ページは `noindex, follow`。いずれも `noai, noimageai` を含む。
+`X-Robots-Tag` は `middleware.ts` がパス別に付与する: トップ `/` と経験詳細 `/experiences/[id]` は
+`index, follow`（2026-09-20 検索エンジン露出方針の改定）／`/login`・`/me*` は `noindex, nofollow`／
+`/admin*` は `noindex, nofollow, noarchive`（＋ `Cache-Control: no-store`）／それ以外の公開ページ
+（検索一覧・タグ・道の見える化など）は `noindex, follow`。いずれも `noai, noimageai` を含む。
 
 ---
 
@@ -459,9 +461,9 @@ noindex のまま。§ 中間層 `robotsTagFor` を参照）。
 | AI | Anthropic Claude（`@anthropic-ai/sdk`）。キー未設定時はスタブ |
 | スタイル | Tailwind v4（`@theme` のデザイントークン `src/styles/tokens.css`） |
 | 画像・写真 | ユーザー投稿なし。`next/image` はサイト内静的アセットのみ |
-| テスト | Vitest（unit / integration、実 DB）、Playwright + axe-core（E2E / a11y）。現況: Vitest 198 / Playwright 106 |
+| テスト | Vitest（unit / integration、実 DB）、Playwright + axe-core（E2E / a11y）。現況: Vitest 426（2026-09-24 に `npm run test` で実測）／Playwright は本書更新時点で未実測（`.next` 競合を避けるため実行を控えている。前回記載値 106 は古い可能性がある） |
 | インフラ（開発） | docker compose（PostgreSQL のみ、ホスト側ポート 5433） |
-| 本番ホスティング | 未確定（標準 PostgreSQL + Prisma なので移行容易） |
+| 本番ホスティング | さくら VPS（Ubuntu）に既にデプロイ済み。Docker ではなく systemd `dekirumichi.service` が `next start -p 4000` を直接起動し、nginx が `dekirumichi.net` を `localhost:4000` へプロキシ。DB だけ Docker コンテナ（`localhost:5433`）。手順は [`deployment.md`](deployment.md) |
 
 ---
 

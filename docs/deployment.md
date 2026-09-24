@@ -34,7 +34,9 @@ cd /Volumes/macmini_USB2TB/source/dekiru-way
 
 # 1. コードを変更する
 
-# 2. ローカル確認（推奨）
+# 2. ローカル確認（推奨。ただし npm run dev を動かしたまま実行すると .next を奪い合って
+#    dev サーバーが 500 で壊れる。実行前に dev サーバーを止めるか、動いていないことを確認する。
+#    CLAUDE.md「開発時の注意：.next の競合」参照）
 npm run build
 npm test
 
