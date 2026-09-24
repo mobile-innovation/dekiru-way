@@ -64,7 +64,7 @@ export default async function TopPage() {
               できる道
             </h1>
             <p className="mt-1.5 text-base font-semibold text-[var(--color-ink)] sm:text-lg">
-              「できない」を終点にしない。
+              「できなかった」を、誰かの経験から「次の一歩」へ。
             </p>
             <div className="mt-4 sm:mt-6">
               <SearchBox size="hero" />

@@ -226,7 +226,7 @@ export function SeedDataGenerator() {
             {drafts.map((d, i) => (
               <li
                 key={i}
-                className="space-y-2 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
+                className="space-y-2 rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-4"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold">{i + 1}.</span>

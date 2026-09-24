@@ -107,7 +107,7 @@ export default async function AdminSeedDataPage({ searchParams }: { searchParams
           {items.map((it) => (
             <li
               key={it.id}
-              className="space-y-2 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
+              className="space-y-2 rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-4"
             >
               <div className="flex flex-wrap items-center gap-2">
                 <StateBadge state={it.publishState} />

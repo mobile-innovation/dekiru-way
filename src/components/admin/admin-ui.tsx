@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
-import { IconCheckCircle, IconCircleAlert, IconCircleDashed } from "@/components/icons";
+import { IconCheckCircle, IconCircleAlert } from "@/components/icons";
 
 /**
  * 管理画面のステータスバッジ・ボタンの共通見た目（指示書「管理画面 UI表示・カラー統一指示書 v1」）。

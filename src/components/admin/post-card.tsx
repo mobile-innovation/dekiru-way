@@ -88,7 +88,7 @@ export interface AdminPostCardData {
 
 export function AdminPostCard({ post }: { post: AdminPostCardData }) {
   return (
-    <article className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+    <article className="rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-4">
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge status={post.moderationStatus} />
         {post.moderationHeld && (

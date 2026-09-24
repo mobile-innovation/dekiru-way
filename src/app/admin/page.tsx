@@ -15,7 +15,7 @@ function clip(s: string, n = 24) {
 
 function StatCard({ value, label }: { value: number; label: string }) {
   return (
-    <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+    <div className="rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-4">
       <div className="text-2xl font-bold tabular-nums">{value}</div>
       <div className="mt-0.5 text-sm text-[var(--color-ink-muted)]">{label}</div>
     </div>
@@ -35,7 +35,7 @@ function RecentBlock({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+    <div className="rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-4">
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-sm font-bold">{title}</p>
         {!empty && (

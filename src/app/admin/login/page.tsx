@@ -17,7 +17,7 @@ export default async function AdminLoginPage() {
     <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-6 py-10 sm:py-16">
       <p className="text-lg font-bold">できる道</p>
 
-      <div className="w-full rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-[var(--shadow-card)] sm:p-8">
+      <div className="w-full rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-6 shadow-[var(--shadow-card)] sm:p-8">
         <h1 className="text-base font-bold">ログイン</h1>
         <div className="mt-5">
           <AdminLoginForm />

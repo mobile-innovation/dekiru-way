@@ -52,7 +52,7 @@ export default async function AdminPostDetailPage({
       </header>
 
       {/* 操作 */}
-      <section className="space-y-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+      <section className="space-y-3 rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-4">
         <h2 className="text-sm font-bold">操作</h2>
         {attempt.moderationStatus === "pending" && (
           <ModerationDecisionButtons id={attempt.id} />
@@ -72,7 +72,7 @@ export default async function AdminPostDetailPage({
       </section>
 
       {/* AI 判定 */}
-      <section className="space-y-2 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+      <section className="space-y-2 rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-4">
         <h2 className="text-sm font-bold">AI 判定</h2>
         {attempt.aiCheckedAt ? (
           <>
@@ -102,7 +102,7 @@ export default async function AdminPostDetailPage({
       </section>
 
       {/* 経験の内容 */}
-      <section className="space-y-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+      <section className="space-y-3 rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-4">
         <h2 className="text-sm font-bold">経験の内容</h2>
         <dl className="space-y-3">
           <Field label="試したこと" value={attempt.method} />
@@ -120,7 +120,7 @@ export default async function AdminPostDetailPage({
       </section>
 
       {/* 道の文脈 */}
-      <section className="space-y-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+      <section className="space-y-3 rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-4">
         <h2 className="text-sm font-bold">道の文脈</h2>
         <dl className="space-y-3">
           <Field label="以前できていたこと" value={attempt.road.previouslyAble} />
@@ -140,7 +140,7 @@ export default async function AdminPostDetailPage({
       </section>
 
       {/* 操作ログ */}
-      <section className="space-y-2 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+      <section className="space-y-2 rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-4">
         <h2 className="text-sm font-bold">この経験の操作ログ</h2>
         {audit.length === 0 ? (
           <p className="text-sm text-[var(--color-ink-muted)]">まだありません。</p>
