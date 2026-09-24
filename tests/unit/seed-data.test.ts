@@ -566,6 +566,49 @@ describe("毎回結果を変える・重複を避ける（追加指示書）", (
       expect([...d2].filter((x) => d3.has(x))).toHaveLength(0);
     });
 
+    it("result（5分類）も offset に応じて開始位置が変わる（COUNT_OPTIONS が5の倍数でも固定順にならない）", () => {
+      // 画面の件数選択肢 (5/10/15/20) はすべて 5 の倍数＝ ATTEMPT_RESULTS.length なので、
+      // offset をそのまま `% 5` すると常に 0 に戻り、再生成のたびに同じ
+      // success,partial,no_change,failed,ongoing,... の並びになってしまうバグがあった。
+      const r1 = localStubDrafts(KW, 10, { offset: 0 }).map((d) => d.result);
+      const r2 = localStubDrafts(KW, 10, { offset: 10 }).map((d) => d.result);
+      const r3 = localStubDrafts(KW, 10, { offset: 20 }).map((d) => d.result);
+      expect(r2).not.toEqual(r1);
+      expect(r3).not.toEqual(r1);
+      expect(r3).not.toEqual(r2);
+    });
+
+    it("画面の「もう一度生成する」を複数回押した実際のフローでも result が毎回変わる", async () => {
+      // localStubDrafts に offset だけを直接渡すテストでは検出できなかった実際のバグ:
+      // 画面 (seed-data-generator.tsx) は毎回の生成結果を history に積み上げて次回の
+      // existing として渡す。method の語彙が小さいテーマだと数回でほぼ枯渇し、
+      // isDraftDuplicate によるスキップが多発する。旧実装は result の巡回位置を
+      // 「重複スキップも数える試行回数 (step)」基準にしていたため、スキップが増えるほど
+      // 実際に採用された件数 (out.length) とずれて result の並びが崩れ、
+      // 運が悪いと再生成しても同じ並びに戻って見える不具合があった。
+      let history: { difficulty: string | null; method: string; result: string }[] = [];
+      const results: string[][] = [];
+      for (let i = 0; i < 5; i++) {
+        const drafts = await generateSeedDrafts(KW, 10, { existing: history });
+        results.push(drafts.map((d) => d.result));
+        history = [
+          ...history,
+          ...drafts.map((d) => ({
+            difficulty: (d.difficulty ?? "").trim() || null,
+            method: (d.method ?? "").trim(),
+            result: (d.result ?? "").trim(),
+          })),
+        ];
+      }
+      // 5 回中どの2回を取っても、result の並びが完全一致してはいけない
+      // （まったく同じに見える＝「変化していない」とユーザーに映る状態）。
+      for (let i = 0; i < results.length; i++) {
+        for (let j = i + 1; j < results.length; j++) {
+          expect(results[j]).not.toEqual(results[i]);
+        }
+      }
+    });
+
     it("existing に渡した困りごと・方法は出さない", () => {
       const first = localStubDrafts(KW, 10, { offset: 0 });
       const second = localStubDrafts(KW, 10, {

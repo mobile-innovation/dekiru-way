@@ -193,9 +193,12 @@ export function SeedMarkdownImporter() {
         </label>
         <p className="text-xs text-[var(--color-ink-muted)]">
           ChatGPT等で作成したMarkdownをそのまま貼り付けます。「困っていたこと」のような道の項目や
-          「試したこと1」のような見出しを直接の子に持つ見出しを、自動的に「道」として区切ります
+          「試したこと」で始まる見出しを直接の子に持つ見出しを、自動的に「道」として区切ります
           （見出しの深さは自由です。「# できる道 仮データ」のような文書タイトルの下に道を置いても
-          解析できます）。
+          解析できます）。試したことの項目（方法・結果 等）は、見出しを増やす代わりに
+          「- 方法：〜」のような箇条書きで書いても構いません。
+          <strong>1回に取り込める道は1件までです。</strong>複数の道がある場合はMarkdownを分けて、
+          1件ずつ取り込んでください。
         </p>
         <textarea
           id="seed-markdown"
@@ -204,7 +207,9 @@ export function SeedMarkdownImporter() {
           onChange={(e) => setMarkdown(e.target.value)}
           disabled={busy}
           className="w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 font-mono text-xs"
-          placeholder={"# 道1\n\n## 困っていたこと\n...\n\n## 試したこと1\n\n### 方法\n...\n\n### 結果\nsuccess\n\n（「# できる道 仮データ」→「## 道1」→「### 困っていたこと」のように1段深くても解析できます）"}
+          placeholder={
+            "# 道1\n\n## 困っていたこと\n...\n\n## 試したこと\n\n### 試したこと1\n- 方法：...\n- 結果：success\n\n（1回の取り込みで道は1件まで。見出しの深さは自由です）"
+          }
         />
         <button type="button" onClick={parse} disabled={busy} className={ADMIN_BTN.success}>
           {parsing ? "解析中…" : "Markdownを解析する"}

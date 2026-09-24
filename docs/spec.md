@@ -297,7 +297,9 @@ Embedding プロバイダの選定（Anthropic に Embeddings API は無い。�
    （サービス外の生成AI）で作った Markdown を貼り付け → `parse-markdown` で構文解析（**AI は
    呼ばない**。純粋なテキスト解析）→ 画面で確認・編集 → **非公開で保存**。**1 Road が複数の
    Attempt を持てる**（Markdown に書いた「試したこと」の順番をそのまま試行順として保持する。
-   並び順専用のカラムは追加せず、既存の表示順ロジック＝`triedAt ?? createdAt` に従う）。
+   並び順専用のカラムは追加せず、既存の表示順ロジック＝`triedAt ?? createdAt` に従う）が、
+   **1 回の取り込みで受け付ける Road は 1 件まで**（2026-09-25、実装上の判断で制限。複数 Road が
+   ある Markdown は `parse-markdown` の時点でエラーになる）。
    詳しい書式・運用手順は [`admin-manual.md`](admin-manual.md) §6.5。
 
 どちらの方法でも、一覧から **1 件（＝道）ずつ公開**。一括公開・一括削除は無い。複数 Attempt を

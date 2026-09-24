@@ -26,6 +26,16 @@ import { ATTEMPT_RESULTS, type AttemptResultValue } from "@/lib/constants";
  * 「試した理由」「結果の詳細」「次につながったこと」は Attempt に対応する DB カラムが無いため
  * (previousAttemptId は復活させない指示書 §7)、既存の「気づき」欄 (`Attempt.memo`) へ
  * ラベル付きでまとめて格納する。この折りたたみは実装上の判断であり、完了報告で明記する。
+ *
+ * **追記（2026-09-25、ユーザー実データに合わせた拡張）**:
+ * - 「試したこと」（番号なし）見出しの下に「試したこと1」「試したこと2」…をぶら下げる、
+ *   ラッパー見出しの形式にも対応した（`collectAttemptLeaves`。何段ラップしてもよい）。
+ * - Attempt の項目（方法・結果 等）は、見出しを増やさず「- 方法：〜」のような箇条書きで
+ *   書いてもよい（`parseBulletFields`）。見出し形式・箇条書き形式のどちらでもよく、
+ *   Attempt ノードが見出しの子を持つかどうかで自動判定する。
+ * - **1 回の取り込みで受け付ける道（Road）は 1 件まで**にした（「道データは1件だけにする」指示。
+ *   複数の道の見出しが見つかった場合は `parseSeedMarkdown` の時点でエラーにし、道ごとに
+ *   Markdown を分けて取り込んでもらう）。1 つの道が複数の Attempt を持てる機能自体は変更していない。
  */
 
 const ROAD_FIELD_MAP: Record<string, "difficulty" | "previouslyAble" | "goal" | "situation" | "status" | "nextAction"> = {
@@ -121,6 +131,20 @@ function isAttemptTitle(title: string): boolean {
 }
 
 /**
+ * 「試したこと」見出しの下に、さらに「試したこと1」「試したこと2」…という
+ * 見出しがぶら下がっている（番号なしの「試したこと」が個々の試したことをまとめる
+ * ラッパーになっている）実データの形式に対応する。ラッパーでなければそのノード自身を
+ * 1 件の Attempt として返す（何段ラップされていても再帰的に潜る）。
+ */
+function collectAttemptLeaves(node: HeadingNode): HeadingNode[] {
+  const attemptChildren = node.children.filter((c) => isAttemptTitle(c.title));
+  if (attemptChildren.length > 0) {
+    return attemptChildren.flatMap((c) => collectAttemptLeaves(c));
+  }
+  return [node];
+}
+
+/**
  * 木構造から「道」に相当する見出しノードを見つける。
  * 直接の子に、道の項目 (困っていたこと 等) または「試したこと」見出しを持つノードを道とみなす。
  * 道より浅い階層（文書タイトルなど）は無視して、より深い階層を探しに行く。
@@ -138,16 +162,64 @@ function findRoadNodes(nodes: HeadingNode[]): HeadingNode[] {
   return found;
 }
 
+const BULLET_FIELD_LINE = /^[-*・]\s*([^:：]+?)\s*[:：]\s*(.*)$/;
+
+/**
+ * 見出しを持たない Attempt ノード（実データでよく出る形式）の本文を、
+ * 「- ラベル：値」の箇条書きとして項目に分解する。値が複数行にまたがる場合
+ * （次の箇条書きが始まるまで）は同じ項目にまとめて追記する。
+ */
+function parseBulletFields(
+  roadTitle: string,
+  attemptLabel: string,
+  lines: string[],
+  errors: string[],
+): Partial<Record<"method" | "reason" | "result" | "detail" | "nextLink", string>> {
+  const fields: Partial<Record<"method" | "reason" | "result" | "detail" | "nextLink", string>> = {};
+  let currentKey: "method" | "reason" | "result" | "detail" | "nextLink" | null = null;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line.length === 0 || HORIZONTAL_RULE.test(line)) continue;
+    const m = BULLET_FIELD_LINE.exec(line);
+    if (m) {
+      const label = m[1].trim();
+      const key = ATTEMPT_FIELD_MAP[label];
+      if (key) {
+        fields[key] = m[2].trim();
+        currentKey = key;
+      } else {
+        errors.push(`「${roadTitle}」の「${attemptLabel}」に、対応していない項目「${label}」があります。`);
+        currentKey = null;
+      }
+      continue;
+    }
+    // 箇条書きの続き（改行で折り返された値）とみなし、直前の項目に足す。
+    if (currentKey) {
+      fields[currentKey] = `${fields[currentKey]}\n${line}`;
+    } else {
+      errors.push(`「${roadTitle}」の「${attemptLabel}」に、解釈できない内容「${line}」があります。`);
+    }
+  }
+  return fields;
+}
+
 function parseAttemptNode(roadTitle: string, node: HeadingNode, errors: string[]): ParsedAttemptDraft | null {
   const attemptLabel = node.title;
-  const fields: Partial<Record<"method" | "reason" | "result" | "detail" | "nextLink", string>> = {};
-  for (const sub of node.children) {
-    const key = ATTEMPT_FIELD_MAP[normalizeHeading(sub.title)];
-    if (key) {
-      fields[key] = body(sub.lines);
-    } else {
-      errors.push(`「${roadTitle}」の「${attemptLabel}」に、対応していない見出し「${sub.title}」があります。`);
+  let fields: Partial<Record<"method" | "reason" | "result" | "detail" | "nextLink", string>>;
+  if (node.children.length > 0) {
+    // 従来形式: 項目ごとに見出しが分かれている（### 方法 / ### 結果 等）。
+    fields = {};
+    for (const sub of node.children) {
+      const key = ATTEMPT_FIELD_MAP[normalizeHeading(sub.title)];
+      if (key) {
+        fields[key] = body(sub.lines);
+      } else {
+        errors.push(`「${roadTitle}」の「${attemptLabel}」に、対応していない見出し「${sub.title}」があります。`);
+      }
     }
+  } else {
+    // 実データでよく出る形式: 見出しを増やさず「- 方法：〜」のような箇条書きで項目を持つ。
+    fields = parseBulletFields(roadTitle, attemptLabel, node.lines, errors);
   }
 
   const method = (fields.method ?? "").trim();
@@ -195,8 +267,10 @@ function parseRoadNode(node: HeadingNode, index: number, errors: string[]): Pars
 
   for (const child of node.children) {
     if (isAttemptTitle(child.title)) {
-      const attempt = parseAttemptNode(roadTitle, child, errors);
-      if (attempt) road.attempts.push(attempt);
+      for (const leaf of collectAttemptLeaves(child)) {
+        const attempt = parseAttemptNode(roadTitle, leaf, errors);
+        if (attempt) road.attempts.push(attempt);
+      }
       continue;
     }
     const key = ROAD_FIELD_MAP[normalizeHeading(child.title)];
@@ -230,6 +304,15 @@ export function parseSeedMarkdown(markdown: string): ParseSeedMarkdownResult {
   if (roadNodes.length === 0) {
     errors.push(
       "「道」の見出しが見つかりません。道の中に「困っていたこと」または「試したこと」の見出しが必要です。",
+    );
+    return { roads: [], errors };
+  }
+  // 1回の取り込みで登録できる道は1件まで（実装上の判断。「道データは1件だけにする」指示）。
+  // 複数の道をまとめて取り込む用途は無くなったため、確認・編集画面を複雑にしないためにも制限する。
+  if (roadNodes.length > 1) {
+    errors.push(
+      `Markdownで登録できる道は1件までです（見出しが${roadNodes.length}件見つかりました）。` +
+        "道ごとにMarkdownを分けて、1件ずつ取り込んでください。",
     );
     return { roads: [], errors };
   }

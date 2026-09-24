@@ -122,6 +122,20 @@ describe("POST /api/admin/seed-data/parse-markdown", () => {
     const json = (await res.json()) as { errors: string[] };
     expect(json.errors.some((e) => e.includes("結果「not-a-result」は対応していません"))).toBe(true);
   });
+
+  it("道が複数あるMarkdownはエラーを返す（1回の取り込みは道1件まで）", async () => {
+    const md = [markdownWithAttempts(3, ["success"]), markdownWithAttempts(4, ["partial"])].join("\n");
+    const res = await parseMarkdown(asAdminReq("http://localhost/api/admin/seed-data/parse-markdown", { markdown: md }), {
+      params: Promise.resolve({}),
+    });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { roads: unknown[]; errors: string[] };
+    expect(json.roads).toEqual([]);
+    expect(json.errors.some((e) => e.includes("道は1件までです"))).toBe(true);
+
+    const count = await prisma.road.count({ where: { difficulty: { startsWith: MARK } } });
+    expect(count).toBe(0);
+  });
 });
 
 describe("POST /api/admin/seed-data (roads: 複数 Attempt の保存)", () => {

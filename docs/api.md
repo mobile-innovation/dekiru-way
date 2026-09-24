@@ -320,7 +320,7 @@ SNS からの流入者が、1 件の「試したこと」だけを最小入力�
 | メソッド | パス | 説明 |
 | --- | --- | --- |
 | POST | `/api/admin/seed-data/generate` | `{ keyword, count(5〜20, 既定10), exclude? }` → 候補配列 `{ drafts, count, priorCount }` を返す。**保存しない**。保存済みの同 `keyword` 仮データ（`seed_keyword` で照合）＋ `exclude`（＝画面に表示中／その回までに生成した候補。キーワードを変えず「再生成」するたびに内容を変えるため）と実質的に重複しない切り口を返す。AI キー未設定時は決定的なスタブ（生成のたびに開始位置をずらす）。 |
-| POST | `/api/admin/seed-data/parse-markdown` | `{ markdown: string }` → `{ roads: ParsedRoad[], errors: string[] }`。Markdown を構文解析するだけ（**AI は呼ばない**）で、**保存しない**。`errors` が 1 件でもあれば、その内容を管理者が直してもう一度呼ぶ想定（保存には進めない）。 |
+| POST | `/api/admin/seed-data/parse-markdown` | `{ markdown: string }` → `{ roads: ParsedRoad[], errors: string[] }`。Markdown を構文解析するだけ（**AI は呼ばない**）で、**保存しない**。`errors` が 1 件でもあれば、その内容を管理者が直してもう一度呼ぶ想定（保存には進めない）。**Road の見出しが複数見つかった場合もエラー**（2026-09-25、1 回の取り込みで受け付ける Road は 1 件までに制限。`roads` は空配列で返る）。 |
 | POST | `/api/admin/seed-data` | `{ keyword?, items?: SeedDraft[], roads?: SeedRoadDraft[] }`（`items`/`roads` の少なくとも一方が必須。両方を同時に送ってもよい）→ すべて非公開で保存（`is_seed_data=true` / `data_origin="ai_seed"` / `seed_keyword=keyword` / Attempt は `is_published=false`・`moderation_status=pending`）。 |
 | GET | `/api/admin/seed-data` | 仮データ一覧（`?page`, `?state=private`(既定)｜`published`｜`all`）。`{ items, total, counts:{all,private,published}, page, hasMore }`。各 item の `attempts` は時系列順の配列（AI生成は常に 1 件）。 |
 | GET | `/api/admin/seed-data/{roadId}` | 仮データ 1 件。 |

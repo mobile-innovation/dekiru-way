@@ -84,21 +84,15 @@ describe("parseSeedMarkdown", () => {
     expect(roads[0].attempts).toHaveLength(6);
   });
 
-  it("複数 Road を別々に解析できる", () => {
+  it("道が複数あるMarkdownはエラーになる（1回の取り込みは道1件まで）", () => {
     const md = [
       road(1, attempt(1, "success")),
       road(2, [attempt(1, "failed"), attempt(2, "partial")].join("\n")),
       road(3, attempt(1, "no_change")),
     ].join("\n");
     const { roads, errors } = parseSeedMarkdown(md);
-    expect(errors).toEqual([]);
-    expect(roads).toHaveLength(3);
-    expect(roads[0].attempts).toHaveLength(1);
-    expect(roads[1].attempts).toHaveLength(2);
-    expect(roads[2].attempts).toHaveLength(1);
-    expect(roads[0].difficulty).toBe("困っていたこと1");
-    expect(roads[1].difficulty).toBe("困っていたこと2");
-    expect(roads[2].difficulty).toBe("困っていたこと3");
+    expect(roads).toEqual([]);
+    expect(errors.some((e) => e.includes("道は1件までです"))).toBe(true);
   });
 
   it("結果5分類すべてを認識する", () => {
@@ -230,44 +224,119 @@ success
 #### 結果の詳細
 詳細1
 
-### 次に試したいこと
-次に試したいこと1
-
----
-
-## 道2
-
-### 困っていたこと
-困っていたこと2
-
-### 試したこと1
+### 試したこと2
 
 #### 方法
-方法2-1
+方法1-2
 
 #### 結果
 partial
 
-### 試したこと2
+### 次に試したいこと
+次に試したいこと1
 
-#### 方法
-方法2-2
-
-#### 結果
-failed
+---
 `;
     const { roads, errors } = parseSeedMarkdown(md);
     expect(errors).toEqual([]);
-    expect(roads).toHaveLength(2);
+    expect(roads).toHaveLength(1);
     expect(roads[0].title).toBe("道1");
     expect(roads[0].difficulty).toBe("困っていたこと1");
-    expect(roads[0].attempts).toHaveLength(1);
+    expect(roads[0].attempts).toHaveLength(2);
     expect(roads[0].attempts[0]).toEqual({ method: "方法1", result: "success", attemptMemo: "詳細1" });
+    expect(roads[0].attempts[1]).toEqual({ method: "方法1-2", result: "partial", attemptMemo: null });
     // 見出しの直前にある水平線 (---) が本文に混ざらない
     expect(roads[0].nextAction).toBe("次に試したいこと1");
-    expect(roads[1].attempts.map((a) => [a.method, a.result])).toEqual([
-      ["方法2-1", "partial"],
-      ["方法2-2", "failed"],
+  });
+
+  it("「試したこと」見出しで試したこと1〜Nをまとめ、項目を箇条書きで持つ実データ（ユーザー提示フォーマット）を解析できる", () => {
+    // ユーザーが実際に使う形式:
+    //   ### 試したこと (番号なし。試したこと1〜Nをまとめるラッパー見出し)
+    //     #### 試したこと1
+    //     - 方法：〜
+    //     - 試した理由：〜
+    //     - 結果：partial
+    //     - 結果の詳細：〜
+    //     - 次につながったこと：〜
+    // 見出しをこれ以上増やさず、項目を「- ラベル：値」の箇条書きで持つ。
+    const md = `# できる道 仮データ
+
+## 道1：自分でツメを切る
+
+### 困っていたこと
+ツメを切るとき、爪切りを持って操作するのが難しくなってきた。
+
+### 以前できていたこと
+以前は普通の爪切りを使って、自分でツメを切っていた。
+
+### 目標
+自分でツメを切れるようにする。
+
+### 状況
+ツメが伸びてくると切ろうとするが、爪切りの操作に時間がかかる。
+
+### 試したこと
+
+#### 試したこと1
+- 方法：大きめの爪切りを使った。
+- 試した理由：持つ部分が大きいほうが扱いやすそうだったため。
+- 結果：partial
+- 結果の詳細：持つことは少し楽になったが、細かい操作はまだ難しかった。
+- 次につながったこと：爪切り以外の方法も試すことにした。
+
+#### 試したこと2
+- 方法：爪やすりで少しずつ整えた。
+- 試した理由：爪切りで切る操作が難しいときでも使えそうだったため。
+- 結果：partial
+- 結果の詳細：少しずつ整えることはできたが、時間がかかった。
+- 次につながったこと：時間に余裕があるときの方法として使うことにした。
+
+#### 試したこと3
+- 方法：一度に全部のツメを切らず、何回かに分けて行った。
+- 試した理由：一回の作業量を減らしたかったため。
+- 結果：success
+- 結果の詳細：一度に行う負担が減り、自分で続けやすくなった。
+- 次につながったこと：無理に一度で終わらせないようにした。
+
+### 現在の状態
+自分でできる範囲でツメを切り、難しいときは爪やすりも使っている。
+
+### 次に試したいこと
+今の方法で続けながら、さらに扱いやすい道具がないか探したい。
+`;
+    const { roads, errors } = parseSeedMarkdown(md);
+    expect(errors).toEqual([]);
+    expect(roads).toHaveLength(1);
+    const r = roads[0];
+    expect(r.title).toBe("道1：自分でツメを切る");
+    expect(r.difficulty).toBe("ツメを切るとき、爪切りを持って操作するのが難しくなってきた。");
+    expect(r.status).toBe("自分でできる範囲でツメを切り、難しいときは爪やすりも使っている。");
+    expect(r.attempts).toHaveLength(3);
+    expect(r.attempts.map((a) => a.method)).toEqual([
+      "大きめの爪切りを使った。",
+      "爪やすりで少しずつ整えた。",
+      "一度に全部のツメを切らず、何回かに分けて行った。",
     ]);
+    expect(r.attempts.map((a) => a.result)).toEqual(["partial", "partial", "success"]);
+    expect(r.attempts[0].attemptMemo).toContain("持つことは少し楽になったが、細かい操作はまだ難しかった。");
+    expect(r.attempts[0].attemptMemo).toContain("試した理由：持つ部分が大きいほうが扱いやすそうだったため。");
+    expect(r.attempts[0].attemptMemo).toContain("次につながったこと：爪切り以外の方法も試すことにした。");
+  });
+
+  it("箇条書き形式の試したことで、対応していない項目名はエラーとして報告する", () => {
+    const md = `# 道1
+
+## 困っていたこと
+困っていたこと1
+
+## 試したこと
+
+### 試したこと1
+- 方法：方法1
+- 結果：success
+- 謎の項目：本文
+`;
+    const { errors } = parseSeedMarkdown(md);
+    expect(errors.some((e) => e.includes("謎の項目"))).toBe(true);
   });
 });

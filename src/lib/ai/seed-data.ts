@@ -730,17 +730,21 @@ function stubPoolFor(theme: string, fullKeyword: string): Aspect[] {
 /**
  * 1 件ぶんのスタブ。テーマに専用分野があればその分野の困りごとを、無ければ
  * テーマを頭につけた汎用の困りごとを使う（どちらもテーマから逸脱しない）。
- * `seq` は「今回の並び順」(result 循環などに使う)、`poolIndex` は使う困りごと。
+ * `seq` は「今回の並び順」(previouslyAble の付与パターンに使う)、`poolIndex` は使う困りごと、
+ * `resultSeq` は結果 5 分類の循環位置。3 つとも意図的に別軸（呼び出し元 `localStubDrafts` 参照）:
+ * 重複スキップで簡単にずれる「試行回数 (step)」ではなく、`resultSeq` は実際に採用された件数
+ * (`out.length`) を基準にすることで、生成のたびに result の並びが体感的にも変わるようにしている。
  */
 function stubDraftAt(
   theme: string,
   seq: number,
   poolIndex: number,
+  resultSeq: number,
   fullKeyword: string,
 ): SeedExperienceDraft {
   const pool = stubPoolFor(theme, fullKeyword);
   const aspect = pool[((poolIndex % pool.length) + pool.length) % pool.length];
-  const result = ATTEMPT_RESULTS[seq % ATTEMPT_RESULTS.length];
+  const result = ATTEMPT_RESULTS[((resultSeq % ATTEMPT_RESULTS.length) + ATTEMPT_RESULTS.length) % ATTEMPT_RESULTS.length];
   return {
     // テーマの活動・場面の中で起きる具体的な困りごと。キーワードそのまま・「（サンプルN）」にはしない。
     difficulty: aspect.d,
@@ -782,6 +786,17 @@ export function localStubDrafts(
   const fullKeyword = list.join(" ");
   const offset = Math.max(0, Math.floor(opts.offset ?? 0));
 
+  // 結果 (5 分類) の循環開始位置を「これが何回目の生成か」に応じてずらす。
+  // バグだった旧実装: result の循環に `offset + step` をそのまま使っていたが、offset は
+  // 「これまでに生成した件数」の累計＝画面の件数選択肢 (5/10/15/20 件。すべて 5 の倍数) の倍数に
+  // なりやすく、`% 5`（ATTEMPT_RESULTS.length）を取ると常に 0 に戻ってしまい、困りごと・方法は
+  // offset で正しく変わるのに結果だけ毎回 success→partial→…の同じ並びで固定されていた
+  // （「マークダウンで同じ内容で再作成すると前と同じ、変化させたい」で発覚）。
+  // 生成回数 (round) に 5 と互いに素な数 (2) を掛けてから mod 5 することで、offset が 5 の倍数
+  // でも開始位置が実際にずれるようにする（5 回に 1 回だけ元の並びに戻る）。
+  const round = Math.floor(offset / Math.max(1, count));
+  const resultShift = (round * 2) % ATTEMPT_RESULTS.length;
+
   const priorDifficulties = (opts.existing ?? [])
     .map((e) => e.difficulty)
     .filter((v): v is string => !!v && v.trim().length > 0);
@@ -794,7 +809,11 @@ export function localStubDrafts(
   // プール 1 周ぶんまで走査して、重複しない困りごとを count 件集める。
   for (let step = 0; step < maxPool && out.length < count; step++) {
     const theme = list[out.length % list.length];
-    const draft = stubDraftAt(theme, out.length, offset + step, fullKeyword);
+    // resultSeq は step ではなく out.length（実際に採用された件数）を基準にする。
+    // step は重複スキップで容易に count を超えて進むため、step を基準にすると
+    // 重複が多いテーマ（method の語彙が少なく既存データと衝突しやすい）で
+    // result の巡回が乱れ、offset を変えても体感上「同じ結果」に見えてしまう。
+    const draft = stubDraftAt(theme, offset + step, offset + step, resultShift + out.length, fullKeyword);
     if (
       isDraftDuplicate(
         draft,
@@ -809,7 +828,7 @@ export function localStubDrafts(
   // それでも足りなければ (プールを使い切った) 重複を許してでも件数を満たす。
   for (let step = 0; out.length < count; step++) {
     const theme = list[out.length % list.length];
-    out.push(stubDraftAt(theme, out.length, offset + step, fullKeyword));
+    out.push(stubDraftAt(theme, offset + step, offset + step, resultShift + out.length, fullKeyword));
   }
   return out;
 }
