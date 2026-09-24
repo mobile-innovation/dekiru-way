@@ -3048,3 +3048,99 @@ SNS 的な人気競争にしないことを最優先に置く。
   結果 5 分類、レイアウト構成。
 - 検証: `tsc --noEmit` エラーなし。`npm run lint` 警告 0 件。`npm run test`（vitest）426/426 緑。
   ブラウザでの実見た目確認は未実施。
+
+### 2026-09-24 管理画面「Markdownから複数の試したことを持つ道」を登録できるようにする
+- 目的: ChatGPT 等（サービス外・API課金なしの定額利用）で作った Markdown を管理画面へ貼り付け、
+  1 つの道（Road）に複数の「試したこと」（Attempt）を、試した順番のまま仮データとして取り込める
+  ようにする。既存の AI API 生成（1 Road=1 Attempt）は変更しない。
+- **実装前調査で分かったこと（指示書 §18）**:
+  - `Attempt` に並び順専用のカラムは無い。全画面で表示順は `triedAt ?? createdAt`
+    （`sortAttemptsChronologically`、`src/lib/serializers.ts`）に統一されている。
+  - 1 つの `$transaction` 内で `Attempt.create()` を連続実行した場合に `createdAt` が
+    本当に単調増加するかを実際の開発 DB で検証（4 件連続作成→ミリ秒単位で 4 件とも異なる値）。
+    これにより新しいカラムを足さずに Markdown の順番を保持できることを確認した。
+  - `SeedDataDTO`／`serializeSeedRoad`／`publishSeedData`／`unpublishSeedData`／`updateSeedData`
+    はすべて「Road は Attempt を 1 件だけ持つ」前提だった（`road.attempts[0]` 決め打ち）。
+- **データ構造**（DB スキーマは変更していない。既存の `roads`/`attempts` テーブルのまま）:
+  - `src/lib/validation.ts`: `seedDraftSchema`（従来の 1 Road=1 Attempt 平坦形式）を
+    Road 部分 (`seedRoadFieldsSchema`) と Attempt 部分 (`seedAttemptFieldsSchema`) に分割し、
+    `seedDraftSchema` はその合成として維持（既存の AI 生成フローの挙動・バリデーションは不変）。
+    新たに `seedRoadWithAttemptsSchema`（Road + `attempts[]`、1〜30 件）、
+    `seedMarkdownParseSchema`（`{ markdown }`）を追加。`seedCreateSchema` は `items`（従来形式）
+    と `roads`（新形式）の両方を受けられるよう拡張（どちらか一方があればよい）。
+  - `SeedDataDTO.attempt`（単数・nullable）を `attempts`（配列、時系列順）に置き換えた
+    （`src/lib/admin/seed-data.ts`）。呼び出し側（一覧ページ・編集ページ）も合わせて更新。
+- **Markdown パーサー** (`src/lib/admin/seed-markdown.ts`、新規、AI を呼ばない純粋関数):
+  `#`＝道の区切り、`##`＝道の項目 or 「試したこと」の区切り（`試したこと` で始まる見出しはすべて
+  1 Attempt として扱い、番号・空白の表記ゆれを許容）、`###`＝試したことの項目、という行ベースの
+  見出し解析。結果は 5 分類の完全一致のみ許可し、不一致は
+  「結果「xxx」は対応していません」という指示書 §15 の例文に沿ったエラーにする。想定外の見出しは
+  無視せずエラーとして報告する（指示書 §14「安全に解析エラーとして扱う」）。HTML/script は一切
+  解釈しない（見出し行以外はすべてプレーンテキストの本文として扱うだけ）。
+  - **フィールドの折りたたみ（実装上の判断）**: Markdown の `### 試した理由` と
+    `### 次につながったこと` には対応する DB カラムが無い（`previousAttemptId` は指示書 §7 の
+    指示どおり復活させていない）。この 2 つと `### 結果の詳細` は、既存の「気づき」欄
+    （`Attempt.memo` / フォーム上は「気づき」）へラベル付きでまとめて格納する
+    （例:「詳細本文\n\n試した理由：…\n\n次につながったこと：…」）。新しいカラムは追加していない。
+  - `tests/unit/seed-markdown.test.ts`（14 件）: 1/3/6 Attempt、複数 Road、結果 5 分類、不正な
+    結果、方法欠落、困っていたこと欠落、試したこと0件、空Markdown、道の見出しなし、想定外の見出し、
+    見出しの表記ゆれ、を検証。
+
+  **追記（実装当日、実際にユーザーが ChatGPT で作った Markdown を試して発覚した不具合の修正）**:
+  最初の実装は「`#`＝道、`##`＝道の項目/試したこと、`###`＝試したことの項目」と見出しレベルを
+  固定していた。ところが実際に ChatGPT が出した Markdown は「# できる道 仮データ」という文書
+  タイトルを一番外側に置き、道以下がそのぶん 1 段深くなっていた（`## 道1` → `### 困っていたこと`
+  → `#### 方法`）。レベル固定の実装だとこれが解析エラーになり、指示書の例（`# 道1` 直下）でしか
+  通らなかった。**絶対的な見出しレベルではなく、見出しの親子構造（ネスト）から意味を判定する方式に
+  作り直した**: Markdown 全体をまず見出しレベルに応じた木構造にし、「困っていたこと」等の既知の
+  道の項目名、または「試したこと」で始まる見出しを**直接の子に持つ見出し**を「道」と判定する
+  （何段目でもよい）。これにより文書タイトルの有無に関わらず解析できるようになった。
+  併せて、道と道の間に入りがちな Markdown の水平線（`---`/`***`/`___` のみの行）が、直前の項目の
+  本文（特に「次に試したいこと」のような最後のフィールド）に紛れ込む不具合も見つけて修正した
+  （本文行から水平線だけの行を除外するようにした）。回帰防止のため、ユーザーが貼った実データと
+  同じネスト構造（文書タイトル→道→困っていたこと 等→試したこと→方法 等の 4 階層）を再現した
+  テストを追加（14 件目）。`docs/admin-manual.md` §6.5 と Markdown取り込み画面のヘルプ文言・
+  placeholder も「見出しの深さは自由」である旨に更新した。
+- **保存**: `persistSeedDrafts`（1 Road=1 Attempt 専用）を `persistSeedRoads`
+  （Road ごとに Attempt を 1 件ずつ順番に `create`。`createMany` は使わない＝順序保証のため）に
+  置き換え、`POST /api/admin/seed-data` が `items`（従来形式→内部で 1 Attempt の Road に正規化）
+  と `roads`（新形式）の両方をこの同じ関数に渡す（指示書 §13「既存の保存処理を再利用」）。
+  新規エンドポイント `POST /api/admin/seed-data/parse-markdown`（指示書 §13 で明示的に許可された
+  専用エンドポイント）は解析だけを行い、保存しない。
+- **公開・非公開の単位（実装上の判断）**: `publishSeedData`/`unpublishSeedData` を、Road が持つ
+  Attempt を**すべて同時に**切り替えるよう変更した（従来は `attempts[0]` だけ）。指示書 §12
+  「公開は1件ずつ」の「1件」を Road 単位と解釈した — 1 つの道の試行錯誤の一部だけを公開すると
+  途中で切れた物語になるため。既存の AI 生成データ（常に Attempt 1 件）への挙動変化は無い。
+- **保存後の編集の制限（意図的に対応しなかった）**: `updateSeedData`（`PATCH
+  /api/admin/seed-data/{roadId}`）と一覧の「編集」画面は、複数 Attempt を持つ道でも従来どおり
+  先頭（時系列で最初）の Attempt しか編集できない。Markdown取り込みの確認・編集は保存前（parse
+  直後、ブラウザの state 上）で完結させる設計のため（指示書 §9）、今回はここを拡張しなかった
+  （指示書 §16「不要な全面改修はしない」）。他の Attempt が編集で消えたり上書きされたりすることは
+  無い（対象外なだけ）。編集ページに「この画面では最初の1件だけ編集できます」という注記を追加した。
+- **UI**:
+  - `src/components/admin/seed-draft-fields.tsx`: 既存の `SeedDraftFields`（Road+Attempt 1 組）は
+    そのまま維持しつつ、`SeedRoadFields`（Road だけ）と `SeedAttemptFields`（Attempt だけ）を
+    新規に切り出した。AI 生成画面 (`seed-data-generator.tsx`) は無変更。
+  - `src/components/admin/seed-markdown-importer.tsx`（新規）: 貼り付け→解析→（エラー表示 or
+    確認・編集画面）→保存、のクライアントコンポーネント。確認・編集画面は道ごとに
+    `SeedRoadFields` 1 回＋`SeedAttemptFields` を試したことの数だけ描画し、道・試したこと単位で
+    外す／試したことを追加できる。
+  - `src/app/admin/seed-data/import-markdown/page.tsx`（新規）と
+    `src/app/admin/seed-data/page.tsx`（「＋ AIで生成」「＋ Markdownから取り込む」の 2 択に変更、
+    一覧カードは `attempts` 配列から件数・先頭 3 件の方法を表示するよう更新）。
+- 変更していないもの: `POST /api/admin/seed-data/generate`（AI 生成本体）のロジック、AI モデレーション、
+  公開・非公開の基本ルール（判定は変わらず `PUBLIC_ATTEMPT_WHERE`）、一般ユーザーの投稿フロー、
+  経験検索、認証・管理者権限、sitemap/SEO、DB スキーマ（カラム追加なし）。
+- ドキュメント: `docs/spec.md` §4（画面一覧に `import-markdown` 行を追加）・§5.10（作り方が
+  2 通りになった旨）・§7（API 一覧に `parse-markdown` を追加）、`docs/api.md`
+  （仮データ節を `SeedDraft`/`SeedRoadDraft` 両方の説明に更新）、`docs/admin-manual.md` §6.5
+  （方法A/方法Bの手順、公開・非公開が道単位である旨、保存後編集の制限）を更新。
+- テスト: `tests/unit/seed-markdown.test.ts`（13 件、新規）、
+  `tests/integration/seed-data-markdown.test.ts`（8 件、新規。parse-markdown の解析・エラー、
+  複数 Attempt の保存・順序保持・非公開/pending、公開/非公開が全 Attempt に効くこと、削除で
+  全 Attempt が消えること、複数 Road の一括取り込み、`items`/`roads` 混在保存）、
+  `tests/integration/seed-data.test.ts`（既存 15 件、`attempt`→`attempts[0]` に合わせて 2 箇所
+  修正のうえ確認）。
+- 検証: `tsc --noEmit` エラーなし。`npm run lint` 警告 0 件。`npm run test`（vitest）447/447 緑
+  （既存 426 ＋ 新規 21）。ブラウザでの実見た目確認・実際の ChatGPT 生成 Markdown での動作確認・
+  `npx playwright test` は未実施（`.next` 競合を避けるためユーザー確認なしに実行していない）。

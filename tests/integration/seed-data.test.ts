@@ -126,14 +126,15 @@ describe("仮データ: 生成 → 非公開で保存 → 1件ずつ公開/非�
     });
     expect(res.status).toBe(201);
     const { items } = (await res.json()) as {
-      items: { id: string; isPublished: boolean; publishState: string; aiGenerated: boolean; attempt: { method: string } }[];
+      items: { id: string; isPublished: boolean; publishState: string; aiGenerated: boolean; attempts: { method: string }[] }[];
     };
     expect(items).toHaveLength(10);
     for (const it of items) {
       expect(it.isPublished).toBe(false);
       expect(it.publishState).toBe("private");
       expect(it.aiGenerated).toBe(true);
-      created.push({ id: it.id, method: it.attempt.method });
+      expect(it.attempts).toHaveLength(1);
+      created.push({ id: it.id, method: it.attempts[0].method });
     }
 
     // DB 上でも仮データフラグが立っている
@@ -221,9 +222,9 @@ describe("仮データ: 生成 → 非公開で保存 → 1件ずつ公開/非�
       { params: Promise.resolve({ roadId: target.id }) },
     );
     expect(res.status).toBe(200);
-    const dto = (await res.json()) as { attempt: { method: string; result: string } };
-    expect(dto.attempt.method).toBe(`${MARK} 手で少しずつ寄せる`);
-    expect(dto.attempt.result).toBe("partial");
+    const dto = (await res.json()) as { attempts: { method: string; result: string }[] };
+    expect(dto.attempts[0].method).toBe(`${MARK} 手で少しずつ寄せる`);
+    expect(dto.attempts[0].result).toBe("partial");
     created[1].method = `${MARK} 手で少しずつ寄せる`;
   });
 

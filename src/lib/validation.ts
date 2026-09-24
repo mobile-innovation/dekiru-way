@@ -158,8 +158,11 @@ const seedDifficulty = trimmedRequired(FIELD_MAX.text, "困ったこと").refine
   { message: "「サンプル1」のような番号だけの困りごとにしないでください" },
 );
 
-/** 仮データ 1 件 = Road 相当 + Attempt 相当。保存前の確認画面で編集された値もこれで検証する。 */
-export const seedDraftSchema = z.object({
+/**
+ * Road 相当のフィールドだけ (Markdown取り込み指示書で「1 Road + 複数 Attempt」に対応するため、
+ * 以前は 1 つの平坦なオブジェクトだった `seedDraftSchema` を Road 部分 / Attempt 部分に分割した)。
+ */
+const seedRoadFieldsSchema = z.object({
   difficulty: seedDifficulty,
   previouslyAble: trimmedOptional(FIELD_MAX.text),
   goal: trimmedOptional(FIELD_MAX.text),
@@ -169,24 +172,60 @@ export const seedDraftSchema = z.object({
   status: trimmedOptional(FIELD_MAX.statusLabel),
   progress: trimmedOptional(FIELD_MAX.text),
   nextAction: trimmedOptional(FIELD_MAX.text),
+});
+
+/** Attempt 相当のフィールドだけ。 */
+const seedAttemptFieldsSchema = z.object({
   method: trimmedRequired(FIELD_MAX.text, "試したこと"),
   result: z.enum(ATTEMPT_RESULTS, { required_error: "結果を選んでください" }),
   triedAt: isoDateOptional,
   attemptMemo: trimmedOptional(FIELD_MAX.longText),
 });
+
+/**
+ * 仮データ 1 件 = Road 相当 + Attempt 相当 (平坦形式)。既存の AI 生成フロー
+ * (`seed-data-generator.tsx` / `POST /api/admin/seed-data/generate`) はこの 1 Road = 1 Attempt
+ * の形式のまま変更しない (実装方針 §16: 既存 AI 生成は不要な全面改修をしない)。
+ */
+export const seedDraftSchema = seedRoadFieldsSchema.merge(seedAttemptFieldsSchema);
 export type SeedDraftInput = z.infer<typeof seedDraftSchema>;
 
-/** 保存 (すべて非公開で作成)。件数は生成上限と同じに抑える。 */
-export const seedCreateSchema = z.object({
-  // 生成時のテーマ。同じテーマの再生成で重複を避けるため保存時に控える (任意)。
-  keyword: trimmedOptional(200),
-  items: z
-    .array(seedDraftSchema)
-    .min(1, "保存する仮データがありません")
-    .max(SEED_COUNT_MAX, `一度に保存できるのは ${SEED_COUNT_MAX} 件までです`),
+export const SEED_MAX_ATTEMPTS_PER_ROAD = 30;
+export const SEED_MAX_ROADS_PER_IMPORT = 30;
+
+/** 仮データ 1 件 = Road 相当 + 複数の Attempt (Markdown取り込み用)。 */
+export const seedRoadWithAttemptsSchema = seedRoadFieldsSchema.extend({
+  attempts: z
+    .array(seedAttemptFieldsSchema)
+    .min(1, "試したことが1件もありません")
+    .max(SEED_MAX_ATTEMPTS_PER_ROAD, `1つの道につき試したことは ${SEED_MAX_ATTEMPTS_PER_ROAD} 件までです`),
+});
+export type SeedRoadWithAttemptsInput = z.infer<typeof seedRoadWithAttemptsSchema>;
+
+/** 保存 (すべて非公開で作成)。`items` は既存の 1 Road=1 Attempt 形式、`roads` は Markdown取り込みの
+ * 1 Road=複数 Attempt 形式。どちらか一方、または両方を送れる (指示書 13: 既存の保存処理を再利用)。 */
+export const seedCreateSchema = z
+  .object({
+    // 生成時のテーマ、または取り込み元の識別用ラベル。同じテーマの再生成で重複を避けるため保存時に控える (任意)。
+    keyword: trimmedOptional(200),
+    items: z.array(seedDraftSchema).max(SEED_COUNT_MAX, `一度に保存できるのは ${SEED_COUNT_MAX} 件までです`).optional(),
+    roads: z
+      .array(seedRoadWithAttemptsSchema)
+      .max(SEED_MAX_ROADS_PER_IMPORT, `一度に取り込めるのは ${SEED_MAX_ROADS_PER_IMPORT} 件までです`)
+      .optional(),
+  })
+  .refine((v) => (v.items?.length ?? 0) + (v.roads?.length ?? 0) > 0, {
+    message: "保存する仮データがありません",
+  });
+
+/** Markdown を解析するだけの入力 (DB へは保存しない)。 */
+export const seedMarkdownParseSchema = z.object({
+  markdown: z.string().trim().min(1, "Markdownを貼り付けてください").max(50_000, "Markdownが長すぎます"),
 });
 
-/** 1 件ずつの編集 (部分更新)。 */
+/** 1 件ずつの編集 (部分更新)。複数 Attempt を持つ仮データも、この経路では最初の Attempt だけを扱う
+ * (Markdown取り込みの確認・編集は保存前に画面上で行うため、保存後の編集 API は既存のまま拡張していない。
+ * 指示書 §16「不要な全面改修はしない」)。 */
 export const seedUpdateSchema = seedDraftSchema.partial();
 export type SeedUpdateInput = z.infer<typeof seedUpdateSchema>;
 

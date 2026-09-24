@@ -68,14 +68,23 @@ export default async function AdminSeedDataPage({ searchParams }: { searchParams
         </p>
       </div>
 
-      <p>
-        <Link
-          href="/admin/seed-data/generate"
-          className="tap-target inline-flex items-center rounded-[var(--radius-pill)] border border-[var(--color-primary)] bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary-ink)] no-underline"
-        >
-          ＋ AIで仮データを生成
-        </Link>
-      </p>
+      <div className="space-y-1">
+        <p className="text-xs font-bold text-[var(--color-ink-muted)]">作成方法</p>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/seed-data/generate"
+            className="tap-target inline-flex items-center rounded-[var(--radius-pill)] border border-[var(--color-primary)] bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary-ink)] no-underline"
+          >
+            ＋ AIで生成
+          </Link>
+          <Link
+            href="/admin/seed-data/import-markdown"
+            className="tap-target inline-flex items-center rounded-[var(--radius-pill)] border border-[var(--color-primary)] bg-[var(--color-surface)] px-4 py-2 text-sm font-semibold text-[var(--color-primary-hover)] no-underline"
+          >
+            ＋ Markdownから取り込む
+          </Link>
+        </div>
+      </div>
 
       {/* 緑の指示枠：表示する仮データ（非公開／公開）を切り替える。初期は非公開。 */}
       <div className="space-y-2 rounded-[var(--radius-md)] bg-[var(--color-primary-tint)] p-3 shadow-[var(--shadow-card)]">
@@ -97,7 +106,7 @@ export default async function AdminSeedDataPage({ searchParams }: { searchParams
       {items.length === 0 ? (
         <p className="rounded-[var(--radius-lg)] border border-[var(--color-border)] p-6 text-center text-sm text-[var(--color-ink-muted)]">
           {counts.all === 0
-            ? "まだ仮データはありません。「＋ AIで仮データを生成」から作成できます。"
+            ? "まだ仮データはありません。「＋ AIで生成」または「＋ Markdownから取り込む」から作成できます。"
             : showPublished
               ? "公開している仮データはありません。"
               : "非公開の仮データはありません。"}
@@ -121,10 +130,20 @@ export default async function AdminSeedDataPage({ searchParams }: { searchParams
               <p className="text-sm font-semibold">
                 {it.road.difficulty ?? it.road.goal ?? "（困ったこと未入力）"}
               </p>
-              {it.attempt && (
-                <p className="line-clamp-2 text-sm text-[var(--color-ink-muted)]">
-                  試したこと：{it.attempt.method}
-                </p>
+              {it.attempts.length > 0 && (
+                <div className="text-sm text-[var(--color-ink-muted)]">
+                  <p className="text-xs font-bold">試したこと（{it.attempts.length}）</p>
+                  <ol className="mt-0.5 space-y-0.5">
+                    {it.attempts.slice(0, 3).map((a) => (
+                      <li key={a.id} className="line-clamp-1">
+                        ・{a.method}
+                      </li>
+                    ))}
+                  </ol>
+                  {it.attempts.length > 3 && (
+                    <p className="mt-0.5 text-xs">ほかに {it.attempts.length - 3} 件</p>
+                  )}
+                </div>
               )}
               <SeedRowActions roadId={it.id} isPublished={it.isPublished} />
             </li>

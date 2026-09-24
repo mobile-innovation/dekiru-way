@@ -301,25 +301,41 @@ SNS からの流入者が、1 件の「試したこと」だけを最小入力�
 | PATCH | `/api/admin/posts/{attemptId}` | `{ moderationStatus, note? }`。公開の取り下げ / 再公開など手動遷移。 |
 | POST | `/api/admin/posts/{attemptId}/recheck` | 投稿の AI 審査だけ再実行（`moderationStatus` は変えない）。 |
 
-### 仮データ（AI 生成サンプル・運営者のみ）
+### 仮データ（AI 生成サンプル／Markdown取り込み・運営者のみ）
 
 管理者が検索体験の確認用に作るサンプル。`roads.is_seed_data = true` / `roads.data_origin = "ai_seed"` で
-実ユーザーデータと区別する。1 件 = Road 1 件 + Attempt 1 件。**保存時は必ず非公開**（API から
-公開＝true では作れない）。公開・非公開・削除はすべて 1 件ずつ（一括操作は無い）。
-対象が仮データでない Road を指した操作は `not_found`(404)。
+実ユーザーデータと区別する。**保存時は必ず非公開**（API から公開＝true では作れない）。
+公開・非公開・削除は Road（＝道）単位（一括操作は無い）。対象が仮データでない Road を指した操作は
+`not_found`(404)。
+
+1 件の Road が持てる Attempt（試したこと）の数は、作り方によって異なる（2026-09-24
+「複数の試したことを持つ道」対応。それ以前は常に 1 件だった）:
+
+- **AI生成**（`generate` → `items` で保存）: 1 Road = 1 Attempt のまま。
+- **Markdown取り込み**（`parse-markdown` → `roads` で保存）: 1 Road = 複数 Attempt 可（Markdown の
+  記述順を保持）。`publish`/`unpublish` はその Road の Attempt を**すべて同時に**切り替える
+  （1 つの試行錯誤の物語として扱うため）。`PATCH` による保存後の編集は、複数 Attempt を持つ
+  Road でも先頭（時系列で最初）の Attempt にしか効かない（既知の制限）。
 
 | メソッド | パス | 説明 |
 | --- | --- | --- |
 | POST | `/api/admin/seed-data/generate` | `{ keyword, count(5〜20, 既定10), exclude? }` → 候補配列 `{ drafts, count, priorCount }` を返す。**保存しない**。保存済みの同 `keyword` 仮データ（`seed_keyword` で照合）＋ `exclude`（＝画面に表示中／その回までに生成した候補。キーワードを変えず「再生成」するたびに内容を変えるため）と実質的に重複しない切り口を返す。AI キー未設定時は決定的なスタブ（生成のたびに開始位置をずらす）。 |
-| POST | `/api/admin/seed-data` | `{ keyword?, items: SeedDraft[] }` → すべて非公開で保存（`is_seed_data=true` / `data_origin="ai_seed"` / `seed_keyword=keyword` / Attempt は `is_published=false`・`moderation_status=pending`）。 |
-| GET | `/api/admin/seed-data` | 仮データ一覧（`?page`, `?state=private`(既定)｜`published`｜`all`）。`{ items, total, counts:{all,private,published}, page, hasMore }`。 |
+| POST | `/api/admin/seed-data/parse-markdown` | `{ markdown: string }` → `{ roads: ParsedRoad[], errors: string[] }`。Markdown を構文解析するだけ（**AI は呼ばない**）で、**保存しない**。`errors` が 1 件でもあれば、その内容を管理者が直してもう一度呼ぶ想定（保存には進めない）。 |
+| POST | `/api/admin/seed-data` | `{ keyword?, items?: SeedDraft[], roads?: SeedRoadDraft[] }`（`items`/`roads` の少なくとも一方が必須。両方を同時に送ってもよい）→ すべて非公開で保存（`is_seed_data=true` / `data_origin="ai_seed"` / `seed_keyword=keyword` / Attempt は `is_published=false`・`moderation_status=pending`）。 |
+| GET | `/api/admin/seed-data` | 仮データ一覧（`?page`, `?state=private`(既定)｜`published`｜`all`）。`{ items, total, counts:{all,private,published}, page, hasMore }`。各 item の `attempts` は時系列順の配列（AI生成は常に 1 件）。 |
 | GET | `/api/admin/seed-data/{roadId}` | 仮データ 1 件。 |
-| PATCH | `/api/admin/seed-data/{roadId}` | 仮データ 1 件を編集（Road 相当 / Attempt 相当のフィールド）。 |
-| POST | `/api/admin/seed-data/{roadId}/publish` | 仮データ 1 件を公開（`is_published=true` / `moderation_status=approved`。管理者が確認済みのため AI 審査は通さない）。 |
-| POST | `/api/admin/seed-data/{roadId}/unpublish` | 仮データ 1 件を非公開に戻す。 |
-| DELETE | `/api/admin/seed-data/{roadId}` | 仮データ 1 件を削除（Attempt は FK cascade）。204。 |
+| PATCH | `/api/admin/seed-data/{roadId}` | 仮データ 1 件を編集（Road 相当 / 先頭 Attempt 相当のフィールド）。 |
+| POST | `/api/admin/seed-data/{roadId}/publish` | 仮データ 1 件（＝ Road）を公開（その Road の Attempt をすべて `is_published=true` / `moderation_status=approved` に。管理者が確認済みのため AI 審査は通さない）。 |
+| POST | `/api/admin/seed-data/{roadId}/unpublish` | 仮データ 1 件（＝ Road）を非公開に戻す（その Road の Attempt をすべて非公開へ）。 |
+| DELETE | `/api/admin/seed-data/{roadId}` | 仮データ 1 件を削除（Attempt は FK cascade で全件削除）。204。 |
 
-`SeedDraft` = `{ difficulty?, previouslyAble?, goal?, situation?, startedAt?(YYYY-MM-DD), memo?, status?, progress?, nextAction?, method(必須), result(5分類), triedAt?(YYYY-MM-DD), attemptMemo? }`。
+`SeedDraft`（`items`。1 Road = 1 Attempt の平坦形式）= `{ difficulty?, previouslyAble?, goal?,
+situation?, startedAt?(YYYY-MM-DD), memo?, status?, progress?, nextAction?, method(必須),
+result(5分類), triedAt?(YYYY-MM-DD), attemptMemo? }`。
+
+`SeedRoadDraft`（`roads`。1 Road = 複数 Attempt 形式）= Road 側フィールド
+（`difficulty?`〜`nextAction?`。`SeedDraft` と同じ）＋
+`attempts: { method(必須), result(5分類), triedAt?, attemptMemo? }[]`（1〜30 件）。
 
 ---
 
