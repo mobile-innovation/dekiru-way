@@ -164,6 +164,53 @@ describe("検索AI Phase 1: opts.terms（複数語ハイブリッド絞り込み
   });
 });
 
+describe("resolveTerms: 空白区切りの複数語は単語ごとにも OR で照合する（「つめ　切り」で0件だった報告の修正）", () => {
+  it("空白（半角）を含む q.q は、フレーズ全体 + 各単語の OR になる", () => {
+    const where = buildExperienceWhere({ q: "つめ 切り" });
+    const or = (where.AND as any[]).find((c) => c.OR);
+    const methodContains = or.OR.filter((o: any) => o.method).map((o: any) => o.method.contains);
+    expect(methodContains).toEqual(["つめ 切り", "つめ", "切り"]);
+  });
+
+  it("全角スペースでも同様に単語ごとに割る", () => {
+    const where = buildExperienceWhere({ q: "つめ　切り" });
+    const or = (where.AND as any[]).find((c) => c.OR);
+    const methodContains = or.OR.filter((o: any) => o.method).map((o: any) => o.method.contains);
+    expect(methodContains).toEqual(["つめ　切り", "つめ", "切り"]);
+  });
+
+  it("空白を含まない 1 語だけの q.q は従来と完全に同じ（単一語のまま）", () => {
+    const withSpace = buildExperienceWhere({ q: "ボタン" });
+    const or = (withSpace.AND as any[]).find((c) => c.OR);
+    expect(or.OR).toHaveLength(7); // 1 語ぶんのみ（従来どおり）
+    expect(or.OR[0].method.contains).toBe("ボタン");
+  });
+
+  it("buildRoadLevelSearchWhere / buildMethodSearchWhere にも同様に反映される", () => {
+    const road = buildRoadLevelSearchWhere({ q: "つめ 切り" });
+    const roadOr = (road.AND as any[]).find((c) => c.OR);
+    expect(roadOr.OR.filter((o: any) => o.difficulty).map((o: any) => o.difficulty.contains)).toEqual([
+      "つめ 切り",
+      "つめ",
+      "切り",
+    ]);
+
+    const method = buildMethodSearchWhere({ q: "つめ 切り" });
+    const methodOr = (method.AND as any[]).find((c) => c.OR);
+    expect(methodOr.OR.filter((o: any) => o.method).map((o: any) => o.method.contains)).toEqual([
+      "つめ 切り",
+      "つめ",
+      "切り",
+    ]);
+  });
+
+  it("opts.ids を渡すと terms/q.q による OR は使わず、id 一覧だけで絞り込む（表記ゆれ検索用）", () => {
+    const where = buildExperienceWhere({ q: "無視される" }, undefined, { ids: ["a1", "a2"] });
+    expect(where.AND).toContainEqual({ id: { in: ["a1", "a2"] } });
+    expect((where.AND as any[]).some((c) => c.OR)).toBe(false);
+  });
+});
+
 describe("buildExperienceOrderBy", () => {
   it("recent は createdAt 降順", () => {
     expect(buildExperienceOrderBy("recent")).toEqual([{ createdAt: "desc" }]);

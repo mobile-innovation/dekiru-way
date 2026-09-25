@@ -55,6 +55,11 @@ Phase 1（AI が検索語を展開 → `ILIKE` OR を増やす → ページ内�
 `feat/mvp-foundation` に実装済み（`src/lib/ai/search.ts` / `src/lib/search-rank.ts` / `?ai=1`）。
 詳細は `docs/spec.md` §5.2.1 / `docs/implementation-decisions.md` 2026-09-11。
 
+**表記ゆれ検索（pg_trgm）は Phase 2 とは別に実装済み**（2026-09-25。AI・外部サービスを使いたくない
+という方針判断のため、Phase 2 の pgvector とは別に、DB 内で完結する軽量な保険として追加）。
+通常のキーワード検索が 0 件のときだけ `similarity()` で候補を探す最後の手段で、意味の異なる同義語
+までは拾えない（それには依然として Phase 2 の embedding が必要）。詳細は `docs/spec.md` §5.2.2。
+
 Phase 2（ベクトル類似検索）に必要なのは主にインフラと判断で、着手前に決める:
 
 1. docker イメージを `postgres:16-alpine` → `pgvector/pgvector:pg16` に差し替え、本番 DB コンテナも入れ替え

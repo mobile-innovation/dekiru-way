@@ -12,6 +12,7 @@ import { RateLimitedNotice } from "@/components/rate-limited-notice";
 import { experienceQuerySchema } from "@/lib/validation";
 import { searchRoads, searchMethods, getPopularTags } from "@/lib/queries";
 import { expandSearchIntent, type SearchIntent } from "@/lib/ai/search";
+import { fuzzySearchRoadIds, fuzzySearchAttemptIds } from "@/lib/search-fuzzy";
 import { adContextFromText } from "@/lib/ads";
 import { getOptionalUserId } from "@/lib/authz";
 import { guardPublicPage } from "@/lib/page-guard";
@@ -95,6 +96,28 @@ export default async function ExperiencesPage({
       methodEnabled ? searchMethods(q, viewerUserId) : Promise.resolve(emptyRes),
     ]);
   }
+
+  // 表記ゆれに強い検索 (pg_trgm、AI・外部サービス不使用): 通常のキーワード検索
+  // （AIアシスト利用時はその結果も含め）で 1 件も見つからなかったときだけの最後の手段。
+  // DB 内 (pg_trgm) で完結するため、課金や外部サービス停止のリスクが無い。
+  let fuzzyFellBack = false;
+  if (q.q && q.q.trim().length >= 2 && roadRes.total === 0 && methodMatch.total === 0) {
+    const [fuzzyRoadIds, fuzzyAttemptIds] = await Promise.all([
+      roadEnabled ? fuzzySearchRoadIds(q.q, q.limit) : Promise.resolve([]),
+      methodEnabled ? fuzzySearchAttemptIds(q.q, q.limit) : Promise.resolve([]),
+    ]);
+    if (fuzzyRoadIds.length > 0 || fuzzyAttemptIds.length > 0) {
+      fuzzyFellBack = true;
+      [roadRes, methodMatch] = await Promise.all([
+        roadEnabled && fuzzyRoadIds.length > 0
+          ? searchRoads(q, viewerUserId, { ids: fuzzyRoadIds })
+          : Promise.resolve(emptyRes),
+        methodEnabled && fuzzyAttemptIds.length > 0
+          ? searchMethods(q, viewerUserId, { ids: fuzzyAttemptIds })
+          : Promise.resolve(emptyRes),
+      ]);
+    }
+  }
   const tags = await tagsPromise;
   const { items, total, page, hasMore, windowExceeded } = roadRes;
 
@@ -147,6 +170,8 @@ export default async function ExperiencesPage({
       {intent && (
         <AiAssistPanel intent={intent} fellBack={aiFellBack} plainHref={plainSearchHref(sp)} />
       )}
+
+      {fuzzyFellBack && <FuzzyFallbackNotice />}
 
       {nothingFound && (
         <EmptyState title="まだ見つかりませんでした">
@@ -330,6 +355,25 @@ function AiAssistPanel({
       <Link href={plainHref} className="inline-block font-semibold underline">
         AIアシストをやめて検索する
       </Link>
+    </section>
+  );
+}
+
+/**
+ * 通常のキーワード検索・AIアシストどちらでも 0 件だったとき、表記ゆれ検索 (pg_trgm) で
+ * 近い言い回しを拾った旨を短く伝える。DB 内で完結し、AI・外部サービスは使っていない。
+ */
+function FuzzyFallbackNotice() {
+  return (
+    <section
+      aria-label="表記ゆれ検索"
+      className="space-y-1 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-primary-tint)] p-4 text-sm"
+    >
+      <p className="font-bold text-[var(--color-ink)]">近いことばで探しました</p>
+      <p className="text-[var(--color-ink-muted)]">
+        そのままの言葉では見つからなかったため、似た言い回しの道・記録を表示しています。
+        AIや外部サービスは使っていません。
+      </p>
     </section>
   );
 }

@@ -31,20 +31,32 @@ export const PUBLIC_ATTEMPT_WHERE = {
 
 type SearchQ = Pick<ExperienceQuery, "q" | "result" | "tag" | "read">;
 
-/** 検索AI Phase 1: AI が展開した検索語。未指定なら `q.q` 単独で従来どおり。 */
-export type TermOpts = { terms?: string[] };
+/**
+ * 検索AI Phase 1: AI が展開した検索語。未指定なら `q.q` 単独で従来どおり。
+ * `ids`: 表記ゆれ検索 (pg_trgm) で既に絞り込んだ id 一覧。指定時は `terms`/`q.q` による
+ * ILIKE 条件を使わず、この id 一覧への絞り込みだけを行う（呼び出し側が候補を確定済みのため）。
+ */
+export type TermOpts = { terms?: string[]; ids?: string[] };
+
+const WHITESPACE_SPLIT = /[\s　]+/u;
 
 /**
  * 実際に部分一致で使う語の一覧。
  *   - `opts.terms` があればそれ（trim 済み・空語除去）
- *   - なければ `q.q` を 1 語
+ *   - なければ `q.q`。空白（半角/全角）を含む場合は単語ごとにも割り、フレーズ全体 ＋
+ *     各単語を OR で照合する（「つめ　切り」のように利用者が単語のつもりで空白区切りに
+ *     した入力が、フレーズ全体の完全一致でしか照合されず 0 件になっていた不具合の修正）。
+ *     単語を含まない（空白の無い）1 語だけの入力は従来と完全に同じ挙動。
  *   - どちらも無ければ空（キーワード条件を足さない）
  */
 function resolveTerms(q: SearchQ, opts?: TermOpts): string[] {
   const fromOpts = (opts?.terms ?? []).map((t) => t.trim()).filter((t) => t.length > 0);
   if (fromOpts.length > 0) return fromOpts;
-  const single = q.q?.trim();
-  return single ? [single] : [];
+  const phrase = q.q?.trim();
+  if (!phrase) return [];
+  const words = phrase.split(WHITESPACE_SPLIT).filter((w) => w.length > 0);
+  if (words.length <= 1) return [phrase];
+  return Array.from(new Set([phrase, ...words]));
 }
 
 const ilike = (term: string) => ({ contains: term, mode: "insensitive" as const });
@@ -82,22 +94,26 @@ export function buildExperienceWhere(
     });
   }
 
-  const terms = resolveTerms(q, opts);
-  if (terms.length > 0) {
-    and.push({
-      OR: terms.flatMap((term) => {
-        const contains = ilike(term);
-        return [
-          { method: contains },
-          { memo: contains },
-          { road: { is: { difficulty: contains } } },
-          { road: { is: { situation: contains } } },
-          { road: { is: { goal: contains } } },
-          { road: { is: { previouslyAble: contains } } },
-          { road: { is: { roadTags: { some: { tag: { name: contains } } } } } },
-        ];
-      }),
-    });
+  if (opts?.ids) {
+    and.push({ id: { in: opts.ids } });
+  } else {
+    const terms = resolveTerms(q, opts);
+    if (terms.length > 0) {
+      and.push({
+        OR: terms.flatMap((term) => {
+          const contains = ilike(term);
+          return [
+            { method: contains },
+            { memo: contains },
+            { road: { is: { difficulty: contains } } },
+            { road: { is: { situation: contains } } },
+            { road: { is: { goal: contains } } },
+            { road: { is: { previouslyAble: contains } } },
+            { road: { is: { roadTags: { some: { tag: { name: contains } } } } } },
+          ];
+        }),
+      });
+    }
   }
 
   return { AND: and };
@@ -157,20 +173,24 @@ export function buildRoadLevelSearchWhere(
     });
   }
 
-  const terms = resolveTerms(q, opts);
-  if (terms.length > 0) {
-    and.push({
-      OR: terms.flatMap((term) => {
-        const contains = ilike(term);
-        return [
-          { difficulty: contains },
-          { situation: contains },
-          { goal: contains },
-          { previouslyAble: contains },
-          { roadTags: { some: { tag: { name: contains } } } },
-        ];
-      }),
-    });
+  if (opts?.ids) {
+    and.push({ id: { in: opts.ids } });
+  } else {
+    const terms = resolveTerms(q, opts);
+    if (terms.length > 0) {
+      and.push({
+        OR: terms.flatMap((term) => {
+          const contains = ilike(term);
+          return [
+            { difficulty: contains },
+            { situation: contains },
+            { goal: contains },
+            { previouslyAble: contains },
+            { roadTags: { some: { tag: { name: contains } } } },
+          ];
+        }),
+      });
+    }
   }
 
   return { AND: and };
@@ -198,14 +218,18 @@ export function buildMethodSearchWhere(
     });
   }
 
-  const terms = resolveTerms(q, opts);
-  if (terms.length > 0) {
-    and.push({
-      OR: terms.flatMap((term) => {
-        const contains = ilike(term);
-        return [{ method: contains }, { memo: contains }];
-      }),
-    });
+  if (opts?.ids) {
+    and.push({ id: { in: opts.ids } });
+  } else {
+    const terms = resolveTerms(q, opts);
+    if (terms.length > 0) {
+      and.push({
+        OR: terms.flatMap((term) => {
+          const contains = ilike(term);
+          return [{ method: contains }, { memo: contains }];
+        }),
+      });
+    }
   }
 
   return { AND: and };

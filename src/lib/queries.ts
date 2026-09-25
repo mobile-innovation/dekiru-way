@@ -56,14 +56,16 @@ const BEST_RESULT_RANK: Record<string, number> = {
  * 方法（Attempt）ごとではなく、困りごと（Road）ごとに 1 カード。
  * ページング・件数は「道」単位。`GET /api/v1/experiences`（Attempt 単位）は変更しない。
  *
- * `opts` は検索AI Phase 1 用（省略時は従来と完全に同じ）:
+ * `opts` は検索AI Phase 1 / 表記ゆれ検索 (pg_trgm) 用（省略時は従来と完全に同じ）:
  *   - `terms`: AI が展開した検索語。where を語ごとの OR に広げる。
  *   - `rank`: true なら取得後の 1 ページ分を関連度で並べ替える（helpful/tried と同じ後処理）。
+ *   - `ids`: 表記ゆれ検索 (`fuzzySearchRoadIds`) で絞り込み済みの道 id 一覧。指定時は
+ *     ILIKE 条件の代わりにこの id 一覧で絞り込む。
  */
 export async function searchRoads(
   q: ExperienceQuery,
   viewerUserId?: string | null,
-  opts?: { terms?: string[]; rank?: boolean },
+  opts?: { terms?: string[]; rank?: boolean; ids?: string[] },
 ) {
   const skip = (q.page - 1) * q.limit;
   if (skip >= MAX_RESULT_WINDOW) {
@@ -220,7 +222,7 @@ async function treePageByAttempt(roadIds: string[]): Promise<Map<string, number>
 export async function searchMethods(
   q: ExperienceQuery,
   viewerUserId?: string | null,
-  opts?: { terms?: string[]; rank?: boolean },
+  opts?: { terms?: string[]; rank?: boolean; ids?: string[] },
 ) {
   const base = {
     items: [] as MethodCardDTO[],

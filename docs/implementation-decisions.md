@@ -3281,3 +3281,84 @@ SNS 的な人気競争にしないことを最優先に置く。
 - 検証: `tsc --noEmit` エラーなし。`npm run lint` 警告 0 件。`npm run test`（vitest）456/456 緑
   （既存 453 ＋ 新規 3）。UI（`seed-markdown-importer.tsx`）と `docs/admin-manual.md` §6.5 のヘルプ
   文言にもこの形式が解析できる旨を追記。
+
+### 2026-09-25 表記ゆれに強い検索（pg_trgm、AI・外部サービス不使用）を追加
+- 経緯: 「つめが切りにくい」で検索してもヒットしない、という報告から検索実装を調査（ILIKE 部分
+  一致のみで、保存文言「つめを切ろうとしても、うまく切りにくく、…」と語順が違うためヒットしない
+  ことが判明）。対応案として ANTHROPIC_API_KEY での従量課金 AI・Gemini 等の無料枠 AI を提示したが、
+  ユーザーから「外のサービスは中止も考えられるので、サーバー内のローカルで処理したい」との明確な
+  方針判断があり、AI・外部サービスに一切依存しない方式を選んだ。
+- 検討過程（ユーザーに提示し、確認のうえ採用）:
+  1. ローカル LLM（Ollama 等）はさくら VPS のスペック（メモリ約 2GB、mycarenote と相乗り、
+     `next build` すらスワップ必須）では非現実的と判断（`docs/deployment.md` §1 を根拠に説明）。
+  2. 本来の要求は「AI による意味理解」ではなく「表記ゆれに強い部分一致」なので、AI を使わず
+     PostgreSQL 標準拡張 `pg_trgm`（トライグラム類似度）で対応できると判断。
+  3. 実際に開発 DB（`postgres:16-alpine`）で `CREATE EXTENSION pg_trgm` を試し、**追加インストール
+     不要で即座に使えること**を確認してから実装に着手（「プログラムの変更のみで対応できるか」という
+     質問に対する裏付け）。
+- 実装:
+  - マイグレーション `20260925095803_add_pg_trgm_fuzzy_search`: `CREATE EXTENSION IF NOT EXISTS
+    pg_trgm` ＋ `roads.difficulty/situation/goal/previously_able`・`attempts.method/memo` への
+    GIN トライグラムインデックス（`gin_trgm_ops`）。
+  - `src/lib/search-fuzzy.ts`（新規）: `fuzzySearchRoadIds` / `fuzzySearchAttemptIds`。
+    `$queryRaw` で `similarity()` の `GREATEST` を各対象カラムに掛け、しきい値 0.1 超・
+    `is_published=true AND moderation_status='approved'` の id を類似度順で返す。しきい値は
+    実際の報告ケース（「つめが切りにくい」と保存文言の類似度が実測 0.125 だった）を踏まえて
+    やや低めに設定した。
+  - `src/lib/search.ts`: `TermOpts` に `ids?: string[]` を追加。指定時は `terms`/`q.q` による
+    `ILIKE` OR の代わりに `{ id: { in: ids } }` で絞り込む（3 つの where ビルダー全てに反映）。
+    表記ゆれ検索で確定した候補をそのまま渡すためのフック（既存の `terms` ロジックとは独立）。
+  - `src/lib/queries.ts`: `searchRoads` / `searchMethods` の `opts` 型に `ids?: string[]` を追加
+    （そのまま `buildXxxSearchWhere` へ渡すだけ。既読判定・ページング等の既存処理は無変更で再利用）。
+  - `src/app/experiences/page.tsx`: 通常のキーワード検索（AIアシスト利用時はそのフォールバックも
+    含む）で道・方法どちらも 0 件、かつ検索語 2 文字以上のときだけ、最後の手段として
+    `fuzzySearchRoadIds`/`fuzzySearchAttemptIds` を呼び、見つかった id で再取得する。見つかった
+    ときは `FuzzyFallbackNotice`（新規コンポーネント）で「近いことばで探しました」「AIや外部
+    サービスは使っていません」と表示する（`AiAssistPanel` と対になる簡潔な通知）。
+  - 意味の異なる同義語（「爪切り」→「つめ」等）までは拾えない（それには embedding が必要。
+    Phase 2 として保留のまま）。あくまで語順・言い回しの表記ゆれに対する保険。
+- 検証: 開発 DB に実際の報告内容に近いデータを作り、`similarity()` の生スコアを実測してから
+  しきい値を決定。「つめが切りにくい」の実例で、修正前は 0 件・修正後は該当の道が見つかることを
+  実際の開発 DB に対して確認した。
+- テスト: `tests/integration/search-fuzzy.test.ts`（新規、8 件）: 語順違いでも見つかる／類似度が
+  高い順に並ぶ／非公開・未承認は対象外／Attempt の method・memo でも見つかる／空文字は空配列／
+  無関係な語では見つからない／`searchRoads`・`searchMethods` の `opts.ids` 絞り込み、を検証。
+  （実装時の失敗談: テストデータの文言に MARK（テスト隔離用の一意文字列）を混ぜると、無関係な
+  データ同士も MARK という共通文字列を共有してしまい類似度が底上げされ、「無関係なデータは
+  ヒットしない」という検証が意味をなさなくなった。クリーンアップは MARK の前方一致検索ではなく
+  作成した id を直接指定する方式に直した）。
+- 変更していないもの: `GET /api/v1/experiences`（公開 JSON API）。AIアシスト検索 Phase 1 と同じく
+  Web ページ (`/experiences`) のみのスコープとし、既存の Phase 1 のスコープ判断を踏襲した
+  （REST API へ広げる要望は無かった）。通常のキーワード検索・AIアシスト検索のロジックは無変更。
+- 検証: `tsc --noEmit` エラーなし。`npm run lint` 警告 0 件。`npm run test`（vitest）464/464 緑
+  （既存 456 ＋ 新規 8）。ブラウザでの実見た目確認・`npx playwright test` は未実施（開発サーバーは
+  非稼働だったため `.next` 競合の心配は無かったが、UI の実見た目は未確認）。
+
+  **追記（同日、「つめ　切り」で0件だった追加報告への対応）**: 上記の pg_trgm 導入直後、
+  「つめ　切り」（空白区切りの単語 2 つ）で検索すると 0 件になる、という別の報告があった。
+  - 原因の切り分け: 通常のキーワード検索は `q.q` を**1 つのフレーズ**としてしか扱っておらず、
+    「つめ　切り」という空白入りの文字列がそのまま保存文言に含まれていないと一致しなかった
+    （空白を挟んだ 2 単語のつもりで入力しても、フレーズ全体の完全一致でしか照合されない）。
+  - 当初は表記ゆれ検索（pg_trgm）側で対処しようとし、検索語を空白で単語分割して各単語の
+    類似度も試す実装を書いたが、実測で **pg_trgm の `similarity()`/`word_similarity()` は
+    2〜3 文字程度の短い単語の判定が苦手**なことが分かった（例:「つめ」単体は 0.07、
+    「開け」単体は 0（文字列全体としては含まれているのに、境界パディングの都合で単語の
+    切れ目が無い日本語の地の文の途中に埋まっていると一致しない）ことを実測で確認）。
+  - **正しい直し場所は表記ゆれ検索ではなく、基本のキーワード検索だった**と判断し直した:
+    `resolveTerms`（`src/lib/search.ts`）を、`q.q` に空白（半角/全角）が含まれる場合は
+    フレーズ全体 ＋ 単語ごとに分割した語を `Set` で重複排除して返すよう変更。既存の
+    「複数語は OR で照合する」仕組み（検索AI Phase 1 の `opts.terms` と全く同じ経路）に
+    素通しで乗るため、`buildExperienceWhere`/`buildRoadLevelSearchWhere`/`buildMethodSearchWhere`
+    側の変更は不要だった。空白を含まない 1 語だけの検索語は、分割しても要素数 1 のままなので
+    従来と完全に同じ where になる（後方互換）。
+  - `src/lib/search-fuzzy.ts` の単語分割コードは、上記の実測結果（短語の類似度判定に向かない）
+    を踏まえて**撤回**し、フレーズ全体だけを見る元のシンプルな形に戻した。しきい値は境界の
+    ケース（「つめ切り」がちょうど 0.1 だった）を拾えるよう `0.1 超` から `0.08 以上` に変更した
+    （ここは残した改善点）。
+  - テスト: `tests/unit/search.test.ts` に `resolveTerms` の単語分割を検証する回帰テストを追加
+    （空白ありは単語ごとにも分かれる／空白なしの 1 語は従来どおり／`opts.ids` 指定時は
+    `terms`/`q.q` の OR を使わない、の 5 件）。`tests/integration/search-fuzzy.test.ts` に
+    残していた「短い単語の分割でも見つかる」テストは、実装を撤回したため削除した
+    （この観点の回帰は `search.test.ts` 側でカバーする）。
+  - 検証: `tsc --noEmit` エラーなし。`npm run lint` 警告 0 件。`npm run test`（vitest）469/469 緑
+    （既存 464 ＋ 新規 5）。開発 DB で「つめ　切り」が実際に 2 件ヒットすることを直接確認した。
