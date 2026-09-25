@@ -152,6 +152,26 @@ export function SeedMarkdownImporter() {
     );
   }
 
+  /**
+   * 試したことの並び順を入れ替える。保存時 (`persistSeedRoads`) は配列の順番のまま
+   * 1 件ずつ `create` するため、ここでの並び替えがそのまま試した順（表示順）になる。
+   */
+  function moveAttempt(roadKey: number, attemptKey: number, direction: "up" | "down") {
+    setRoads(
+      (cur) =>
+        cur &&
+        cur.map((r) => {
+          if (r.key !== roadKey) return r;
+          const i = r.attempts.findIndex((a) => a.key === attemptKey);
+          const j = direction === "up" ? i - 1 : i + 1;
+          if (i === -1 || j < 0 || j >= r.attempts.length) return r;
+          const attempts = [...r.attempts];
+          [attempts[i], attempts[j]] = [attempts[j]!, attempts[i]!];
+          return { ...r, attempts };
+        }),
+    );
+  }
+
   function save() {
     if (!roads || roads.length === 0) return;
     setError(null);
@@ -290,16 +310,36 @@ export function SeedMarkdownImporter() {
                         key={a.key}
                         className="space-y-2 rounded-[var(--radius-md)] bg-[var(--color-surface-sunken)] p-3"
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-bold">試したこと {ai + 1}</span>
-                          <button
-                            type="button"
-                            onClick={() => removeAttempt(r.key, a.key)}
-                            disabled={busy}
-                            className="text-xs text-[var(--color-danger)] underline disabled:opacity-50"
-                          >
-                            外す
-                          </button>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => moveAttempt(r.key, a.key, "up")}
+                              disabled={busy || ai === 0}
+                              aria-label={`試したこと ${ai + 1} を1つ上に移動`}
+                              className="text-xs text-[var(--color-ink)] underline disabled:opacity-30 disabled:no-underline"
+                            >
+                              ↑ 上へ
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveAttempt(r.key, a.key, "down")}
+                              disabled={busy || ai === r.attempts.length - 1}
+                              aria-label={`試したこと ${ai + 1} を1つ下に移動`}
+                              className="text-xs text-[var(--color-ink)] underline disabled:opacity-30 disabled:no-underline"
+                            >
+                              ↓ 下へ
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeAttempt(r.key, a.key)}
+                              disabled={busy}
+                              className="text-xs text-[var(--color-danger)] underline disabled:opacity-50"
+                            >
+                              外す
+                            </button>
+                          </div>
                         </div>
                         <SeedAttemptFields value={a} onChange={(patch) => patchAttempt(r.key, a.key, patch)} />
                       </li>

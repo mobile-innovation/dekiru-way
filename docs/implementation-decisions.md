@@ -3362,3 +3362,24 @@ SNS 的な人気競争にしないことを最優先に置く。
     （この観点の回帰は `search.test.ts` 側でカバーする）。
   - 検証: `tsc --noEmit` エラーなし。`npm run lint` 警告 0 件。`npm run test`（vitest）469/469 緑
     （既存 464 ＋ 新規 5）。開発 DB で「つめ　切り」が実際に 2 件ヒットすることを直接確認した。
+
+### 2026-09-25 Markdown取り込みの確認・編集画面で、試したことの並び順を入れ替えられるようにする
+- 目的: Markdown取り込みで解析した「試したこと」は Markdown に書いた順で表示されるが、
+  保存前に順番を直したい（Markdown を書き直さずに）という要望。
+- 実装 (`src/components/admin/seed-markdown-importer.tsx`):
+  - `moveAttempt(roadKey, attemptKey, "up" | "down")`（新規）: 対象の Attempt を配列内で
+    1 つ上/下の要素と入れ替える。境界（先頭で「上へ」・末尾で「下へ」）は呼び出し元の
+    ボタンを `disabled` にして防ぐ（関数側でも範囲外なら何もしない防御を入れている）。
+  - 各「試したこと」カードに「↑ 上へ」「↓ 下へ」ボタンを追加（既存の「外す」の隣）。
+  - **保存 (`persistSeedRoads`) は配列の順番どおりに Attempt を 1 件ずつ `create` する
+    実装のため（既存仕様、2026-09-24 の指示書実装時に確認済み）、この並び替えは
+    コード変更無しでそのまま保存後の試した順（表示順）に反映される**。バックエンド側の
+    変更は不要だった。
+- テスト: `tests/unit/seed-markdown-importer.test.tsx`（新規、5 件、Testing Library で
+  `api.post` をモックして検証）: 解析直後は Markdown の順で表示される／「↑ 上へ」で1つ上と
+  入れ替わる／「↓ 下へ」で1つ下と入れ替わる／先頭の「上へ」・末尾の「下へ」が無効／
+  **並び替えたあとに保存すると、入れ替え後の順番で保存APIへ送られる**（一番肝心な検証）。
+- 変更していないもの: 保存・公開・非公開のロジック、AI生成画面（`seed-data-generator.tsx`、
+  こちらは元々 1 Road=1 Attempt なので並び替えの概念が無い）。
+- 検証: `tsc --noEmit` エラーなし。`npm run lint` 警告 0 件。`npm run test`（vitest）474/474 緑
+  （既存 469 ＋ 新規 5）。ブラウザでの実見た目確認・`npx playwright test` は未実施。
