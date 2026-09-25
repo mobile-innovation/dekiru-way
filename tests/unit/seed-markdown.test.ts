@@ -339,4 +339,72 @@ partial
     const { errors } = parseSeedMarkdown(md);
     expect(errors.some((e) => e.includes("謎の項目"))).toBe(true);
   });
+
+  it("番号なし「試したこと」1つの下に、見出しを増やさず「- 方法：」を複数回書いた実データを解析できる（ユーザー提示フォーマット）", () => {
+    // 「試したこと1」のような個別の見出しを作らず、「方法」で始まる箇条書き行が来るたびに
+    // 新しい Attempt とみなして分割する形式。「方法が1つしかない」不具合の回帰テスト。
+    const md = `# できる道 仮データ
+
+## 道1：つめが切りにくい
+
+### 困っていたこと
+つめを切ることが難しくなってきた。
+
+### 試したこと
+- 方法：一度に全部のつめを切らず、何回かに分けた。
+  - 試した理由：一度に行う負担を減らしたかったため。
+  - 結果：partial
+  - 結果の詳細：途中で休みながら作業できた。
+  - 次につながったこと：無理に一度で終わらせないようにした。
+- 方法：手を支えながらつめを切った。
+  - 試した理由：手を安定させて切りやすくしたかったため。
+  - 結果：partial
+  - 結果の詳細：少し切りやすくなったが、まだ難しい部分があった。
+  - 次につながったこと：できる範囲で手を支えながら行うことにした。
+
+### 現在の状態
+つめを切ることはまだ難しいが、作業を分けたり手を支えたりすると取り組みやすくなった。
+`;
+    const { roads, errors } = parseSeedMarkdown(md);
+    expect(errors).toEqual([]);
+    expect(roads).toHaveLength(1);
+    const r = roads[0];
+    expect(r.attempts).toHaveLength(2);
+    expect(r.attempts.map((a) => a.method)).toEqual([
+      "一度に全部のつめを切らず、何回かに分けた。",
+      "手を支えながらつめを切った。",
+    ]);
+    expect(r.attempts.map((a) => a.result)).toEqual(["partial", "partial"]);
+    expect(r.attempts[0].attemptMemo).toContain("途中で休みながら作業できた。");
+    expect(r.attempts[1].attemptMemo).toContain("少し切りやすくなったが、まだ難しい部分があった。");
+  });
+
+  it("番号なし「試したこと」の箇条書きで、1件だけでも解析できる", () => {
+    const md = `# 道1
+
+## 困っていたこと
+困っていたこと1
+
+## 試したこと
+- 方法：方法1
+- 結果：success
+`;
+    const { roads, errors } = parseSeedMarkdown(md);
+    expect(errors).toEqual([]);
+    expect(roads[0].attempts).toEqual([{ method: "方法1", result: "success", attemptMemo: null }]);
+  });
+
+  it("番号なし「試したこと」の箇条書きで、「方法」より前に内容があるとエラーになる", () => {
+    const md = `# 道1
+
+## 困っていたこと
+困っていたこと1
+
+## 試したこと
+- 結果：success
+- 方法：方法1
+`;
+    const { errors } = parseSeedMarkdown(md);
+    expect(errors.some((e) => e.includes("「方法」より前に内容"))).toBe(true);
+  });
 });

@@ -29,13 +29,22 @@ import { ATTEMPT_RESULTS, type AttemptResultValue } from "@/lib/constants";
  *
  * **追記（2026-09-25、ユーザー実データに合わせた拡張）**:
  * - 「試したこと」（番号なし）見出しの下に「試したこと1」「試したこと2」…をぶら下げる、
- *   ラッパー見出しの形式にも対応した（`collectAttemptLeaves`。何段ラップしてもよい）。
+ *   ラッパー見出しの形式にも対応した（`parseAttemptsUnderNode`。何段ラップしてもよい）。
  * - Attempt の項目（方法・結果 等）は、見出しを増やさず「- 方法：〜」のような箇条書きで
  *   書いてもよい（`parseBulletFields`）。見出し形式・箇条書き形式のどちらでもよく、
  *   Attempt ノードが見出しの子を持つかどうかで自動判定する。
  * - **1 回の取り込みで受け付ける道（Road）は 1 件まで**にした（「道データは1件だけにする」指示。
  *   複数の道の見出しが見つかった場合は `parseSeedMarkdown` の時点でエラーにし、道ごとに
  *   Markdown を分けて取り込んでもらう）。1 つの道が複数の Attempt を持てる機能自体は変更していない。
+ *
+ * **追記（同日、番号なし「試したこと」1つの下に複数件を箇条書きだけで書く形式にも対応）**:
+ * 「試したこと1」のような個別の見出しをまったく作らず、番号なしの「試したこと」見出し 1 つの下に
+ * 「- 方法：〜」を複数回書き、それぞれの下にインデントして「試した理由」「結果」等をぶら下げる
+ * 実データが見つかった。この形式はインデントの有無に関わらず**「方法」で始まる行が新しい
+ * Attempt の開始**とみなして箇条書き全体を分割する（`parseGroupedBulletAttempts`）。
+ * 見出しに番号が付いているかどうか（`hasAttemptNumber`）で、
+ * 「番号付き見出し＝そのノード自身が1件の Attempt」と
+ * 「番号なし見出し＋見出しの子なし＝箇条書きを「方法」区切りで複数件に分割」を判定する。
  */
 
 const ROAD_FIELD_MAP: Record<string, "difficulty" | "previouslyAble" | "goal" | "situation" | "status" | "nextAction"> = {
@@ -130,18 +139,9 @@ function isAttemptTitle(title: string): boolean {
   return ATTEMPT_HEADING.test(normalizeHeading(title));
 }
 
-/**
- * 「試したこと」見出しの下に、さらに「試したこと1」「試したこと2」…という
- * 見出しがぶら下がっている（番号なしの「試したこと」が個々の試したことをまとめる
- * ラッパーになっている）実データの形式に対応する。ラッパーでなければそのノード自身を
- * 1 件の Attempt として返す（何段ラップされていても再帰的に潜る）。
- */
-function collectAttemptLeaves(node: HeadingNode): HeadingNode[] {
-  const attemptChildren = node.children.filter((c) => isAttemptTitle(c.title));
-  if (attemptChildren.length > 0) {
-    return attemptChildren.flatMap((c) => collectAttemptLeaves(c));
-  }
-  return [node];
+/** 見出しの元テキストが「試したこと1」のように番号付きか（「試したこと」だけなら番号なし）。 */
+function hasAttemptNumber(title: string): boolean {
+  return /[0-9０-９]\s*$/.test(title.trim());
 }
 
 /**
@@ -203,25 +203,16 @@ function parseBulletFields(
   return fields;
 }
 
-function parseAttemptNode(roadTitle: string, node: HeadingNode, errors: string[]): ParsedAttemptDraft | null {
-  const attemptLabel = node.title;
-  let fields: Partial<Record<"method" | "reason" | "result" | "detail" | "nextLink", string>>;
-  if (node.children.length > 0) {
-    // 従来形式: 項目ごとに見出しが分かれている（### 方法 / ### 結果 等）。
-    fields = {};
-    for (const sub of node.children) {
-      const key = ATTEMPT_FIELD_MAP[normalizeHeading(sub.title)];
-      if (key) {
-        fields[key] = body(sub.lines);
-      } else {
-        errors.push(`「${roadTitle}」の「${attemptLabel}」に、対応していない見出し「${sub.title}」があります。`);
-      }
-    }
-  } else {
-    // 実データでよく出る形式: 見出しを増やさず「- 方法：〜」のような箇条書きで項目を持つ。
-    fields = parseBulletFields(roadTitle, attemptLabel, node.lines, errors);
-  }
+type AttemptFieldKey = "method" | "reason" | "result" | "detail" | "nextLink";
+type AttemptFields = Partial<Record<AttemptFieldKey, string>>;
 
+/** 項目（method/result 等）が揃ったら、エラー確認のうえ ParsedAttemptDraft に組み立てる。 */
+function buildAttemptFromFields(
+  roadTitle: string,
+  attemptLabel: string,
+  fields: AttemptFields,
+  errors: string[],
+): ParsedAttemptDraft | null {
   const method = (fields.method ?? "").trim();
   if (!method) {
     errors.push(`「${roadTitle}」の「${attemptLabel}」に「方法」がありません。`);
@@ -252,6 +243,75 @@ function parseAttemptNode(roadTitle: string, node: HeadingNode, errors: string[]
   return { method, result, attemptMemo: memoParts.length > 0 ? memoParts.join("\n\n") : null };
 }
 
+function parseAttemptNode(roadTitle: string, node: HeadingNode, errors: string[]): ParsedAttemptDraft | null {
+  const attemptLabel = node.title;
+  let fields: AttemptFields;
+  if (node.children.length > 0) {
+    // 従来形式: 項目ごとに見出しが分かれている（### 方法 / ### 結果 等）。
+    fields = {};
+    for (const sub of node.children) {
+      const key = ATTEMPT_FIELD_MAP[normalizeHeading(sub.title)];
+      if (key) {
+        fields[key] = body(sub.lines);
+      } else {
+        errors.push(`「${roadTitle}」の「${attemptLabel}」に、対応していない見出し「${sub.title}」があります。`);
+      }
+    }
+  } else {
+    // 実データでよく出る形式: 見出しを増やさず「- 方法：〜」のような箇条書きで項目を持つ。
+    fields = parseBulletFields(roadTitle, attemptLabel, node.lines, errors);
+  }
+  return buildAttemptFromFields(roadTitle, attemptLabel, fields, errors);
+}
+
+/**
+ * 番号なしの「試したこと」見出し 1 つの下に、見出しを増やさず「- 方法：〜」を複数回書いて
+ * 複数の Attempt を表す実データの形式に対応する。「方法」で始まる箇条書き行が来るたびに
+ * 新しい Attempt の開始とみなし、それ以外の行（インデントの有無は問わない）は直前に開始した
+ * Attempt の項目として扱う。
+ */
+function parseGroupedBulletAttempts(roadTitle: string, lines: string[], errors: string[]): ParsedAttemptDraft[] {
+  const groups: string[][] = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line.length === 0 || HORIZONTAL_RULE.test(line)) continue;
+    const m = BULLET_FIELD_LINE.exec(line);
+    const label = m ? m[1].trim() : null;
+    if (label === "方法") {
+      groups.push([line]);
+    } else if (groups.length > 0) {
+      groups[groups.length - 1].push(line);
+    } else {
+      errors.push(`「${roadTitle}」の「試したこと」に、「方法」より前に内容「${line}」があります。`);
+    }
+  }
+  return groups
+    .map((groupLines, i) => {
+      const attemptLabel = `試したこと${i + 1}`;
+      const fields = parseBulletFields(roadTitle, attemptLabel, groupLines, errors);
+      return buildAttemptFromFields(roadTitle, attemptLabel, fields, errors);
+    })
+    .filter((a): a is ParsedAttemptDraft => a !== null);
+}
+
+/**
+ * 「試したこと」見出し 1 つぶんから、Attempt を 0 件以上取り出す。
+ *   - 直接の子に「試したこと1」等の見出しがさらにある → ラッパーとみなし再帰的に集める。
+ *   - 見出しの子が無く、番号なし（「試したこと」）→ 箇条書きを「方法」区切りで複数件に分割する。
+ *   - それ以外（番号付き見出しで、見出し形式 or 単一の箇条書き）→ そのノード自身を 1 件として解析する。
+ */
+function parseAttemptsUnderNode(roadTitle: string, node: HeadingNode, errors: string[]): ParsedAttemptDraft[] {
+  const attemptChildren = node.children.filter((c) => isAttemptTitle(c.title));
+  if (attemptChildren.length > 0) {
+    return attemptChildren.flatMap((c) => parseAttemptsUnderNode(roadTitle, c, errors));
+  }
+  if (node.children.length === 0 && !hasAttemptNumber(node.title)) {
+    return parseGroupedBulletAttempts(roadTitle, node.lines, errors);
+  }
+  const attempt = parseAttemptNode(roadTitle, node, errors);
+  return attempt ? [attempt] : [];
+}
+
 function parseRoadNode(node: HeadingNode, index: number, errors: string[]): ParsedRoadDraft {
   const roadTitle = node.title || `道${index}`;
   const road: ParsedRoadDraft = {
@@ -267,10 +327,7 @@ function parseRoadNode(node: HeadingNode, index: number, errors: string[]): Pars
 
   for (const child of node.children) {
     if (isAttemptTitle(child.title)) {
-      for (const leaf of collectAttemptLeaves(child)) {
-        const attempt = parseAttemptNode(roadTitle, leaf, errors);
-        if (attempt) road.attempts.push(attempt);
-      }
+      road.attempts.push(...parseAttemptsUnderNode(roadTitle, child, errors));
       continue;
     }
     const key = ROAD_FIELD_MAP[normalizeHeading(child.title)];
