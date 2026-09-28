@@ -49,24 +49,36 @@
 
 ## 残作業 / 未了
 
-### 検索AI Phase 2（pgvector + Embedding）— 未着手
+### 意味検索（ローカル Embedding）— コード実装済み・既定 OFF、本番有効化は未了
+
+`/experiences?sem=1`（`SEMANTIC_SEARCH_ENABLED=true` のときだけ）。Transformers.js + e5-small q8 を
+サーバーの CPU で動かし、pgvector は使わずメモリ上の索引（`src/lib/search-semantic.ts` /
+`src/lib/embedding.ts`）。詳細は `docs/spec.md` §5.2.3、検証の経緯・数値は `poc/embedding/README.md`。
+
+本番で有効にするまでに必要なのは運用手順:
+
+1. VPS で `npm ci`（`@huggingface/transformers` を追加したため package-lock が変わる。過去に OOM 事故が
+   あった手順なのでスワップ確認・低トラフィック時間帯）
+2. モデルファイル（約 118MB。`<EMBEDDING_MODEL_PATH>/Xenova/multilingual-e5-small/` に
+   config.json / tokenizer.json / tokenizer_config.json / onnx/model_quantized.onnx）を VPS に配置
+3. `.env` に `EMBEDDING_*` を設定（`.env.example`）。`EMBEDDING_ALLOW_REMOTE=false`
+4. VPS 上でのメモリ実測は未実施（手元の 2 コア・2GB コンテナで +約 0.43GB）。ON にするときに `free -m` を見て、
+   問題があれば `SEMANTIC_SEARCH_ENABLED=false` に戻す。計測キットは `poc/embedding/vps/`
+5. 仮データの定型文（「『〇〇』に取り組むときの場面」）がボタン系の検索で上位を占める問題は未対応
+   （ILIKE 検索でも起きている。仮データは意味検索にも含める方針）
+
+### 検索AI Phase 1
 
 Phase 1（AI が検索語を展開 → `ILIKE` OR を増やす → ページ内で関連度ソート → フォールバック）は
 `feat/mvp-foundation` に実装済み（`src/lib/ai/search.ts` / `src/lib/search-rank.ts` / `?ai=1`）。
 詳細は `docs/spec.md` §5.2.1 / `docs/implementation-decisions.md` 2026-09-11。
 
-**表記ゆれ検索（pg_trgm）は Phase 2 とは別に実装済み**（2026-09-25。AI・外部サービスを使いたくない
-という方針判断のため、Phase 2 の pgvector とは別に、DB 内で完結する軽量な保険として追加）。
-通常のキーワード検索が 0 件のときだけ `similarity()` で候補を探す最後の手段で、意味の異なる同義語
-までは拾えない（それには依然として Phase 2 の embedding が必要）。詳細は `docs/spec.md` §5.2.2。
+**表記ゆれ検索（pg_trgm）も実装済み**（2026-09-25。DB 内で完結する軽量な保険）。
+通常のキーワード検索が 0 件のときだけ `similarity()` で候補を探す最後の手段。詳細は `docs/spec.md` §5.2.2。
 
-Phase 2（ベクトル類似検索）に必要なのは主にインフラと判断で、着手前に決める:
-
-1. docker イメージを `postgres:16-alpine` → `pgvector/pgvector:pg16` に差し替え、本番 DB コンテナも入れ替え
-2. マイグレーションで `CREATE EXTENSION vector` ＋ Embedding 専用テーブル（公開経験のみ）
-3. Embedding プロバイダの選定（Anthropic に Embeddings API は無い）。API キーは環境変数、モデル名もハードコードしない
-4. 公開／非公開／編集／削除に追随する Embedding 同期＋既存データのバックフィルスクリプト
-5. kNN 検索とキーワード検索のスコア融合（Phase 1 の `rankBySearchRelevance` を土台に）
+公開データが増えてメモリ上の意味検索（上記）が重くなったら pgvector へ移す。そのとき必要になるのは
+docker イメージの `pgvector/pgvector:pg16` への差し替えと本番 DB コンテナ入れ替え、`CREATE EXTENSION vector`
+＋ Embedding 専用テーブル、公開／非公開／編集／削除に追随する同期と既存データのバックフィル。
 
 ### Google AdSense — コードは実装済み、実配信は未了
 

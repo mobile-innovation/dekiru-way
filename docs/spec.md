@@ -177,10 +177,10 @@
 公開ゲートは `PUBLIC_ATTEMPT_WHERE` のまま。非公開・未承認データが `ai=1` 経路で混ざることはない。
 `POST /api/v1/ai/experience-search` も同じ `expandSearchIntent` を返す（`{ keywords, terms, rephrased, disclaimer }`）。
 
-**Phase 2（未着手・保留）**: pgvector + Embedding によるベクトル類似検索。必要になるインフラ・判断＝
-docker イメージを `pgvector/pgvector:pg16` へ差し替え／本番 DB コンテナ入れ替え／`CREATE EXTENSION vector`／
-Embedding 専用テーブルと公開・非公開・編集・削除に追随する同期＋バックフィル／
-Embedding プロバイダの選定（Anthropic に Embeddings API は無い。モデル名は環境変数化しハードコードしない）。
+**Phase 2（試験導入・既定 OFF）**: ローカル Embedding による意味検索を §5.2.3 のとおり導入した
+（pgvector は使わずメモリ上の索引。従量課金 API 不使用）。公開データが増えて pgvector へ移す場合に
+必要になるのは、docker イメージを `pgvector/pgvector:pg16` へ差し替え／本番 DB コンテナ入れ替え／
+`CREATE EXTENSION vector`／Embedding 専用テーブルと公開・非公開・編集・削除に追随する同期＋バックフィル。
 
 #### 5.2.2 表記ゆれ検索（pg_trgm、2026-09-25 追加）
 
@@ -199,11 +199,37 @@ AI・外部サービスを使わず、DB 内（PostgreSQL 標準拡張 `pg_trgm`
   埋まっていると類似度が実質 0 になりやすいことを確認済み）なため。
 - 見つかった id 一覧を `searchRoads`/`searchMethods` の `opts.ids` に渡し、通常の一覧取得・既読判定・
   ページング処理をそのまま再利用する（`ILIKE` 条件の代わりに `id IN (...)` で絞り込むだけ）。
+- 候補は到達可能なページぶん（`MAX_RESULT_WINDOW` = 500 件）を、結果・タグ・既読の絞り込みを
+  候補抽出の段階で掛けたうえで類似度順に取る。並び順が既定（新しい順）のときは類似度順のまま
+  ページ分割し、「うまくいった順」「試した時期順」を選んだときはそちらを優先する（2026-09-25 修正）。
+- 生 SQL の公開条件は `publicAttemptSql()`（`src/lib/search.ts`、`PUBLIC_ATTEMPT_WHERE` の隣）だけを使う。
+  最終的な公開ゲート・絞り込みの判定は、`ids` 経路でも Prisma 側の where が行う。
 - 意味の異なる同義語（「爪切り」→「つめ」等）までは拾えない（Phase 2 の embedding が必要な領域）。
   あくまでフレーズ全体の語順・言い回しの表記のゆれに対する保険。
 - コード変更のみで導入でき、外部サービス依存・追加インフラは無い（`postgres:16-alpine` に
   `pg_trgm` は標準同梱）。マイグレーション
   `20260925095803_add_pg_trgm_fuzzy_search`（`CREATE EXTENSION pg_trgm` ＋ GIN トライグラムインデックス）。
+
+#### 5.2.3 意味検索（Embedding・試験導入、2026-09-28 追加、既定 OFF）
+
+言い回しが違う検索語でも内容の近い道・試したことを見つけるための、ローカル実行の意味検索。
+AI・外部の従量課金 API は使わない（Transformers.js / onnxruntime-node を CPU で動かす）。
+
+- `SEMANTIC_SEARCH_ENABLED=true` かつ `EMBEDDING_MODEL` 設定時だけ、`/experiences?sem=1` で有効になる。
+  画面（検索フォーム）からは付かない。運営が URL に付けて試す段階。無効時・`sem` 無しは従来と完全に同じ。
+- モデル・接頭辞・pooling は環境変数（`.env.example` 参照。検証は `Xenova/multilingual-e5-small` の q8）。
+  本番は `EMBEDDING_ALLOW_REMOTE=false` とし、事前に配置したモデルファイル（`EMBEDDING_MODEL_PATH`）だけを使う。
+- 対象は公開検索と同じ `PUBLIC_ATTEMPT_WHERE` 基準。仮データ（isSeedData）も公開検索と同じく含める。
+  文章は `buildRoadEmbeddingText` / `buildAttemptEmbeddingText`（`src/lib/search-embedding-text.ts`）。
+- 索引はプロセスのメモリ上（`src/lib/search-semantic.ts`）。最初の `?sem=1` 検索でモデルを読み込み
+  （数秒）、公開データの件数・最終更新時刻が変わったら作り直す（本文が変わった行だけ再計算）。
+- 固定の類似度しきい値は使わない（e5 系は無関係な文どうしでも類似度が高く出るため）。
+  1 位との差が `SEMANTIC_SEARCH_MARGIN`（既定 0.02）以内のものを最大 `SEMANTIC_SEARCH_TOP_K`（既定 20）件。
+- 見つかった id は §5.2.2 と同じ `ids` 経路に渡すので、公開ゲート・絞り込み・ページ送りは通常検索と同じ。
+  利用中は AI アシスト・表記ゆれ検索は通さない。モデルの読み込み失敗・レート制限時は通常検索に戻す。
+- 推論スレッドは既定 1（`EMBEDDING_THREADS`）。onnxruntime の既定（全コア）は同じサーバーの Next.js を
+  遅くすることを検証で確認している。有効化するとメモリが約 0.4〜0.5GB 増える（無効なら増えない）。
+- 検証の経緯と数値は `poc/embedding/`（README）。
 
 ### 5.3 AI 内容モデレーション
 
@@ -537,8 +563,8 @@ noindex のまま。§ 中間層 `robotsTagFor` を参照）。
 - いいね・広告費用による検索順位の操作
 - ポップアップ広告・画面全体を覆う広告、トップ画面への広告
 - 「アカウントだけ削除して公開経験を匿名で残す」方式
-- ベクトル類似検索（pgvector / Embedding）。検索の基本は部分一致 `ILIKE` のまま。
-  AIアシスト検索（§5.2.1）は「AI が検索語を広げて `ILIKE` OR を増やす」Phase 1 に限る。ベクトル検索は Phase 2 として保留
-  （`pg_trgm` によるトライグラム類似度のフォールバックは §5.2.2 のとおり導入済み。
-  全文検索インデックス自体は無し）
+- pgvector によるベクトル類似検索。検索の基本は部分一致 `ILIKE` のまま。
+  AIアシスト検索（§5.2.1）は「AI が検索語を広げて `ILIKE` OR を増やす」Phase 1 に限る。
+  （`pg_trgm` のフォールバックは §5.2.2、ローカル Embedding による意味検索はメモリ上の索引で
+  §5.2.3 のとおり試験導入済み・既定 OFF。全文検索インデックス自体は無し）
 - 個人情報・ユーザー識別情報を広告ターゲティングへ渡す設計
