@@ -22,6 +22,8 @@ import { getOptionalUserId } from "@/lib/authz";
 import { guardPublicPage } from "@/lib/page-guard";
 import { ApiError } from "@/lib/api";
 import { enforceRateLimit, clientKeyFromHeaders, RATE_PRESETS } from "@/lib/ratelimit";
+import { semanticIndex, type SemanticRanking } from "@/lib/search-semantic";
+import { env } from "@/lib/env";
 
 export const metadata: Metadata = { title: "経験を探す" };
 
@@ -51,6 +53,7 @@ export default async function ExperiencesPage({
         limit: 20,
         sort: "recent" as const,
         ai: undefined,
+        sem: undefined,
       };
 
   // kind（道 / 方法 / 両方）は検索語の有無に関わらず効く。
@@ -70,7 +73,24 @@ export default async function ExperiencesPage({
   // AI 呼び出し（課金対象）を守れない。他の AI エンドポイントと同じ `RATE_PRESETS.ai`
   // （15/分・クライアント単位）をここでも掛け、超過時は例外を投げずに黙って
   // AI 抜きの通常キーワード検索へフォールバックする（検索そのものは止めない）。
-  const aiAssist = q.ai === "1" && !!q.q;
+  // 意味検索 (Embedding・試験導入): ?sem=1 かつサーバー側で有効化されているときだけ。
+  // 意味の近い順の id を既存の searchRoads / searchMethods の ids 経路に渡すので、公開ゲート・
+  // 絞り込み・ページ送りは通常検索と同じ。モデルの読み込み失敗・レート制限時は黙って通常検索に戻す。
+  // 使っているときは AI アシスト・表記ゆれ検索は通さない（結果の出どころを混ぜない）。
+  let semantic: SemanticRanking | null = null;
+  if (q.sem === "1" && q.q && env.semantic.configured) {
+    try {
+      const clientId = clientKeyFromHeaders(await headers());
+      enforceRateLimit({ key: `semantic:search:${clientId}`, ...RATE_PRESETS.ai });
+      semantic = await semanticIndex.rank(q.q, env.semantic.topK, env.semantic.margin);
+    } catch (err) {
+      if (!(err instanceof ApiError && err.code === "rate_limited")) {
+        console.warn("[semantic] search failed, using keyword search:", err instanceof Error ? err.message : "unknown");
+      }
+    }
+  }
+
+  const aiAssist = !semantic && q.ai === "1" && !!q.q;
   let intent: SearchIntent | null = null;
   if (aiAssist) {
     try {
@@ -86,8 +106,12 @@ export default async function ExperiencesPage({
 
   const tagsPromise = getPopularTags(12);
   let [roadRes, methodMatch] = await Promise.all([
-    roadEnabled ? searchRoads(q, viewerUserId, searchOpts) : Promise.resolve(emptyRes),
-    methodEnabled ? searchMethods(q, viewerUserId, searchOpts) : Promise.resolve(emptyRes),
+    roadEnabled
+      ? searchRoads(q, viewerUserId, semantic ? { ids: semantic.roadIds } : searchOpts)
+      : Promise.resolve(emptyRes),
+    methodEnabled
+      ? searchMethods(q, viewerUserId, semantic ? { ids: semantic.attemptIds } : searchOpts)
+      : Promise.resolve(emptyRes),
   ]);
 
   // AIアシストで 1 件も見つからなければ、通常のキーワード検索へ自動フォールバック
@@ -105,7 +129,7 @@ export default async function ExperiencesPage({
   // （AIアシスト利用時はその結果も含め）で 1 件も見つからなかったときだけの最後の手段。
   // DB 内 (pg_trgm) で完結するため、課金や外部サービス停止のリスクが無い。
   let fuzzyFellBack = false;
-  if (q.q && q.q.trim().length >= 2 && roadRes.total === 0 && methodMatch.total === 0) {
+  if (!semantic && q.q && q.q.trim().length >= 2 && roadRes.total === 0 && methodMatch.total === 0) {
     // 候補は到達可能なページぶん (FUZZY_CANDIDATE_LIMIT) を、絞り込み条件を掛けたうえで類似度順に取る。
     const fuzzyFilters = { result: q.result, tag: q.tag, read: q.read, viewerUserId };
     const [fuzzyRoadIds, fuzzyAttemptIds] = await Promise.all([
@@ -180,6 +204,8 @@ export default async function ExperiencesPage({
       {intent && (
         <AiAssistPanel intent={intent} fellBack={aiFellBack} plainHref={plainSearchHref(sp)} />
       )}
+
+      {semantic && <SemanticNotice plainHref={searchHrefWithout(sp, "sem")} />}
 
       {fuzzyFellBack && <FuzzyFallbackNotice />}
 
@@ -364,6 +390,37 @@ function AiAssistPanel({
       <p className="text-xs text-[var(--color-ink-muted)]">{intent.disclaimer}</p>
       <Link href={plainHref} className="inline-block font-semibold underline">
         AIアシストをやめて検索する
+      </Link>
+    </section>
+  );
+}
+
+/** いまの検索条件から指定のクエリ（と現在ページ）を外したリンク。 */
+function searchHrefWithout(sp: SearchParams, key: string): string {
+  const params = new URLSearchParams(flatten(sp));
+  params.delete(key);
+  params.delete("page");
+  params.delete("mp");
+  const qs = params.toString();
+  return qs ? `/experiences?${qs}` : "/experiences";
+}
+
+/**
+ * 意味検索 (?sem=1・試験導入) で表示していることを短く伝える。
+ * モデルはサーバー上で動かしており、外部サービスには送っていない。
+ */
+function SemanticNotice({ plainHref }: { plainHref: string }) {
+  return (
+    <section
+      aria-label="意味の近い経験の検索"
+      className="space-y-1 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-primary-tint)] p-4 text-sm"
+    >
+      <p className="font-bold text-[var(--color-ink)]">意味の近い経験を表示しています（試験中）</p>
+      <p className="text-[var(--color-ink-muted)]">
+        ことばが違っていても、内容が近い道・記録を探しています。
+      </p>
+      <Link href={plainHref} className="inline-block font-semibold underline">
+        ふつうの検索に戻す
       </Link>
     </section>
   );

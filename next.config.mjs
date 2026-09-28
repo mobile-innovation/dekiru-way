@@ -6,6 +6,9 @@ const nextConfig = {
     // CI では別途 `next lint` を実行する。ビルドを lint で止めない。
     ignoreDuringBuilds: true,
   },
+  // 意味検索のローカル Embedding（Transformers.js）はネイティブモジュール（onnxruntime-node / sharp）を
+  // 含むので、バンドルせず Node の require に任せる。
+  serverExternalPackages: ["@huggingface/transformers", "onnxruntime-node", "sharp"],
 };
 
 export default nextConfig;

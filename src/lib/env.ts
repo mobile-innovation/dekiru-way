@@ -108,6 +108,70 @@ export const env = {
   },
 
   /**
+   * 意味検索（Embedding。試験導入）。既定は無効。
+   * `SEMANTIC_SEARCH_ENABLED=true` かつ `EMBEDDING_MODEL` 設定時だけ、`/experiences?sem=1` で使える。
+   * モデルはローカル（Transformers.js / CPU）で動かす。従量課金 API は使わない。
+   * モデル名・接頭辞・pooling はモデルごとに違うので、コードに書かず環境変数で渡す（.env.example 参照）。
+   */
+  semantic: {
+    get enabled() {
+      return process.env.SEMANTIC_SEARCH_ENABLED === "true";
+    },
+    /** Transformers.js のモデル ID（例は .env.example）。 */
+    get model() {
+      return optional("EMBEDDING_MODEL");
+    },
+    /** モデルファイルを置くディレクトリ（`<dir>/<モデルID>/...`）。未設定なら Transformers.js の既定。 */
+    get modelPath() {
+      return optional("EMBEDDING_MODEL_PATH");
+    },
+    /** モデルを Hugging Face から取得してよいか。本番は false（事前に配置したファイルだけを使う）。 */
+    get allowRemote() {
+      return process.env.EMBEDDING_ALLOW_REMOTE === "true";
+    },
+    get dtype() {
+      return optional("EMBEDDING_DTYPE", "q8");
+    },
+    get pooling(): "mean" | "cls" {
+      return process.env.EMBEDDING_POOLING === "cls" ? "cls" : "mean";
+    },
+    /** 検索語に付ける接頭辞（e5 系は "query: "）。 */
+    get queryPrefix() {
+      return optional("EMBEDDING_QUERY_PREFIX");
+    },
+    /** 文書に付ける接頭辞（e5 系は "passage: "）。 */
+    get passagePrefix() {
+      return optional("EMBEDDING_PASSAGE_PREFIX");
+    },
+    /**
+     * 推論スレッド数。既定 1。onnxruntime の既定（全コア）はコンテナの CPU 制限を無視して
+     * スレッドを立て、同じマシンの Next.js の応答を遅くすることを PoC で確認している。
+     */
+    get threads() {
+      const n = Number(optional("EMBEDDING_THREADS", "1"));
+      return Number.isInteger(n) && n > 0 ? n : 1;
+    },
+    /** 意味検索で候補にする件数（道・試したことそれぞれ）。 */
+    get topK() {
+      const n = Number(optional("SEMANTIC_SEARCH_TOP_K", "20"));
+      return Number.isInteger(n) && n > 0 ? Math.min(n, 500) : 20;
+    },
+    /**
+     * 1 位との類似度の差がこの値以内の結果だけを出す（既定 0.02）。大きくすると件数が増え、
+     * 関係の薄い結果も増える。検証データでは 0.02 で無関係な結果が約 6 割減り、関連する結果の
+     * 取りこぼしは約 2 割だった。
+     */
+    get margin() {
+      const raw = process.env.SEMANTIC_SEARCH_MARGIN;
+      const n = raw ? Number(raw) : 0.02;
+      return Number.isFinite(n) && n >= 0 ? n : 0.02;
+    },
+    get configured() {
+      return process.env.SEMANTIC_SEARCH_ENABLED === "true" && Boolean(process.env.EMBEDDING_MODEL);
+    },
+  },
+
+  /**
    * 管理者への「新しい登録があります」通知メール (Resend API 経由)。
    * 3 つすべて揃わない限り送信しない (configured=false のときはログに残すだけで実送信しない)。
    */

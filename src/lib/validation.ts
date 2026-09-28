@@ -103,6 +103,9 @@ export const experienceQuerySchema = z.object({
   // 検索AIアシスト (Phase 1)。"1" のときだけ AI 意図展開＋ページ内関連度ランキングを通す。
   // 未指定なら従来の純キーワード検索と完全に同じ。
   ai: z.enum(["1"]).optional(),
+  // 意味検索 (Embedding・試験導入)。"1" かつサーバー側で有効化されているときだけ効く。
+  // 画面からは付かない（運営が URL に付けて試す）。
+  sem: z.enum(["1"]).optional(),
 });
 export type ExperienceQuery = z.infer<typeof experienceQuerySchema>;
 
