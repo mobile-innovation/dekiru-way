@@ -362,3 +362,49 @@ describe("fuzzy 経路: 類似度順・ページング・絞り込み・公開�
     expect(entryRoads(res.items)).toEqual([ids.r2, ids.r0]);
   });
 });
+
+/**
+ * 語尾だけの一致を除く（本番で「字が読みづらくなった」に「…移動できなくなった」の道が並んだ不具合）。
+ * 検索語の内容語（漢字・カタカナ語）を 1 つも含まない道・試したことは候補にしない。
+ */
+describe("fuzzy: 語尾（〜なくなった 等）だけの一致を候補にしない", () => {
+  const M3 = `${MARK}-v3`;
+  const made: string[] = [];
+  let ownerId3 = "";
+  let endingOnlyRoad = "";
+  let endingOnlyAttempt = "";
+
+  beforeAll(async () => {
+    const u = await prisma.user.create({ data: { googleSub: `${M3}:owner` } });
+    ownerId3 = u.id;
+    const road = await prisma.road.create({
+      data: { userId: ownerId3, difficulty: "洗濯が２階に移動できなくなり干せなくなった" },
+    });
+    endingOnlyRoad = road.id;
+    made.push(road.id);
+    const a = await prisma.attempt.create({
+      data: {
+        roadId: road.id,
+        method: "体調が悪くて会社に移動できなくなった",
+        result: "failed",
+        isPublished: true,
+        moderationStatus: "approved",
+      },
+    });
+    endingOnlyAttempt = a.id;
+  });
+
+  afterAll(async () => {
+    await prisma.road.deleteMany({ where: { id: { in: made } } });
+    await prisma.user.deleteMany({ where: { id: ownerId3 } });
+  });
+
+  it("「字が読みづらくなった」で、語尾しか共通しない道・試したことは出ない", async () => {
+    expect(await fuzzySearchRoadIds("字が読みづらくなった", 500)).not.toContain(endingOnlyRoad);
+    expect(await fuzzySearchAttemptIds("字が読みづらくなった", 500)).not.toContain(endingOnlyAttempt);
+  });
+
+  it("内容語（漢字）が共通すれば従来どおり候補になる", async () => {
+    expect(await fuzzySearchRoadIds("２階で洗濯物を干せなくなった", 500)).toContain(endingOnlyRoad);
+  });
+});
