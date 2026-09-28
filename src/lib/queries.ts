@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   buildExperienceWhere,
@@ -52,6 +53,27 @@ const BEST_RESULT_RANK: Record<string, number> = {
 };
 
 /**
+ * 関連度順の候補 id（表記ゆれ検索の類似度順）を、where で最終判定した id 集合
+ * (`matched`) に絞ってから、そのページ分を切り出す。並びは候補 id の順のまま。
+ */
+function pageRankedIds(
+  rankedIds: string[],
+  matched: { id: string }[],
+  skip: number,
+  take: number,
+): { total: number; pageIds: string[] } {
+  const ok = new Set(matched.map((m) => m.id));
+  const ordered = rankedIds.filter((id) => ok.has(id));
+  return { total: ordered.length, pageIds: ordered.slice(skip, skip + take) };
+}
+
+/** rows を ids の並び順に揃える（ids に無い行は落とす）。 */
+function orderByIds<T extends { id: string }>(rows: T[], ids: string[]): T[] {
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids.flatMap((id) => byId.get(id) ?? []);
+}
+
+/**
  * 「道」単位の検索 (UI修正指示書「道別カード」)。
  * 方法（Attempt）ごとではなく、困りごと（Road）ごとに 1 カード。
  * ページング・件数は「道」単位。`GET /api/v1/experiences`（Attempt 単位）は変更しない。
@@ -59,8 +81,9 @@ const BEST_RESULT_RANK: Record<string, number> = {
  * `opts` は検索AI Phase 1 / 表記ゆれ検索 (pg_trgm) 用（省略時は従来と完全に同じ）:
  *   - `terms`: AI が展開した検索語。where を語ごとの OR に広げる。
  *   - `rank`: true なら取得後の 1 ページ分を関連度で並べ替える（helpful/tried と同じ後処理）。
- *   - `ids`: 表記ゆれ検索 (`fuzzySearchRoadIds`) で絞り込み済みの道 id 一覧。指定時は
- *     ILIKE 条件の代わりにこの id 一覧で絞り込む。
+ *   - `ids`: 表記ゆれ検索 (`fuzzySearchRoadIds`) で絞り込み済みの道 id 一覧（類似度順）。指定時は
+ *     ILIKE 条件の代わりにこの id 一覧で絞り込む。既定の並び (sort=recent) ではこの順を
+ *     関連度順として保ったままページ分割する。helpful / tried を明示したときはそちらを優先する。
  */
 export async function searchRoads(
   q: ExperienceQuery,
@@ -80,19 +103,37 @@ export async function searchRoads(
   }
 
   const where = buildRoadLevelSearchWhere(q, viewerUserId, opts);
-  const [total, roads] = await Promise.all([
-    prisma.road.count({ where }),
-    prisma.road.findMany({
-      where,
-      include: {
-        roadTags: { include: { tag: true } },
-        attempts: { where: PUBLIC_ATTEMPT_WHERE },
-      },
-      orderBy: { updatedAt: "desc" },
+  const include = {
+    roadTags: { include: { tag: true } },
+    attempts: { where: PUBLIC_ATTEMPT_WHERE },
+  } satisfies Prisma.RoadInclude;
+  let total: number;
+  let roads: Prisma.RoadGetPayload<{ include: typeof include }>[];
+  if (opts?.ids && q.sort === "recent") {
+    // 表記ゆれ検索の類似度順を保つ: where で最終判定 → 候補順でページ分割 → そのページだけ取得。
+    const paged = pageRankedIds(
+      opts.ids,
+      await prisma.road.findMany({ where, select: { id: true } }),
       skip,
-      take: q.limit,
-    }),
-  ]);
+      q.limit,
+    );
+    total = paged.total;
+    roads = orderByIds(
+      await prisma.road.findMany({ where: { AND: [where, { id: { in: paged.pageIds } }] }, include }),
+      paged.pageIds,
+    );
+  } else {
+    [total, roads] = await Promise.all([
+      prisma.road.count({ where }),
+      prisma.road.findMany({
+        where,
+        include,
+        orderBy: { updatedAt: "desc" },
+        skip,
+        take: q.limit,
+      }),
+    ]);
+  }
 
   let items: RoadCardDTO[] = roads.map((road) => {
     const pub = road.attempts.slice().sort(sortAttemptsChronologically);
@@ -235,16 +276,39 @@ export async function searchMethods(
   if (skip >= MAX_RESULT_WINDOW) return { ...base, windowExceeded: true };
 
   const where = buildMethodSearchWhere(q, viewerUserId, opts);
-  const [total, rows] = await Promise.all([
-    prisma.attempt.count({ where }),
-    prisma.attempt.findMany({
-      where,
-      include: { road: { include: { roadTags: { include: { tag: true } } } } },
-      orderBy: buildExperienceOrderBy(q.sort),
+  const include = {
+    road: { include: { roadTags: { include: { tag: true } } } },
+  } satisfies Prisma.AttemptInclude;
+  let total: number;
+  let rows: Prisma.AttemptGetPayload<{ include: typeof include }>[];
+  if (opts?.ids && q.sort === "recent") {
+    // 表記ゆれ検索の類似度順を保つ（searchRoads と同じ手順）。
+    const paged = pageRankedIds(
+      opts.ids,
+      await prisma.attempt.findMany({ where, select: { id: true } }),
       skip,
-      take: q.limit,
-    }),
-  ]);
+      q.limit,
+    );
+    total = paged.total;
+    rows = orderByIds(
+      await prisma.attempt.findMany({
+        where: { AND: [where, { id: { in: paged.pageIds } }] },
+        include,
+      }),
+      paged.pageIds,
+    );
+  } else {
+    [total, rows] = await Promise.all([
+      prisma.attempt.count({ where }),
+      prisma.attempt.findMany({
+        where,
+        include,
+        orderBy: buildExperienceOrderBy(q.sort),
+        skip,
+        take: q.limit,
+      }),
+    ]);
+  }
 
   const pageOf = await treePageByAttempt([...new Set(rows.map((a) => a.roadId))]);
   const readSet = viewerUserId

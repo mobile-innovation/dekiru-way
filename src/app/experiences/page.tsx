@@ -12,7 +12,11 @@ import { RateLimitedNotice } from "@/components/rate-limited-notice";
 import { experienceQuerySchema } from "@/lib/validation";
 import { searchRoads, searchMethods, getPopularTags } from "@/lib/queries";
 import { expandSearchIntent, type SearchIntent } from "@/lib/ai/search";
-import { fuzzySearchRoadIds, fuzzySearchAttemptIds } from "@/lib/search-fuzzy";
+import {
+  fuzzySearchRoadIds,
+  fuzzySearchAttemptIds,
+  FUZZY_CANDIDATE_LIMIT,
+} from "@/lib/search-fuzzy";
 import { adContextFromText } from "@/lib/ads";
 import { getOptionalUserId } from "@/lib/authz";
 import { guardPublicPage } from "@/lib/page-guard";
@@ -102,9 +106,15 @@ export default async function ExperiencesPage({
   // DB 内 (pg_trgm) で完結するため、課金や外部サービス停止のリスクが無い。
   let fuzzyFellBack = false;
   if (q.q && q.q.trim().length >= 2 && roadRes.total === 0 && methodMatch.total === 0) {
+    // 候補は到達可能なページぶん (FUZZY_CANDIDATE_LIMIT) を、絞り込み条件を掛けたうえで類似度順に取る。
+    const fuzzyFilters = { result: q.result, tag: q.tag, read: q.read, viewerUserId };
     const [fuzzyRoadIds, fuzzyAttemptIds] = await Promise.all([
-      roadEnabled ? fuzzySearchRoadIds(q.q, q.limit) : Promise.resolve([]),
-      methodEnabled ? fuzzySearchAttemptIds(q.q, q.limit) : Promise.resolve([]),
+      roadEnabled
+        ? fuzzySearchRoadIds(q.q, FUZZY_CANDIDATE_LIMIT, fuzzyFilters)
+        : Promise.resolve([]),
+      methodEnabled
+        ? fuzzySearchAttemptIds(q.q, FUZZY_CANDIDATE_LIMIT, fuzzyFilters)
+        : Promise.resolve([]),
     ]);
     if (fuzzyRoadIds.length > 0 || fuzzyAttemptIds.length > 0) {
       fuzzyFellBack = true;

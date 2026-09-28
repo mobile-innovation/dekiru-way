@@ -5,6 +5,8 @@ import {
   buildRoadLevelSearchWhere,
   buildMethodSearchWhere,
   readFilterWhere,
+  PUBLIC_ATTEMPT_WHERE,
+  publicAttemptSql,
 } from "@/lib/search";
 
 describe("buildExperienceWhere", () => {
@@ -220,5 +222,28 @@ describe("buildExperienceOrderBy", () => {
   });
   it("helpful は result 昇順を先頭に", () => {
     expect(buildExperienceOrderBy("helpful")[0]).toEqual({ result: "asc" });
+  });
+});
+
+describe("publicAttemptSql（PUBLIC_ATTEMPT_WHERE の生 SQL 版）", () => {
+  it("PUBLIC_ATTEMPT_WHERE のキー構成が変わったら落ちる（生 SQL 側の更新漏れ防止）", () => {
+    // ここが落ちたら publicAttemptSql (src/lib/search.ts) も同じ条件に直すこと。
+    expect(Object.keys(PUBLIC_ATTEMPT_WHERE).sort()).toEqual(["isPublished", "moderationStatus"]);
+  });
+
+  it("PUBLIC_ATTEMPT_WHERE と同じ値をパラメータで渡す（文字列直書きしない）", () => {
+    const sql = publicAttemptSql("a");
+    expect(sql.text).toBe(
+      'a.is_published = $1 AND a.moderation_status = $2::"ModerationStatus"',
+    );
+    expect(sql.values).toEqual([
+      PUBLIC_ATTEMPT_WHERE.isPublished,
+      PUBLIC_ATTEMPT_WHERE.moderationStatus,
+    ]);
+  });
+
+  it("別名は識別子として安全な形だけ受け付ける", () => {
+    expect(() => publicAttemptSql("a; DROP TABLE x")).toThrow();
+    expect(() => publicAttemptSql("")).toThrow();
   });
 });

@@ -29,6 +29,20 @@ export const PUBLIC_ATTEMPT_WHERE = {
   moderationStatus: ModerationStatus.approved,
 } satisfies Prisma.AttemptWhereInput;
 
+/**
+ * {@link PUBLIC_ATTEMPT_WHERE} の生 SQL 版（`$queryRaw` を使う表記ゆれ検索など用）。
+ * 値は PUBLIC_ATTEMPT_WHERE から取るので、値の変更は自動で追従する。
+ * **PUBLIC_ATTEMPT_WHERE に条件（キー）を足した / 外したときは、ここも必ず同じように直すこと。**
+ * キー構成が変わると `tests/unit/search.test.ts` が落ちて気づけるようにしてある。
+ *
+ * `alias` は attempts テーブルの SQL 上の別名（コード内の固定値のみ。利用者入力を渡さない）。
+ */
+export function publicAttemptSql(alias: string): Prisma.Sql {
+  if (!/^[a-z_][a-z0-9_]*$/.test(alias)) throw new Error(`invalid SQL alias: ${alias}`);
+  const a = Prisma.raw(alias);
+  return Prisma.sql`${a}.is_published = ${PUBLIC_ATTEMPT_WHERE.isPublished} AND ${a}.moderation_status = ${PUBLIC_ATTEMPT_WHERE.moderationStatus}::"ModerationStatus"`;
+}
+
 type SearchQ = Pick<ExperienceQuery, "q" | "result" | "tag" | "read">;
 
 /**
