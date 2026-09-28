@@ -1,0 +1,675 @@
+{
+  "preset": "bge-m3-q8",
+  "modelId": "Xenova/bge-m3",
+  "dtype": "q8",
+  "pooling": "cls",
+  "queryPrefix": "",
+  "passagePrefix": "",
+  "env": {
+    "node": "v25.6.1",
+    "platform": "darwin arm64",
+    "cpu": "Apple M4 Pro",
+    "cores": 14,
+    "transformers": "4.3.0"
+  },
+  "cacheWasWarm": true,
+  "modelFiles": [
+    {
+      "f": "model_quantized.onnx",
+      "mb": 569.7
+    }
+  ],
+  "dims": 1024,
+  "maxLength": 8192,
+  "timingMs": {
+    "load": 948,
+    "reloadSameProcess": 877,
+    "firstSingle": 8,
+    "singleMedian": 6,
+    "roads18Batch": 334,
+    "attempts30Batch": 339,
+    "ten10Batch": 189,
+    "ten10Sequential": 210,
+    "queries12Batch": 61,
+    "long2000": 475
+  },
+  "memoryMb": {
+    "before": 246,
+    "afterLoad": 2014,
+    "afterReload": 3110,
+    "peak": 3596
+  },
+  "stabilitySameInput": 1.0000000000000002,
+  "quality": {
+    "hitAt1": 11,
+    "hitAt3": 12,
+    "mrr": 0.958,
+    "n": 12
+  },
+  "queryResults": [
+    {
+      "q": "ボタンがとめにくい",
+      "expected": [
+        "R01"
+      ],
+      "expectedAttempts": [],
+      "expectedRank": 1,
+      "topRoads": [
+        {
+          "id": "R01",
+          "score": 0.6948,
+          "difficulty": "シャツのボタンがとめにくい"
+        },
+        {
+          "id": "R07",
+          "score": 0.6269,
+          "difficulty": "靴下をはくのがむずかしい"
+        },
+        {
+          "id": "R02",
+          "score": 0.6014,
+          "difficulty": "つめが切りにくい"
+        }
+      ],
+      "lastRoad": {
+        "id": "R09",
+        "score": 0.4908
+      },
+      "topAttempts": [
+        {
+          "id": "A02",
+          "score": 0.7072,
+          "method": "ボタンの穴を少し大きくしてもらった"
+        },
+        {
+          "id": "A03",
+          "score": 0.6226,
+          "method": "マグネット式のボタンのシャツに替えた"
+        },
+        {
+          "id": "A01",
+          "score": 0.6013,
+          "method": "ボタンエイドという補助具を使った"
+        }
+      ]
+    },
+    {
+      "q": "シャツのボタンを一人で留めたい",
+      "expected": [
+        "R01"
+      ],
+      "expectedAttempts": [],
+      "expectedRank": 1,
+      "topRoads": [
+        {
+          "id": "R01",
+          "score": 0.6391,
+          "difficulty": "シャツのボタンがとめにくい"
+        },
+        {
+          "id": "R02",
+          "score": 0.5133,
+          "difficulty": "つめが切りにくい"
+        },
+        {
+          "id": "R04",
+          "score": 0.5014,
+          "difficulty": "ペットボトルのふたが開けにくい"
+        }
+      ],
+      "lastRoad": {
+        "id": "R15",
+        "score": 0.3539
+      },
+      "topAttempts": [
+        {
+          "id": "A03",
+          "score": 0.6349,
+          "method": "マグネット式のボタンのシャツに替えた"
+        },
+        {
+          "id": "A02",
+          "score": 0.5269,
+          "method": "ボタンの穴を少し大きくしてもらった"
+        },
+        {
+          "id": "A08",
+          "score": 0.5039,
+          "method": "ゴムの滑り止めシートでキャップをつかんだ"
+        }
+      ]
+    },
+    {
+      "q": "指が動かしにくくて服を着るのが大変",
+      "expected": [
+        "R01",
+        "R07"
+      ],
+      "expectedAttempts": [],
+      "expectedRank": 1,
+      "topRoads": [
+        {
+          "id": "R01",
+          "score": 0.6239,
+          "difficulty": "シャツのボタンがとめにくい"
+        },
+        {
+          "id": "R07",
+          "score": 0.6037,
+          "difficulty": "靴下をはくのがむずかしい"
+        },
+        {
+          "id": "R02",
+          "score": 0.5624,
+          "difficulty": "つめが切りにくい"
+        }
+      ],
+      "lastRoad": {
+        "id": "R09",
+        "score": 0.4171
+      },
+      "topAttempts": [
+        {
+          "id": "A03",
+          "score": 0.5518,
+          "method": "マグネット式のボタンのシャツに替えた"
+        },
+        {
+          "id": "A24",
+          "score": 0.5294,
+          "method": "キャリーカートを使って買い物に行った"
+        },
+        {
+          "id": "A14",
+          "score": 0.5053,
+          "method": "ソックスエイドを使って座ったままはいた"
+        }
+      ]
+    },
+    {
+      "q": "爪が切りにくい",
+      "expected": [
+        "R02"
+      ],
+      "expectedAttempts": [],
+      "expectedRank": 1,
+      "topRoads": [
+        {
+          "id": "R02",
+          "score": 0.6488,
+          "difficulty": "つめが切りにくい"
+        },
+        {
+          "id": "R16",
+          "score": 0.5938,
+          "difficulty": "包丁で野菜を切るのがこわい"
+        },
+        {
+          "id": "R07",
+          "score": 0.5728,
+          "difficulty": "靴下をはくのがむずかしい"
+        }
+      ],
+      "lastRoad": {
+        "id": "R05",
+        "score": 0.45
+      },
+      "topAttempts": [
+        {
+          "id": "A05",
+          "score": 0.5988,
+          "method": "つめやすりで少しずつ削るようにした"
+        },
+        {
+          "id": "A04",
+          "score": 0.5903,
+          "method": "テコの原理で軽く切れる大きめのつめ切りを使った"
+        },
+        {
+          "id": "A15",
+          "score": 0.5246,
+          "method": "バネ付きの箸に替えた"
+        }
+      ]
+    },
+    {
+      "q": "手がうまく動かず爪切りが難しい",
+      "expected": [
+        "R02"
+      ],
+      "expectedAttempts": [],
+      "expectedRank": 1,
+      "topRoads": [
+        {
+          "id": "R02",
+          "score": 0.6225,
+          "difficulty": "つめが切りにくい"
+        },
+        {
+          "id": "R16",
+          "score": 0.6052,
+          "difficulty": "包丁で野菜を切るのがこわい"
+        },
+        {
+          "id": "R08",
+          "score": 0.5707,
+          "difficulty": "箸でおかずをつまみにくい"
+        }
+      ],
+      "lastRoad": {
+        "id": "R09",
+        "score": 0.4313
+      },
+      "topAttempts": [
+        {
+          "id": "A05",
+          "score": 0.5642,
+          "method": "つめやすりで少しずつ削るようにした"
+        },
+        {
+          "id": "A04",
+          "score": 0.554,
+          "method": "テコの原理で軽く切れる大きめのつめ切りを使った"
+        },
+        {
+          "id": "A14",
+          "score": 0.529,
+          "method": "ソックスエイドを使って座ったままはいた"
+        }
+      ]
+    },
+    {
+      "q": "駅の階段で足がすくむ",
+      "expected": [
+        "R03"
+      ],
+      "expectedAttempts": [],
+      "expectedRank": 1,
+      "topRoads": [
+        {
+          "id": "R03",
+          "score": 0.6705,
+          "difficulty": "階段の上り下りがこわい"
+        },
+        {
+          "id": "R07",
+          "score": 0.5768,
+          "difficulty": "靴下をはくのがむずかしい"
+        },
+        {
+          "id": "R12",
+          "score": 0.5351,
+          "difficulty": "浴槽をまたいで入るのがこわい"
+        }
+      ],
+      "lastRoad": {
+        "id": "R15",
+        "score": 0.4199
+      },
+      "topAttempts": [
+        {
+          "id": "A06",
+          "score": 0.6173,
+          "method": "階段に両側の手すりを付けた"
+        },
+        {
+          "id": "A07",
+          "score": 0.5912,
+          "method": "駅ではエレベーターの場所を先に調べておく"
+        },
+        {
+          "id": "A24",
+          "score": 0.5464,
+          "method": "キャリーカートを使って買い物に行った"
+        }
+      ]
+    },
+    {
+      "q": "キャップが固くて飲み物が飲めない",
+      "expected": [
+        "R04",
+        "R06"
+      ],
+      "expectedAttempts": [
+        "A08",
+        "A09"
+      ],
+      "expectedRank": 1,
+      "topRoads": [
+        {
+          "id": "R04",
+          "score": 0.5992,
+          "difficulty": "ペットボトルのふたが開けにくい"
+        },
+        {
+          "id": "R06",
+          "score": 0.5404,
+          "difficulty": "びんのふたが固くて開けられない"
+        },
+        {
+          "id": "R14",
+          "score": 0.5081,
+          "difficulty": "重い買い物袋を持って帰れない"
+        }
+      ],
+      "lastRoad": {
+        "id": "R15",
+        "score": 0.4061
+      },
+      "topAttempts": [
+        {
+          "id": "A08",
+          "score": 0.5497,
+          "method": "ゴムの滑り止めシートでキャップをつかんだ"
+        },
+        {
+          "id": "A24",
+          "score": 0.5263,
+          "method": "キャリーカートを使って買い物に行った"
+        },
+        {
+          "id": "A13",
+          "score": 0.4833,
+          "method": "ゴム手袋をはめてふたを回した"
+        }
+      ]
+    },
+    {
+      "q": "パソコン仕事で体がつらい",
+      "expected": [
+        "R05",
+        "R17"
+      ],
+      "expectedAttempts": [],
+      "expectedRank": 1,
+      "topRoads": [
+        {
+          "id": "R05",
+          "score": 0.7129,
+          "difficulty": "デスクワークで長時間パソコンを使うと目と肩がつらい"
+        },
+        {
+          "id": "R17",
+          "score": 0.6677,
+          "difficulty": "キーボードを長く打つと手首が痛くなる"
+        },
+        {
+          "id": "R13",
+          "score": 0.5049,
+          "difficulty": "字を書くと手がふるえてしまう"
+        }
+      ],
+      "lastRoad": {
+        "id": "R06",
+        "score": 0.403
+      },
+      "topAttempts": [
+        {
+          "id": "A10",
+          "score": 0.5301,
+          "method": "1時間ごとにタイマーを鳴らして休憩した"
+        },
+        {
+          "id": "A28",
+          "score": 0.5026,
+          "method": "リストレストを置いて手首を支えた"
+        },
+        {
+          "id": "A11",
+          "score": 0.4904,
+          "method": "モニターの高さを目線に合わせた"
+        }
+      ]
+    },
+    {
+      "q": "薬の飲み忘れ",
+      "expected": [
+        "R09"
+      ],
+      "expectedAttempts": [
+        "A17",
+        "A18"
+      ],
+      "expectedRank": 1,
+      "topRoads": [
+        {
+          "id": "R09",
+          "score": 0.7279,
+          "difficulty": "薬を飲んだかどうか忘れてしまう"
+        },
+        {
+          "id": "R18",
+          "score": 0.5262,
+          "difficulty": "人の名前がすぐに出てこない"
+        },
+        {
+          "id": "R11",
+          "score": 0.4909,
+          "difficulty": "小さい文字が読みにくい"
+        }
+      ],
+      "lastRoad": {
+        "id": "R12",
+        "score": 0.3666
+      },
+      "topAttempts": [
+        {
+          "id": "A18",
+          "score": 0.6242,
+          "method": "スマホのアラームで飲む時間を知らせた"
+        },
+        {
+          "id": "A17",
+          "score": 0.5777,
+          "method": "曜日ごとに分かれたお薬カレンダーを壁に掛けた"
+        },
+        {
+          "id": "A15",
+          "score": 0.4926,
+          "method": "バネ付きの箸に替えた"
+        }
+      ]
+    },
+    {
+      "q": "耳が遠くなって電話が困る",
+      "expected": [
+        "R10"
+      ],
+      "expectedAttempts": [],
+      "expectedRank": 1,
+      "topRoads": [
+        {
+          "id": "R10",
+          "score": 0.6725,
+          "difficulty": "電話の相手の声が聞き取りにくい"
+        },
+        {
+          "id": "R18",
+          "score": 0.6008,
+          "difficulty": "人の名前がすぐに出てこない"
+        },
+        {
+          "id": "R11",
+          "score": 0.51,
+          "difficulty": "小さい文字が読みにくい"
+        }
+      ],
+      "lastRoad": {
+        "id": "R12",
+        "score": 0.4196
+      },
+      "topAttempts": [
+        {
+          "id": "A19",
+          "score": 0.6168,
+          "method": "電話の受話音量を最大にした"
+        },
+        {
+          "id": "A29",
+          "score": 0.5127,
+          "method": "音声入力で文章を入力した"
+        },
+        {
+          "id": "A18",
+          "score": 0.5011,
+          "method": "スマホのアラームで飲む時間を知らせた"
+        }
+      ]
+    },
+    {
+      "q": "握力が落ちてふたが回せない",
+      "expected": [
+        "R04",
+        "R06"
+      ],
+      "expectedAttempts": [
+        "A08",
+        "A13",
+        "A12"
+      ],
+      "expectedRank": 2,
+      "topRoads": [
+        {
+          "id": "R06",
+          "score": 0.6276,
+          "difficulty": "びんのふたが固くて開けられない"
+        },
+        {
+          "id": "R04",
+          "score": 0.6106,
+          "difficulty": "ペットボトルのふたが開けにくい"
+        },
+        {
+          "id": "R14",
+          "score": 0.6065,
+          "difficulty": "重い買い物袋を持って帰れない"
+        }
+      ],
+      "lastRoad": {
+        "id": "R15",
+        "score": 0.4079
+      },
+      "topAttempts": [
+        {
+          "id": "A13",
+          "score": 0.6285,
+          "method": "ゴム手袋をはめてふたを回した"
+        },
+        {
+          "id": "A08",
+          "score": 0.5938,
+          "method": "ゴムの滑り止めシートでキャップをつかんだ"
+        },
+        {
+          "id": "A14",
+          "score": 0.558,
+          "method": "ソックスエイドを使って座ったままはいた"
+        }
+      ]
+    },
+    {
+      "q": "ボタンを留める道具",
+      "expected": [
+        "R01"
+      ],
+      "expectedAttempts": [
+        "A01"
+      ],
+      "expectedRank": 1,
+      "topRoads": [
+        {
+          "id": "R01",
+          "score": 0.5777,
+          "difficulty": "シャツのボタンがとめにくい"
+        },
+        {
+          "id": "R06",
+          "score": 0.5093,
+          "difficulty": "びんのふたが固くて開けられない"
+        },
+        {
+          "id": "R14",
+          "score": 0.501,
+          "difficulty": "重い買い物袋を持って帰れない"
+        }
+      ],
+      "lastRoad": {
+        "id": "R15",
+        "score": 0.3644
+      },
+      "topAttempts": [
+        {
+          "id": "A02",
+          "score": 0.6367,
+          "method": "ボタンの穴を少し大きくしてもらった"
+        },
+        {
+          "id": "A03",
+          "score": 0.6087,
+          "method": "マグネット式のボタンのシャツに替えた"
+        },
+        {
+          "id": "A01",
+          "score": 0.5921,
+          "method": "ボタンエイドという補助具を使った"
+        }
+      ]
+    }
+  ],
+  "long": {
+    "chars": 2028,
+    "tokens": 1135,
+    "maxLength": 8192,
+    "error": null,
+    "tailDiffCosine": 0.986555,
+    "datasetTokenMax": 64,
+    "charsUntilMaxLength": 2000
+  },
+  "variants": [
+    {
+      "a": "ボタン",
+      "b": "ﾎﾞﾀﾝ",
+      "cosine": 1
+    },
+    {
+      "a": "ボタンがとめにくい",
+      "b": "ﾎﾞﾀﾝがとめにくい",
+      "cosine": 1
+    },
+    {
+      "a": "ペットボトルのふたが開けにくい",
+      "b": "ﾍﾟｯﾄﾎﾞﾄﾙのふたが開けにくい",
+      "cosine": 1
+    },
+    {
+      "a": "パソコン作業がつらい",
+      "b": "PC作業がつらい",
+      "cosine": 0.9584
+    },
+    {
+      "a": "PC作業がつらい",
+      "b": "ＰＣ作業がつらい",
+      "cosine": 1
+    },
+    {
+      "a": "爪が切りにくい",
+      "b": "つめが切りにくい",
+      "cosine": 0.8263
+    },
+    {
+      "a": "ボタンがとめにくい",
+      "b": "釦がとめにくい",
+      "cosine": 0.8632
+    },
+    {
+      "a": "ボタンがとめにくい",
+      "b": "階段の上り下りがこわい",
+      "cosine": 0.6804
+    }
+  ],
+  "emptyInputs": [
+    true,
+    true,
+    true
+  ]
+}

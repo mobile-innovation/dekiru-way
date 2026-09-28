@@ -1,0 +1,16 @@
+{
+  "name": "dekiru-way-embedding-poc",
+  "private": true,
+  "type": "module",
+  "description": "Stage 2 PoC: ローカル Embedding (Transformers.js) の検証。本番コードからは参照しない。",
+  "scripts": {
+    "bench": "../../node_modules/.bin/tsx bench.ts",
+    "test": "../../node_modules/.bin/tsx --test embedder.test.ts",
+    "test:stage3:unit": "../../node_modules/.bin/tsx --test stage3/anonymize.test.ts",
+    "test:stage3:export": "../../node_modules/.bin/tsx --env-file=../../.env --test stage3/export.test.ts",
+    "test:stage3:evaldb": "DATABASE_URL='postgresql://dekiru:dekiru@localhost:5433/dekiru_eval?schema=public' ../../node_modules/.bin/tsx --test stage3/eval-db.test.ts"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.3.0"
+  }
+}

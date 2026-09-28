@@ -1,0 +1,6 @@
+node_modules/
+.model-cache/
+vps-dist/
+# 公開データのスナップショット・評価結果（利用者の投稿内容を含む）
+data/
+results/stage3-*/
