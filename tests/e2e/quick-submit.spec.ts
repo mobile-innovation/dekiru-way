@@ -45,9 +45,11 @@ test("SNS から困りごと付きで開き、試したことを登録できる"
     page.getByRole("link", { name: "ほかの人が試した方法を見る" }),
   ).toBeVisible();
 
-  // 承認前なので公開検索には出ない
+  // 承認前なので公開検索には出ない。
+  // 検索語そのものは見出し（「…」が方法の中にあった記録）に出ることがあるので、
+  // 結果カードの一覧（リスト）の中に無いことを確かめる。
   await page.goto(`/experiences?q=${encodeURIComponent(method)}&kind=method`);
-  await expect(page.getByText(method)).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("listitem").filter({ hasText: method })).toHaveCount(0);
 
   // 後片付け: 運営として確認キューに現れることを確かめ、「公開しない」で pending から外す
   // （このスペックが確認待ちを溜め続けて他テストの 1 ページ目を埋めないように）。
