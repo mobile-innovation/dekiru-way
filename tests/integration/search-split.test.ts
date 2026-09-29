@@ -37,6 +37,7 @@ const ROAD_WORD = `${MARK}ロードゴト`; // difficulty に入れる、方法�
 const METHOD_WORD = `${MARK}ホウホウダケ`; // method に入れる、Road フィールドには入れない語
 const DEEP_WORD = `${MARK}フカイホウホウ`; // 11 件以上の道の 12 件目の method に入れる語
 const PAGE_WORD = `${MARK}オオイホウホウ`; // 25 件の method に入れる語（mp ページ送り確認用）
+const PRIVATE_WORD = `${MARK}ヒコウカイダケ`; // 非公開・審査待ちの試したことにだけ入れる語
 let userId = "";
 let publishedAttemptId = "";
 let deepAttemptId = "";
@@ -97,6 +98,21 @@ beforeAll(async () => {
   });
   deepAttemptId = deepRoad.attempts.find((a) => a.method.includes(DEEP_WORD))!.id;
 
+  // 非公開・審査待ちの試したことにだけ PRIVATE_WORD がある道（公開の試したことは別の文言）
+  await prisma.road.create({
+    data: {
+      userId,
+      difficulty: `${MARK} 非公開の方法を持つ道`,
+      attempts: {
+        create: [
+          { method: `${MARK} 公開の方法`, result: "partial", isPublished: true, moderationStatus: "approved" },
+          { method: `${PRIVATE_WORD} を非公開で試した`, result: "failed", isPublished: false },
+          { method: `${PRIVATE_WORD} を審査待ちで試した`, result: "failed", isPublished: true, moderationStatus: "pending" },
+        ],
+      },
+    },
+  });
+
   // 方法カードのページ送り（?mp=）確認用: 25 件の公開方法に PAGE_WORD
   await prisma.road.create({
     data: {
@@ -120,15 +136,20 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe("searchRoads はページ（Road）側の一致だけ", () => {
+describe("searchRoads はページ（Road）側と、公開済みの試したことの本文で探す", () => {
   it("困りごとの語 → 道カードが出る", async () => {
     const { items } = await searchRoads(q({ q: ROAD_WORD }));
     expect(items.some((r) => r.difficulty?.includes(ROAD_WORD))).toBe(true);
   });
 
-  it("方法の中だけにある語 → 道カードには出ない", async () => {
+  it("公開済みの試したことの中の語 → その道の道カードも出る（既定の「道だけ」でも試したことで探せる）", async () => {
     const { items } = await searchRoads(q({ q: METHOD_WORD }));
-    expect(items.some((r) => r.attempts.some((a) => a.method.includes(METHOD_WORD)))).toBe(false);
+    expect(items.some((r) => r.attempts.some((a) => a.method.includes(METHOD_WORD)))).toBe(true);
+  });
+
+  it("非公開・審査待ちの試したことにだけある語 → 道カードは出ない（非公開の内容を推測させない）", async () => {
+    const { total } = await searchRoads(q({ q: PRIVATE_WORD }));
+    expect(total).toBe(0);
   });
 });
 

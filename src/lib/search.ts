@@ -155,7 +155,9 @@ export const experienceInclude = {
 
 /**
  * 検索語が「ページ（Road）側の内容」= できなくなった / やりたいこと / 場面 / 以前できていた /
- * タグ に当たる道だけ (指示「ワードがページの内容なら、ページ内容をカードで表示」)。
+ * タグ、または公開済みの試したことの本文（方法・メモ）に当たる道
+ * (指示「ワードがページの内容なら、ページ内容をカードで表示」。2026-09-29、既定の「道だけ」でも
+ * 試したことで探せるよう、公開済みの試したことの本文も対象に追加)。
  * 検索語が無いときは（ふつうの一覧）「公開 Attempt を 1 つ以上持つ道」全部。
  */
 export function buildRoadLevelSearchWhere(
@@ -201,6 +203,14 @@ export function buildRoadLevelSearchWhere(
             { goal: contains },
             { previouslyAble: contains },
             { roadTags: { some: { tag: { name: contains } } } },
+            // 試したこと（公開・承認済みのものだけ）の本文に当たった道も出す。道カードには
+            // 試したことの一覧が載るので、どこで当たったかが分かる。非公開の本文では当てない
+            // （非公開の内容を検索で推測できないように）。
+            {
+              attempts: {
+                some: { ...publishedAttempt, OR: [{ method: contains }, { memo: contains }] },
+              },
+            },
           ];
         }),
       });

@@ -108,15 +108,27 @@ describe("buildRoadLevelSearchWhere（道の既読 / 未読）", () => {
 });
 
 describe("検索AI Phase 1: opts.terms（複数語ハイブリッド絞り込み）", () => {
-  it("buildRoadLevelSearchWhere は語ごとに road 側 5 カラムの OR を増やす", () => {
+  it("buildRoadLevelSearchWhere は語ごとに road 側 5 カラム＋公開済みの試したことの OR を増やす", () => {
     const where = buildRoadLevelSearchWhere({}, undefined, { terms: ["ボタン", "留め具"] });
     const or = (where.AND as any[]).find((c) => c.OR);
-    // difficulty / situation / goal / previouslyAble / tag = 5 節 × 2 語
-    expect(or.OR).toHaveLength(10);
+    // difficulty / situation / goal / previouslyAble / tag / 試したこと = 6 節 × 2 語
+    expect(or.OR).toHaveLength(12);
     const diffContains = or.OR.filter((o: any) => o.difficulty).map((o: any) => o.difficulty.contains);
     expect(diffContains).toEqual(["ボタン", "留め具"]);
-    // method は road 検索の対象外（従来どおり）
-    expect(or.OR.some((o: any) => "method" in o)).toBe(false);
+    // 試したこと（method / memo）は公開ゲート付きでだけ見る
+    const att = or.OR.filter((o: any) => o.attempts).map((o: any) => o.attempts.some);
+    expect(att).toHaveLength(2);
+    for (const a of att) {
+      expect(a).toMatchObject({ isPublished: true, moderationStatus: "approved" });
+      expect(a.OR.map((x: any) => Object.keys(x)[0])).toEqual(["method", "memo"]);
+    }
+  });
+
+  it("buildRoadLevelSearchWhere: 結果の絞り込みは試したことの本文の一致にも掛かる", () => {
+    const where = buildRoadLevelSearchWhere({ q: "ボタン", result: "success" });
+    const or = (where.AND as any[]).find((c) => c.OR);
+    const att = or.OR.find((o: any) => o.attempts).attempts.some;
+    expect(att.result).toBe("success");
   });
 
   it("buildMethodSearchWhere は語ごとに method / memo の OR を増やす", () => {

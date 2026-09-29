@@ -408,3 +408,64 @@ describe("fuzzy: 語尾（〜なくなった 等）だけの一致を候補に�
     expect(await fuzzySearchRoadIds("２階で洗濯物を干せなくなった", 500)).toContain(endingOnlyRoad);
   });
 });
+
+/**
+ * 短い検索語が長い本文の一部と一致する場合（word_similarity）と、道の候補に公開済みの
+ * 試したことの本文を含めること（本番で「手動装置」→「手動運転装置を車に…」が出なかった不具合）。
+ */
+describe("fuzzy: 本文の一部との一致（word_similarity）と、道の候補に試したことを含める", () => {
+  const M4 = `${MARK}-v4`;
+  const made: string[] = [];
+  let ownerId4 = "";
+  let roadViaAttempt = "";
+  let publicAttempt = "";
+  let roadPrivateOnly = "";
+
+  beforeAll(async () => {
+    const u = await prisma.user.create({ data: { googleSub: `${M4}:owner` } });
+    ownerId4 = u.id;
+    const r1 = await prisma.road.create({
+      data: { userId: ownerId4, difficulty: "足で歩けなくなり、車の運転が出来なくなった" },
+    });
+    roadViaAttempt = r1.id;
+    made.push(r1.id);
+    const a1 = await prisma.attempt.create({
+      data: {
+        roadId: r1.id,
+        method: "手動運転装置を車につけてもらって、少し練習した",
+        result: "success",
+        isPublished: true,
+        moderationStatus: "approved",
+      },
+    });
+    publicAttempt = a1.id;
+
+    // 非公開の試したことにだけ「ピルケース」がある道（道の本文にも公開の試したことにも無い）
+    const r2 = await prisma.road.create({ data: { userId: ownerId4, difficulty: "朝の支度に時間がかかる" } });
+    roadPrivateOnly = r2.id;
+    made.push(r2.id);
+    await prisma.attempt.create({
+      data: { roadId: r2.id, method: "着替えを前の晩に並べた", result: "partial", isPublished: true, moderationStatus: "approved" },
+    });
+    await prisma.attempt.create({
+      data: { roadId: r2.id, method: "曜日つきのピルケースに1週間分をセットした", result: "partial" },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.road.deleteMany({ where: { id: { in: made } } });
+    await prisma.user.deleteMany({ where: { id: ownerId4 } });
+  });
+
+  it("「手動装置」で「手動運転装置を…」の試したことが見つかる", async () => {
+    expect(await fuzzySearchAttemptIds("手動装置", 500)).toContain(publicAttempt);
+  });
+
+  it("「手動装置」で、その試したことを持つ道も見つかる（道の本文には無い）", async () => {
+    expect(await fuzzySearchRoadIds("手動装置", 500)).toContain(roadViaAttempt);
+  });
+
+  it("非公開の試したことの本文では道を候補にしない", async () => {
+    expect(await fuzzySearchRoadIds("ピルケース", 500)).not.toContain(roadPrivateOnly);
+  });
+});

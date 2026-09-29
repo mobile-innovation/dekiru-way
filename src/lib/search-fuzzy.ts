@@ -25,8 +25,21 @@ import { MAX_RESULT_WINDOW, type ExperienceQuery } from "@/lib/validation";
  * この順を関連度順として扱い、Prisma の where（公開ゲート・絞り込み）で最終判定する。
  * ここでの絞り込み (`FuzzyFilters`) は、上位候補を切り出す前に条件に合わないものを除いて
  * 取りこぼしを防ぐためのもの（最終的な正しさは Prisma 側の where が保証する）。
+ *
+ * 2026-09-29: 短い検索語が長い本文の一部と一致する場合（「手動装置」→「手動運転装置を車に…」）は
+ * similarity() が低く出る（0.074）ため、word_similarity()（本文の中で最も一致する範囲との類似度）も
+ * 見る。語尾だけの一致は word_similarity でも 0.27〜0.29 程度だったので、しきい値はそれより上に置く。
+ * 道の候補には、その道の公開済みの試したこと（方法・メモ）との一致も含める（通常検索の道カードと同じ）。
  */
 const FUZZY_SIMILARITY_THRESHOLD = 0.08;
+const FUZZY_WORD_SIMILARITY_THRESHOLD = 0.35;
+
+/** 1 つの本文カラムが検索語に近いか（similarity または word_similarity がしきい値以上）。 */
+const fieldMatches = (field: Prisma.Sql, t: string) =>
+  Prisma.sql`(similarity(${field}, ${t}) >= ${FUZZY_SIMILARITY_THRESHOLD} OR word_similarity(${t}, ${field}) >= ${FUZZY_WORD_SIMILARITY_THRESHOLD})`;
+/** 並び順に使う近さ（similarity と word_similarity の大きい方）。 */
+const fieldScore = (field: Prisma.Sql, t: string) =>
+  Prisma.sql`GREATEST(similarity(${field}, ${t}), word_similarity(${t}, ${field}))`;
 
 /**
  * 内容語の手がかり。しきい値が低いので、短い検索語では「〜なくなった」「〜にくい」のような語尾の
@@ -83,7 +96,10 @@ async function resolveTagIds(tag: string | undefined): Promise<string[] | null> 
   return tags.map((t) => t.id);
 }
 
-/** 公開されている道のうち、difficulty/situation/goal/previouslyAble が検索語に近い順の id。 */
+/**
+ * 公開されている道のうち、difficulty/situation/goal/previouslyAble、またはその道の公開済みの
+ * 試したこと（方法・メモ）が検索語に近い順の id。
+ */
 export async function fuzzySearchRoadIds(
   term: string,
   limit: number,
@@ -119,30 +135,39 @@ export async function fuzzySearchRoadIds(
       SELECT 1 FROM road_tags rt WHERE rt.road_id = r.id AND rt.tag_id = ANY(${tagIds}::uuid[])
     )`);
   }
-  // 語尾だけの一致を除く: 検索語の内容語（漢字・カタカナ語）を 1 つ以上含む道だけ。
+  // 本文カラムごとの一致。語尾だけの一致を除くため、そのカラム自体が検索語の内容語
+  // （漢字・カタカナ語）を 1 つ以上含むことも条件にする（内容語が無い検索語では掛けない）。
   const content = contentPattern(t);
-  if (content) {
-    conds.push(Prisma.sql`(
-      COALESCE(r.difficulty, '') ~ ${content} OR COALESCE(r.situation, '') ~ ${content}
-      OR COALESCE(r.goal, '') ~ ${content} OR COALESCE(r.previously_able, '') ~ ${content}
-    )`);
-  }
+  const hit = (f: Prisma.Sql) =>
+    content ? Prisma.sql`(${fieldMatches(f, t)} AND ${f} ~ ${content})` : fieldMatches(f, t);
+  const roadFields = [
+    Prisma.sql`COALESCE(r.difficulty, '')`,
+    Prisma.sql`COALESCE(r.situation, '')`,
+    Prisma.sql`COALESCE(r.goal, '')`,
+    Prisma.sql`COALESCE(r.previously_able, '')`,
+  ];
+  // その道の公開済みの試したこと（result 指定時はその結果のもの）。非公開の本文では当てない。
+  const pubAttemptOfRoad = Prisma.sql`a.road_id = r.id AND ${publicAttemptSql("a")} ${resultSql}`;
+  const method = Prisma.sql`a.method`;
+  const memo = Prisma.sql`COALESCE(a.memo, '')`;
 
   const rows = await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
     SELECT r.id
     FROM roads r
     WHERE ${Prisma.join(conds, " AND ")}
-    AND GREATEST(
-      similarity(COALESCE(r.difficulty, ''), ${t}),
-      similarity(COALESCE(r.situation, ''), ${t}),
-      similarity(COALESCE(r.goal, ''), ${t}),
-      similarity(COALESCE(r.previously_able, ''), ${t})
-    ) >= ${FUZZY_SIMILARITY_THRESHOLD}
+    AND (
+      ${Prisma.join(roadFields.map(hit), " OR ")}
+      OR EXISTS (
+        SELECT 1 FROM attempts a
+        WHERE ${pubAttemptOfRoad} AND (${hit(method)} OR ${hit(memo)})
+      )
+    )
     ORDER BY GREATEST(
-      similarity(COALESCE(r.difficulty, ''), ${t}),
-      similarity(COALESCE(r.situation, ''), ${t}),
-      similarity(COALESCE(r.goal, ''), ${t}),
-      similarity(COALESCE(r.previously_able, ''), ${t})
+      ${Prisma.join(roadFields.map((f) => fieldScore(f, t)), ", ")},
+      COALESCE((
+        SELECT MAX(GREATEST(${fieldScore(method, t)}, ${fieldScore(memo, t)}))
+        FROM attempts a WHERE ${pubAttemptOfRoad}
+      ), 0)
     ) DESC, r.id
     LIMIT ${limit}
   `);
@@ -174,24 +199,19 @@ export async function fuzzySearchAttemptIds(
       SELECT 1 FROM road_tags rt WHERE rt.road_id = a.road_id AND rt.tag_id = ANY(${tagIds}::uuid[])
     )`);
   }
-  // 語尾だけの一致を除く: 検索語の内容語（漢字・カタカナ語）を 1 つ以上含む試したことだけ。
+  // 本文カラムごとの一致（道と同じく、そのカラム自体が内容語を含むことも条件にする）。
   const content = contentPattern(t);
-  if (content) {
-    conds.push(Prisma.sql`(a.method ~ ${content} OR COALESCE(a.memo, '') ~ ${content})`);
-  }
+  const hit = (f: Prisma.Sql) =>
+    content ? Prisma.sql`(${fieldMatches(f, t)} AND ${f} ~ ${content})` : fieldMatches(f, t);
+  const method = Prisma.sql`a.method`;
+  const memo = Prisma.sql`COALESCE(a.memo, '')`;
 
   const rows = await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
     SELECT a.id
     FROM attempts a
     WHERE ${Prisma.join(conds, " AND ")}
-    AND GREATEST(
-      similarity(a.method, ${t}),
-      similarity(COALESCE(a.memo, ''), ${t})
-    ) >= ${FUZZY_SIMILARITY_THRESHOLD}
-    ORDER BY GREATEST(
-      similarity(a.method, ${t}),
-      similarity(COALESCE(a.memo, ''), ${t})
-    ) DESC, a.id
+    AND (${hit(method)} OR ${hit(memo)})
+    ORDER BY GREATEST(${fieldScore(method, t)}, ${fieldScore(memo, t)}) DESC, a.id
     LIMIT ${limit}
   `);
   return rows.map((r) => r.id);
