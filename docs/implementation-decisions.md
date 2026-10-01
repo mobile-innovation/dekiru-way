@@ -3686,3 +3686,22 @@ hover は `--color-primary-hover`）に。聞き取り中は hover と同じ濃�
 （`.next/cache/images`）やブラウザに旧画像が残っていても新しい画像が出る。
 - テスト: `tests/unit/try-page.test.tsx`（新設。画像が `/try_image.png`・1774×887・ファイルが public にあり旧 `try.png` は無い、
   説明文・注意文の見た目）、`tests/e2e/quick-submit.spec.ts` に「try_image.png が実際に読み込まれ 2:1」を追加
+
+### 2026-10-02 /try の OGP 画像を ogp20261002.png に差し替え
+
+- `src/app/try/page.tsx` の `SHARE_IMAGE` を `/ogp.png`（1734×907）→ `/ogp20261002.png`（1726×911、≒1.89:1。
+  大きい画像カード推奨の 1.91:1 にほぼ一致するので変換しない）。`openGraph.images` の width / height も合わせた。
+  twitter:image も同じ画像
+- SNS（X / Facebook / LINE 等）は画像 URL ごとにキャッシュするため、差し替え時はファイル名を変える方針
+  （同名上書きだと古い画像が出続ける）。既にシェア済みの投稿のカードは SNS 側の再取得まで古いまま
+- OGP 画像を使っているのは `/try` だけ（サイト共通の og:image は無い）。旧 `public/ogp.png` は同日に削除（下記）
+- テスト: `tests/unit/try-page.test.tsx` に metadata の画像 URL・寸法・ファイル存在、`tests/e2e/quick-submit.spec.ts` の
+  og:image / twitter:image / 画像取得の URL を更新し、og:image:width / height を追加
+
+### 2026-10-02 使っていない画像を削除
+
+`public/` のうち、コード（src・設定・テスト・スクリプト）から参照の無い画像を削除した（Git 履歴から復元可能）。
+- `1.png`〜`7.png`: 旧トップの「できる道で、できること」カード等の画像（9/3 作成。カード削除後は参照なし）
+- `ogp.png`: `ogp20261002.png` に差し替えた旧 OGP 画像
+残したもの（参照あり）: `head.png`（トップのヒーロー）、`7-scene.png`（トップの CTA）、`brand-icon.png`（ヘッダー・フッター）、
+`comic1〜8.png`（8 枚ストーリー）、`try_image.png`（/try の導入イラスト）、`ogp20261002.png`（/try の OGP）

@@ -18,7 +18,7 @@ vi.mock("@/lib/client/api", () => ({
   ClientApiError: class extends Error {},
 }));
 
-import TryPage from "@/app/try/page";
+import TryPage, { metadata } from "@/app/try/page";
 
 afterEach(cleanup);
 
@@ -40,5 +40,17 @@ describe("/try ページ", () => {
       screen.getByText(/困っていたことと、試してみた方法を教えてください/).className,
     ).toContain("text-[var(--color-ink)]");
     expect(screen.getByText(/氏名や連絡先など/).className).toContain("text-[13px]");
+  });
+});
+
+describe("/try の OGP（2026-10-02 に ogp20261002.png へ差し替え）", () => {
+  it("og:image / twitter:image は ogp20261002.png（1726×911）で、ファイルが public にある", () => {
+    const og = metadata.openGraph as { images: { url: string; width: number; height: number }[] };
+    expect(og.images).toEqual([
+      { url: "/ogp20261002.png", width: 1726, height: 911, alt: "できる道" },
+    ]);
+    const tw = metadata.twitter as { images: string[] };
+    expect(tw.images).toEqual(["/ogp20261002.png"]);
+    expect(existsSync(join(process.cwd(), "public", "ogp20261002.png"))).toBe(true);
   });
 });

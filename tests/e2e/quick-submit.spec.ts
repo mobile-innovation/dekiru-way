@@ -88,17 +88,20 @@ test("SNS 共有用の OGP / Twitter メタタグが絶対URLで設定されて�
   expect(await content('meta[property="og:site_name"]')).toBe("できる道");
   expect(await content('meta[property="og:locale"]')).toBe("ja_JP");
   expect(await content('meta[property="og:url"]')).toBe(`${baseURL}/try`);
-  expect(await content('meta[property="og:image"]')).toBe(`${baseURL}/ogp.png`);
+  expect(await content('meta[property="og:image"]')).toBe(`${baseURL}/ogp20261002.png`);
+
+  expect(await content('meta[property="og:image:width"]')).toBe("1726");
+  expect(await content('meta[property="og:image:height"]')).toBe("911");
 
   expect(await content('meta[name="twitter:card"]')).toBe("summary_large_image");
   expect(await content('meta[name="twitter:title"]')).toBe(title);
-  expect(await content('meta[name="twitter:image"]')).toBe(`${baseURL}/ogp.png`);
+  expect(await content('meta[name="twitter:image"]')).toBe(`${baseURL}/ogp20261002.png`);
 
   expect(await page.locator('link[rel="canonical"]').getAttribute("href")).toBe(`${baseURL}/try`);
   expect(await content('meta[name="description"]')).toContain("あなたが試したことを教えてください");
 
   // OGP 画像が本番同様に「画像として」200 で返る
-  const res = await page.request.get("/ogp.png");
+  const res = await page.request.get("/ogp20261002.png");
   expect(res.status()).toBe(200);
   expect(res.headers()["content-type"]).toContain("image/");
 });

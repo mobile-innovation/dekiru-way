@@ -8,8 +8,9 @@ import { sanitizeProblemParam } from "@/lib/validation";
 const SHARE_TITLE = "あなたが試したことを教えてください｜できる道";
 const SHARE_DESCRIPTION =
   "うまくいった方法だけでなく、うまくいかなかった方法も大切な経験です。あなたが試したことを教えてください。";
-// public/ogp.png = 1734×907 (≒1.91:1)。SNS の大きい画像カードにそのまま使える比率なので変換しない。
-const SHARE_IMAGE = "/ogp.png";
+// public/ogp20261002.png = 1726×911 (≒1.89:1)。SNS の大きい画像カード（推奨 1.91:1）にそのまま使える比率なので変換しない。
+// 2026-10-02 に ogp.png から差し替え。SNS 側は画像 URL ごとにキャッシュするので、差し替え時はファイル名を変える。
+const SHARE_IMAGE = "/ogp20261002.png";
 
 export const metadata: Metadata = {
   // title.template ("%s | できる道") を通さず、SNS と完全一致の文字列にする。
@@ -23,7 +24,7 @@ export const metadata: Metadata = {
     url: "/try",
     siteName: "できる道",
     locale: "ja_JP",
-    images: [{ url: SHARE_IMAGE, width: 1734, height: 907, alt: "できる道" }],
+    images: [{ url: SHARE_IMAGE, width: 1726, height: 911, alt: "できる道" }],
   },
   twitter: {
     card: "summary_large_image",
@@ -35,11 +36,7 @@ export const metadata: Metadata = {
 
 type SearchParams = { [key: string]: string | string[] | undefined };
 
-export default async function TryPage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
+export default async function TryPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const sp = await searchParams;
   // SNS のリンクから「困っていたこと」を渡せる (?problem=...)。生の値は信用せず下ごしらえする。
   const initialProblem = sanitizeProblemParam(sp.problem);
