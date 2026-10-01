@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { SearchBox } from "@/components/search-box";
 import { StoryStrip } from "@/components/story-strip";
+import { SwipeCarousel } from "@/components/swipe-carousel";
 import { Card, LinkButton } from "@/components/ui";
 import { RateLimitedNotice } from "@/components/rate-limited-notice";
 import {
@@ -48,10 +49,11 @@ export default async function TopPage() {
           className="object-cover object-[68%_center] sm:object-[85%_center] lg:object-right"
         />
         {/* 可読性確保のための控えめな下地。画像全体を暗くはしない (指示書 §8)。
-            スマホは文字がほぼ全幅に乗るので薄い均一の白、PC以上は左側だけ効くグラデーションに切り替える。 */}
+            スマホは文字がほぼ全幅に乗るので均一の白（2026-10-01 に 55% → 72%。イラストが見出し・検索欄より
+            目立たないように）、PC以上は従来どおり 55% の白＋左側だけ効くグラデーション（変更なし）。 */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-white/55 sm:bg-gradient-to-r sm:from-white/85 sm:via-white/35 sm:to-transparent"
+          className="pointer-events-none absolute inset-0 bg-white/72 sm:bg-white/55 sm:bg-gradient-to-r sm:from-white/85 sm:via-white/35 sm:to-transparent"
         />
 
         <div className="relative flex min-h-[30rem] flex-col justify-center px-5 py-8 sm:min-h-[34rem] sm:px-10 sm:py-10 lg:min-h-[36rem] lg:px-14">
@@ -96,8 +98,8 @@ export default async function TopPage() {
         本文 (max-w-5xl) より少し広く、xl 以上で max-w-6xl。個別に max-width を持たせず
         この 1 つの共通コンテナで幅を決める。 */}
       <div className="mx-auto w-full max-w-5xl space-y-10 pt-10 xl:max-w-6xl">
-        {/* ── ② 8枚のストーリー。スライダーではなく ①→⑧ を並べて見せる。
-          スマホ 1 列 / タブレット以上 2 列。画像内の日本語が読める大きさを優先。 */}
+        {/* ── ② 8枚のストーリー。①→⑧ の順。タブレット以上は 2 列 × 4 行、
+          スマホは 1 枚ずつ大きく見せる横スクロール（自動では動かない。2026-10-01）。 */}
         <StoryStrip />
 
         {/* ── ⑤ 試した結果の見かた。8枚ストーリー直後で存在感が弱くならないよう、
@@ -140,9 +142,15 @@ export default async function TopPage() {
             <p className="text-sm text-[var(--color-ink-muted)]">
               実際に記録された道の、ほんの一部です。
             </p>
-            <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {clusters.map((c, ci) => (
-                <li key={c.key}>
+            {/* スマホは横スライド（1 件 85% 幅＋次がのぞく・ドット・自動送りなし。2026-10-01）、
+                md 2 列 / lg 3 列は従来どおり。カードの中身・リンクは変更なし。 */}
+            <SwipeCarousel
+              label="記録された道の例"
+              desktopListClassName="md:grid md:grid-cols-2 md:gap-4 lg:grid-cols-3"
+              dotLabelSuffix="件目を表示"
+              items={clusters.map((c, ci) => ({
+                key: c.key,
+                node: (
                   <Link
                     href={`/experiences/${c.steps[0].experienceId}`}
                     style={{ animationDelay: `${ci * 70}ms` }}
@@ -195,9 +203,9 @@ export default async function TopPage() {
                       />
                     </span>
                   </Link>
-                </li>
-              ))}
-            </ul>
+                ),
+              }))}
+            />
           </section>
         )}
 
