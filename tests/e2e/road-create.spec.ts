@@ -151,8 +151,20 @@ test("4 欄すべてに音声入力ボタンがあり、入力欄のすぐ下に
     const a = (await page.getByLabel(label).boundingBox())!;
     const b = (await voice.nth(i).boundingBox())!;
     const gap = b.y - (a.y + a.height);
-    // 入力欄の直下（2026-10-01 に 10px 超 → 4px に詰めた）
+    // 入力欄の直下（2026-10-01 に 10px 超 → 4px → 8px）
     expect(gap, label).toBeGreaterThanOrEqual(0);
     expect(gap, label).toBeLessThanOrEqual(8);
   }
+});
+
+test("「自分の道」の「道を作る」と作成画面の「この道を作る」はアイコン付き", async ({ page }) => {
+  await login(page);
+  await expect(page.getByRole("button", { name: "この道を作る" }).locator("svg")).toHaveCount(1);
+
+  await page.goto("/me");
+  const create = page.getByRole("link", { name: "道を作る", exact: true });
+  await expect(create).toBeVisible();
+  await expect(create.locator("svg")).toHaveCount(1);
+  await create.click();
+  await expect(page).toHaveURL(/\/me\/roads\/new$/);
 });

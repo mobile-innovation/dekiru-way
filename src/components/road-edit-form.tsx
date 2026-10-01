@@ -1,65 +1,42 @@
 "use client";
 
-import type { ComponentProps, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { TextField, TextAreaField } from "@/components/form";
-import { VoiceInputButton } from "@/components/voice-input-button";
-import { IconCircleAlert, IconLightbulb, IconMapPin, IconRoute } from "@/components/icons";
+import { TextAreaField } from "@/components/form";
+import { IconPencil, IconRoute } from "@/components/icons";
+import {
+  RoadFormSubmit,
+  RoadFormError,
+  RoadFormSection,
+  apiErrorToMessages,
+  appendVoiceButton,
+} from "@/components/road-form-parts";
 import { FIELD_MAX } from "@/lib/constants";
-import { api, ClientApiError } from "@/lib/client/api";
+import { api } from "@/lib/client/api";
 import type { RoadDTO } from "@/lib/serializers";
 
 /**
- * 意味のまとまりごとのカード。色・余白・間隔は作成画面（road-form.tsx の fieldset）と同じ
- * トークン・クラスにそろえる（2026-10-01 編集画面の色・デザイン統一）: 緑枠 `--color-primary`、
- * 淡いグリーン下地 `--color-primary-tint` に白い入力欄が浮く、`--radius-lg`、`--shadow-card`。
- */
-function Section({
-  icon: Icon,
-  title,
-  children,
-}: {
-  icon: (p: ComponentProps<"svg">) => ReactNode;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="min-w-0 space-y-5 rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-primary-tint)] p-5 shadow-[var(--shadow-card)] sm:p-6">
-      <h2 className="flex items-center gap-2 text-base font-bold">
-        <Icon aria-hidden="true" className="h-5 w-5 shrink-0 text-[var(--color-primary)]" />
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
-
-/**
- * 道を編集（道を編集画面の編集可否修正指示）。
+ * 道を編集 = 道そのもの（基本情報）を編集する画面。
  *
- * 「できなくなったこと」は以前「一度設定すると変更できない」制限があったが廃止した。
- * 「やりたいこと・目標」と同じ、通常の必須項目として扱う（空にして保存しようとすると
- * 画面内バリデーションで止め、API へは送らない）。
+ * 2026-10-01「道を編集」と「道を育てる」を分離: 項目は作成画面（road-form.tsx）と同じ 4 つだけ。
+ *   今、どんなことで困っていますか？＊ = difficulty
+ *   これから、何ができるようになりたいですか？＊ = goal
+ *   以前は、どうしていましたか？（任意） = previouslyAble
+ *   メモ・気づき = memo
+ * 日付・場面・状態・進捗・次に試すこと・タグは「道を育てる」（road-grow-form.tsx）で扱う。
+ * PATCH はこの 4 項目だけを送るので、「道を育てる」側の値には触れない。
+ * memo は「道を育てる」の「メモ」と同じ roads.memo（DB は分けていない。両方の画面で同じ内容が見える）。
  *
- * 項目名は作成画面（road-form.tsx）とそろえる（道の更新・編集画面 修正指示 2026-10-01）。
- * 変えたのは画面上のラベルだけで、保存先（difficulty / goal / previouslyAble …）と既存データはそのまま。
  * 「これから、何ができるようになりたいですか？」の必須/任意はローカル AI 検証の結果で決める予定。
  * 決まるまでは作成画面と同じく必須のまま（作成と編集で必ず一致させる）。
  */
 export function RoadEditForm({ road }: { road: RoadDTO }) {
   const router = useRouter();
   const [v, setV] = useState({
-    previouslyAble: road.previouslyAble ?? "",
     difficulty: road.difficulty ?? "",
     goal: road.goal ?? "",
-    startedAt: road.startedAt ?? "",
-    situation: road.situation ?? "",
+    previouslyAble: road.previouslyAble ?? "",
     memo: road.memo ?? "",
-    status: road.status ?? "",
-    progress: road.progress ?? "",
-    nextAction: road.nextAction ?? "",
-    tags: road.tags.join(", "),
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,14 +44,10 @@ export function RoadEditForm({ road }: { road: RoadDTO }) {
 
   const bind = (k: keyof typeof v) => ({
     value: v[k],
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) =>
       setV((p) => ({ ...p, [k]: e.target.value })),
   });
-
-  // 音声入力は作成画面と同じく、話した内容を既存の文の後ろに足す
-  const voice = (k: keyof typeof v) => (
-    <VoiceInputButton onResult={(t) => setV((p) => ({ ...p, [k]: p[k] ? `${p[k]} ${t}` : t }))} />
-  );
+  const voice = (k: keyof typeof v) => appendVoiceButton(k, setV);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -95,60 +68,28 @@ export function RoadEditForm({ road }: { road: RoadDTO }) {
     setBusy(true);
     try {
       await api.patch(`/api/v1/roads/${road.id}`, {
-        // previouslyAble は任意項目なので、空にして保存すればそのままクリアされる。
-        previouslyAble: v.previouslyAble || null,
         difficulty: v.difficulty,
         goal: v.goal,
-        startedAt: v.startedAt || null,
-        situation: v.situation || null,
+        // 任意項目は、空にして保存すればそのままクリアされる。
+        previouslyAble: v.previouslyAble || null,
         memo: v.memo || null,
-        status: v.status || null,
-        progress: v.progress || null,
-        nextAction: v.nextAction || null,
-        tags: v.tags
-          .split(/[,、\s]+/)
-          .map((s) => s.trim())
-          .filter(Boolean),
       });
       router.push(`/me/roads/${road.id}`);
       router.refresh();
     } catch (e2) {
-      if (e2 instanceof ClientApiError) {
-        setError(e2.message);
-        if (Array.isArray(e2.details)) {
-          const newFe: Record<string, string> = {};
-          for (const d of e2.details as { field: string; message: string }[])
-            newFe[d.field] = d.message;
-          setFieldErrors(newFe);
-        }
-      } else {
-        setError("保存できませんでした。");
-      }
+      const m = apiErrorToMessages(e2);
+      setError(m.error);
+      setFieldErrors(m.fieldErrors);
       setBusy(false);
     }
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
-      {/* エラー表示は作成画面と同じ見た目（アイコン＋入力が残っている旨） */}
-      {error && (
-        <div
-          className="rounded-[var(--radius-md)] bg-[var(--color-danger-soft)] p-3 text-sm text-[var(--color-danger)]"
-          role="alert"
-        >
-          <p className="flex items-start gap-1.5 font-medium">
-            <IconCircleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{error}</span>
-          </p>
-          <p className="mt-1 text-[var(--color-ink-muted)]">
-            入力した内容は残っています。直してから、もう一度「変更を保存」を押せます。
-          </p>
-        </div>
-      )}
+      <RoadFormError error={error} submitLabel="変更を保存" />
 
-      {/* ① この道について。困っていること（difficulty）= 道の見出し・必須項目なので先頭に置く。
-          並びは作成画面と同じ 困っていること → なりたい姿 → 以前（任意）。 */}
-      <Section icon={IconRoute} title="この道について">
+      {/* 並びは作成画面と同じ 困っていること → なりたい姿 → 以前（任意）→ メモ・気づき。 */}
+      <RoadFormSection icon={IconRoute} title="この道について">
         <TextAreaField
           label="今、どんなことで困っていますか？"
           required
@@ -173,70 +114,17 @@ export function RoadEditForm({ road }: { road: RoadDTO }) {
           maxLength={FIELD_MAX.text}
           actions={voice("previouslyAble")}
         />
-      </Section>
-
-      {/* ② 今の状態 */}
-      <Section icon={IconMapPin} title="今の状態">
-        <TextField
-          label="いつ頃から困るようになりましたか？"
-          type="date"
-          {...bind("startedAt")}
-          error={fieldErrors.startedAt}
-        />
         <TextAreaField
-          label="どんな場面で困っていますか？"
-          {...bind("situation")}
-          maxLength={FIELD_MAX.text}
-          actions={voice("situation")}
-        />
-        <TextField
-          label="状態（例：継続中／一区切り）"
-          {...bind("status")}
-          maxLength={FIELD_MAX.statusLabel}
-        />
-        <TextAreaField
-          label="いまの進捗"
-          {...bind("progress")}
-          maxLength={FIELD_MAX.text}
-          actions={voice("progress")}
-        />
-      </Section>
-
-      {/* ③ 次の一歩・記録 */}
-      <Section icon={IconLightbulb} title="次の一歩・記録">
-        <TextAreaField
-          label="次に試すこと"
-          {...bind("nextAction")}
-          maxLength={FIELD_MAX.text}
-          actions={voice("nextAction")}
-        />
-        <TextAreaField
-          label="メモ"
+          label="メモ・気づき"
+          hint="試してみたこと、気になったこと、周りの人とのやり取りなど、自由に書いてください。"
           {...bind("memo")}
+          error={fieldErrors.memo}
           maxLength={FIELD_MAX.longText}
           actions={voice("memo")}
         />
-        <TextField label="タグ（カンマ区切り）" {...bind("tags")} />
-      </Section>
+      </RoadFormSection>
 
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => router.push(`/me/roads/${road.id}`)}
-          className="tap-target rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-3 text-sm font-semibold"
-        >
-          キャンセル
-        </button>
-        <button
-          type="submit"
-          disabled={busy}
-          aria-busy={busy}
-          // 作成画面の「この道を作る」と同じ主ボタンのクラス
-          className="tap-target rounded-[var(--radius-pill)] bg-[var(--color-primary)] px-6 py-3 text-sm font-semibold text-[var(--color-primary-ink)] disabled:opacity-60"
-        >
-          {busy ? "保存中…" : "変更を保存"}
-        </button>
-      </div>
+      <RoadFormSubmit busy={busy} label="変更を保存" icon={IconPencil} />
     </form>
   );
 }

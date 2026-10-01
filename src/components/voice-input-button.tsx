@@ -50,7 +50,10 @@ export function VoiceInputButton({
       SpeechRecognition?: SpeechRecognitionCtor;
       webkitSpeechRecognition?: SpeechRecognitionCtor;
     };
-    const SR = typeof window !== "undefined" ? (w.SpeechRecognition ?? w.webkitSpeechRecognition) : undefined;
+    const SR =
+      typeof window !== "undefined"
+        ? (w.SpeechRecognition ?? w.webkitSpeechRecognition)
+        : undefined;
     if (!SR) return;
     setSupported(true);
     const rec = new SR();
@@ -104,12 +107,15 @@ export function VoiceInputButton({
         type="button"
         onClick={toggle}
         aria-pressed={listening}
-        className="tap-target inline-flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm font-semibold"
+        // 色は既存の主ボタンと同じトークン（--color-primary / -hover / -ink）。新しい色は足さない。
+        // 聞き取り中は hover と同じ濃い緑にして、押されている状態だと分かるようにする。
+        // 文字まわりの余白は控えめ（px-3・py-1・gap-1.5）。利用者の指示で、このボタンだけタップ領域の
+        // 最小 44px（--tap-min、globals.css の @layer base）を min-h-0 で外し、高さ約 28px にしている（2026-10-01）。
+        className={`inline-flex min-h-0 items-center gap-1.5 rounded-[var(--radius-md)] px-3 py-1 text-sm font-semibold text-[var(--color-primary-ink)] hover:bg-[var(--color-primary-hover)] ${
+          listening ? "bg-[var(--color-primary-hover)]" : "bg-[var(--color-primary)]"
+        }`}
       >
-        <IconMic
-          aria-hidden="true"
-          className={`h-4 w-4 shrink-0 ${listening ? "text-[var(--color-primary)]" : ""}`}
-        />
+        <IconMic aria-hidden="true" className="h-4 w-4 shrink-0" />
         {listening ? "聞き取り中…（押して停止）" : label}
       </button>
       <span aria-live="polite" className="sr-only">

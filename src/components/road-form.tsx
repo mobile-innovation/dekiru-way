@@ -4,7 +4,7 @@ import { useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TextAreaField } from "@/components/form";
 import { VoiceInputButton } from "@/components/voice-input-button";
-import { IconCircleAlert } from "@/components/icons";
+import { IconCircleAlert, IconRoute } from "@/components/icons";
 import { FIELD_MAX } from "@/lib/constants";
 import { api, ClientApiError } from "@/lib/client/api";
 import type { RoadDTO } from "@/lib/serializers";
@@ -249,8 +249,10 @@ export function RoadForm() {
         type="submit"
         disabled={submitting}
         aria-busy={submitting}
-        className="tap-target w-full rounded-[var(--radius-pill)] bg-[var(--color-primary)] px-6 py-3 text-sm font-semibold text-[var(--color-primary-ink)] disabled:opacity-60"
+        // 道を編集（鉛筆）・道を育てる（芽）の保存ボタンと同じく、アイコン付きの全幅ボタン。作る＝「道」アイコン
+        className="tap-target inline-flex w-full items-center justify-center gap-2 rounded-[var(--radius-pill)] bg-[var(--color-primary)] px-6 py-3 text-sm font-semibold text-[var(--color-primary-ink)] disabled:opacity-60"
       >
+        <IconRoute aria-hidden="true" className="h-4 w-4 shrink-0" />
         {submitting ? "作成しています…" : "この道を作る"}
       </button>
 

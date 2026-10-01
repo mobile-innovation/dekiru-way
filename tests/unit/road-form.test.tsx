@@ -23,6 +23,7 @@ vi.mock("@/lib/client/api", () => ({
 }));
 
 import { RoadForm } from "@/components/road-form";
+import { TextAreaField } from "@/components/form";
 
 /** Web Speech API の最小スタブ。start() されたインスタンスに認識結果を流せるようにする。 */
 type FakeRec = {
@@ -130,10 +131,32 @@ describe("自分の道を作る：表示", () => {
     }
   });
 
-  it("音声入力ボタンの角丸は入力欄と同じ --radius-md", () => {
+  it("音声入力ボタンの角丸は入力欄と同じ --radius-md、色は主ボタンと同じ緑", () => {
     render(<RoadForm />);
     const btn = screen.getAllByRole("button", { name: "音声で入力" })[0];
     expect(btn.className).toContain("rounded-[var(--radius-md)]");
+    // 色は既存の主ボタンと同じ緑のトークン（2026-10-01）
+    expect(btn.className).toContain("bg-[var(--color-primary)]");
+    expect(btn.className).toContain("text-[var(--color-primary-ink)]");
+    expect(btn.className).toContain("hover:bg-[var(--color-primary-hover)]");
+  });
+
+  it("音声入力ボタンは小さめ（余白を詰め、このボタンだけ最小 44px の高さを外す）", () => {
+    render(<RoadForm />);
+    const btn = screen.getAllByRole("button", { name: "音声で入力" })[0];
+    for (const cls of ["min-h-0", "px-3", "py-1", "gap-1.5"]) {
+      expect(btn.className, cls).toMatch(new RegExp(`(^|\\s)${cls.replace(".", "\\.")}(\\s|$)`));
+    }
+    // 入力欄とボタンの間は 8px（textarea の mb-2）
+    const textarea = screen.getByLabelText(LABELS.difficulty, { exact: false });
+    expect(textarea.className).toMatch(/(^|\s)mb-2(\s|$)/);
+  });
+
+  it("actions を渡さない入力欄には、ボタン用の余白（block・mb-2）を付けない", () => {
+    render(<TextAreaField label="ほかの欄" value="" onChange={() => {}} maxLength={100} />);
+    const textarea = screen.getByLabelText("ほかの欄", { exact: false });
+    expect(textarea.className).not.toMatch(/(^|\s)mb-2(\s|$)/);
+    expect(textarea.className).not.toMatch(/(^|\s)block(\s|$)/);
   });
 
   it("音声入力に対応していないブラウザではボタンを出さない（文字入力だけで完結）", () => {
@@ -142,6 +165,16 @@ describe("自分の道を作る：表示", () => {
     expect(screen.queryAllByRole("button", { name: "音声で入力" })).toHaveLength(0);
     // 文字数カウンタは出たまま
     expect(screen.getAllByText("0 / 2000 文字").length).toBeGreaterThan(0);
+  });
+});
+
+describe("自分の道を作る：送信ボタン", () => {
+  it("「この道を作る」は全幅の主ボタンで、アイコン付き（道を編集・道を育てるの保存ボタンと同じ形）", () => {
+    render(<RoadForm />);
+    const btn = screen.getByRole("button", { name: "この道を作る" });
+    expect(btn.className).toContain("w-full");
+    expect(btn.className).toContain("bg-[var(--color-primary)]");
+    expect(btn.querySelector("svg")).not.toBeNull();
   });
 });
 

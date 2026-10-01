@@ -52,9 +52,15 @@ export default async function MyRoadPage({ params }: { params: Promise<{ roadId:
               {road.difficulty ?? "（無題の道）"}
             </h1>
             <div className="ml-auto flex flex-wrap items-center gap-2">
+              {/* 道を編集 = 道そのもの（基本情報）／道を育てる = 今の状態・次の一歩（2026-10-01 分離）。
+                  どちらも既存の主ボタン（LinkButton の primary）。区別はアイコン（鉛筆／芽）とラベルで付ける。 */}
               <LinkButton href={`/me/roads/${road.id}/edit`}>
                 <IconPencil aria-hidden="true" className="h-4 w-4 shrink-0" />
                 道を編集
+              </LinkButton>
+              <LinkButton href={`/me/roads/${road.id}/grow`}>
+                <IconSprout aria-hidden="true" className="h-4 w-4 shrink-0" />
+                道を育てる
               </LinkButton>
             </div>
           </div>

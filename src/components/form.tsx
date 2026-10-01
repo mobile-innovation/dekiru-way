@@ -96,7 +96,8 @@ const CONTROL =
 const CONTROL_OK = "border-[var(--color-border)]";
 const CONTROL_ERR = "border-[var(--color-danger)]";
 // 読み取り専用（確定して変更できない項目）は、編集できないと分かる見た目にする。
-const CONTROL_LOCKED = "bg-[var(--color-surface-sunken)] text-[var(--color-ink-muted)] cursor-not-allowed";
+const CONTROL_LOCKED =
+  "bg-[var(--color-surface-sunken)] text-[var(--color-ink-muted)] cursor-not-allowed";
 // カレンダーアイコンの重ね描画（背景画像）と、その分の余白 (pr-9) を一時的に追加したが、
 // iOS Safari のネイティブ日付コントロールで実際にページが横スクロールする不具合が出たため
 // 撤回した。原因はおそらく、右パディングを増やして使える幅を削ったことで、ネイティブ側が
@@ -114,7 +115,9 @@ export function TextField({
 }: { label: string; hint?: ReactNode; error?: string | null } & ComponentProps<"input">) {
   const max = typeof rest.maxLength === "number" ? rest.maxLength : undefined;
   // 文字数カウンタは自由記述向け。date/number など長さの概念が無いものには付けない。
-  const countable = max !== undefined && (rest.type === undefined || rest.type === "text" || rest.type === "search");
+  const countable =
+    max !== undefined &&
+    (rest.type === undefined || rest.type === "text" || rest.type === "search");
   // 日付欄は値があるときだけ、明示的に消せるボタンを添える。スマホ（特に iOS Safari）は
   // ネイティブの日付ダイアログに値を消す手段が無く、一度選ぶと OS 側の操作だけでは
   // 空に戻せないことがあるため（任意項目なので、選び直し以外に空へ戻す手段が要る）。
@@ -193,7 +196,7 @@ export function TextAreaField({
             <div className="ml-auto shrink-0">{counter}</div>
           </div>
         ) : (
-          counter ?? undefined
+          (counter ?? undefined)
         )
       }
     >
@@ -203,9 +206,9 @@ export function TextAreaField({
           rows={rows}
           aria-describedby={describedBy}
           aria-invalid={invalid || undefined}
-          // ボタンを添えるときは入力欄のすぐ下に寄せる。textarea は既定で inline-block のため下に
-          // 行の高さぶんの隙間ができるので block にし、Field の space-y-1.5（6px）も 4px に詰める。
-          className={`${CONTROL} ${actions ? "block mb-1" : ""} ${invalid ? CONTROL_ERR : CONTROL_OK} ${
+          // ボタンを添えるときは入力欄の下に寄せる。textarea は既定で inline-block のため下に
+          // 行の高さぶんの隙間ができるので block にし、ボタンとの間は 8px（mb-2）にする。
+          className={`${CONTROL} ${actions ? "block mb-2" : ""} ${invalid ? CONTROL_ERR : CONTROL_OK} ${
             rest.readOnly || rest.disabled ? CONTROL_LOCKED : ""
           }`}
           {...rest}

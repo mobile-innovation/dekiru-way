@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requirePageUserId } from "@/lib/session";
 import { getMyRoads } from "@/lib/queries";
 import { Callout, EmptyState, LinkButton, ResultBadge } from "@/components/ui";
-import { IconEye, IconFootprints, IconSprout } from "@/components/icons";
+import { IconEye, IconFootprints, IconRoute, IconSprout } from "@/components/icons";
 import { LikeNotice } from "@/components/like-notice";
 import { prisma } from "@/lib/db";
 import { LIKE_NOTIFICATION_TYPE } from "@/lib/likes";
@@ -30,7 +30,11 @@ export default async function MyRoadsPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-[var(--color-primary-hover)]">自分の道</h1>
-        <LinkButton href="/me/roads/new">道を作る</LinkButton>
+        {/* 作成画面の「この道を作る」と同じ「道」アイコン */}
+        <LinkButton href="/me/roads/new">
+          <IconRoute aria-hidden="true" className="h-4 w-4 shrink-0" />
+          道を作る
+        </LinkButton>
       </div>
 
       {roadsWithoutAttempts.length > 0 && (
