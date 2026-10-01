@@ -1,6 +1,5 @@
 "use client";
 
-import type { ComponentProps, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { TextAreaField, Field } from "@/components/form";
@@ -11,30 +10,11 @@ import {
   IconNotebookPen,
   resultIcon,
 } from "@/components/icons";
+import { RoadFormError, RoadFormSection, RoadFormSubmit } from "@/components/road-form-parts";
+import { VoiceInputButton } from "@/components/voice-input-button";
 import { api, ClientApiError } from "@/lib/client/api";
 import { ATTEMPT_RESULTS, RESULT_META, FIELD_MAX } from "@/lib/constants";
 import type { AttemptDTO } from "@/lib/serializers";
-
-/** 意味のまとまりごとのカード（「自分の道」詳細画面と同じ緑枠カード）。 */
-function Section({
-  icon: Icon,
-  title,
-  children,
-}: {
-  icon: (p: ComponentProps<"svg">) => ReactNode;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="space-y-4 rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-5 shadow-[var(--shadow-card)]">
-      <h2 className="flex items-center gap-2 text-base font-bold">
-        <Icon aria-hidden="true" className="h-5 w-5 shrink-0 text-[var(--color-primary)]" />
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
 
 /**
  * ⑥ 試したことを記録 / 編集（記録を編集画面 変更指示書 v1）。
@@ -45,6 +25,13 @@ function Section({
  * この画面からは外したが、DB/API 側の method/result/triedAt/memo/isPublished/nextAction
  * ／タグ機能は変更しない。UI から集めていない項目は保存ペイロードに含めず、
  * 既存値を意図せず NULL・空文字で上書きしない（指示書「実装時の注意」5）。
+ *
+ * 見た目は「道を編集」「道を育てる」と同じ部品（road-form-parts.tsx）で統一（2026-10-01）:
+ * 淡いグリーン地のカード・エラー表示・全幅の主ボタン（アイコン付き）。キャンセルは置かない
+ * （道を編集・道を育てると同じく、画面上部の「← … へ戻る」で戻る）。
+ * 入力項目・結果の 5 択・公開設定・保存処理・バリデーションは変更なし。
+ * 音声入力: 9/23 に外したが、2026-10-01 に道の画面と同じ「音声で入力」ボタンを自由記述の 2 欄
+ * （試したこと・メモ・気づき）に戻した。話した内容は既存の文の後ろに空白区切りで足す。
  */
 
 interface Props {
@@ -66,6 +53,10 @@ export function AttemptForm({ roadId, attempt }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // 音声入力は道の画面と同じく、話した内容を既存の文の後ろに足す
+  const append = (set: React.Dispatch<React.SetStateAction<string>>) => (t: string) =>
+    set((p) => (p ? `${p} ${t}` : t));
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -105,7 +96,8 @@ export function AttemptForm({ roadId, attempt }: Props) {
         setError(e2.message);
         if (Array.isArray(e2.details)) {
           const fe: Record<string, string> = {};
-          for (const d of e2.details as { field: string; message: string }[]) fe[d.field] = d.message;
+          for (const d of e2.details as { field: string; message: string }[])
+            fe[d.field] = d.message;
           setFieldErrors(fe);
         }
       } else {
@@ -117,17 +109,10 @@ export function AttemptForm({ roadId, attempt }: Props) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
-      {error && (
-        <p
-          role="alert"
-          className="rounded-[var(--radius-md)] bg-[var(--color-danger-soft)] p-3 text-sm font-medium text-[var(--color-danger)]"
-        >
-          {error}
-        </p>
-      )}
+      <RoadFormError error={error} submitLabel={editing ? "保存する" : "記録する"} />
 
       {/* ① 何を試したか */}
-      <Section icon={IconFlask} title="試したこと">
+      <RoadFormSection icon={IconFlask} title="試したこと">
         <TextAreaField
           label="どんな方法を試しましたか？"
           hint="実際にやってみた方法を書いてください。"
@@ -137,11 +122,12 @@ export function AttemptForm({ roadId, attempt }: Props) {
           error={fieldErrors.method}
           placeholder={"例：クッションを変えてみた\n例：別の道具を使ってみた"}
           maxLength={FIELD_MAX.text}
+          actions={<VoiceInputButton onResult={append(setMethod)} />}
         />
-      </Section>
+      </RoadFormSection>
 
       {/* ② 結果 */}
-      <Section icon={IconCheckCircle} title="結果">
+      <RoadFormSection icon={IconCheckCircle} title="結果">
         <Field label="結果" required error={fieldErrors.result}>
           {({ describedBy, invalid }) => (
             <div
@@ -162,26 +148,32 @@ export function AttemptForm({ roadId, attempt }: Props) {
                     role="radio"
                     aria-checked={selected}
                     onClick={() => setResult(r)}
-                    style={
-                      selected
-                        ? {
-                            borderColor: `var(--color-result-${m.tokenKey})`,
-                            backgroundColor: `var(--color-result-${m.tokenKey}-soft)`,
-                          }
-                        : undefined
-                    }
+                    // 選択中は主ボタンと同じ濃い緑の地に白い枠・白い文字（2026-10-01）。
+                    // 未選択は従来どおり白地＋通常の枠線、アイコンは結果ごとの色。
                     className={`flex items-start gap-2 rounded-[var(--radius-md)] border p-3 text-left ${
-                      selected ? "" : "border-[var(--color-border)] bg-[var(--color-surface)]"
+                      selected
+                        ? "border-[var(--color-surface)] bg-[var(--color-primary)] text-[var(--color-primary-ink)]"
+                        : "border-[var(--color-border)] bg-[var(--color-surface)]"
                     }`}
                   >
                     <RIcon
                       aria-hidden="true"
                       className="mt-0.5 h-5 w-5 shrink-0"
-                      style={{ color: `var(--color-result-${m.tokenKey})` }}
+                      style={{
+                        color: selected
+                          ? "var(--color-primary-ink)"
+                          : `var(--color-result-${m.tokenKey})`,
+                      }}
                     />
                     <span>
                       <span className="block font-bold">{m.label}</span>
-                      <span className="block text-xs text-[var(--color-ink-muted)]">
+                      <span
+                        className={`block text-xs ${
+                          selected
+                            ? "text-[var(--color-primary-ink)]"
+                            : "text-[var(--color-ink-muted)]"
+                        }`}
+                      >
                         {m.description}
                       </span>
                     </span>
@@ -191,10 +183,10 @@ export function AttemptForm({ roadId, attempt }: Props) {
             </div>
           )}
         </Field>
-      </Section>
+      </RoadFormSection>
 
       {/* ③ メモ・気づき */}
-      <Section icon={IconNotebookPen} title="メモ・気づき">
+      <RoadFormSection icon={IconNotebookPen} title="メモ・気づき">
         <TextAreaField
           label="メモ・気づき（任意）"
           hint="やってみて感じたこと、気づいたこと、変化などを自由に書いてください。"
@@ -202,11 +194,12 @@ export function AttemptForm({ roadId, attempt }: Props) {
           onChange={(e) => setMemo(e.target.value)}
           placeholder="例：やってみて分かったこと、次に活かせそうなこと"
           maxLength={FIELD_MAX.longText}
+          actions={<VoiceInputButton onResult={append(setMemo)} />}
         />
-      </Section>
+      </RoadFormSection>
 
       {/* ④ 公開設定 */}
-      <Section icon={IconGlobe} title="公開設定">
+      <RoadFormSection icon={IconGlobe} title="公開設定">
         <label className="flex items-start gap-3">
           <input
             type="checkbox"
@@ -223,24 +216,13 @@ export function AttemptForm({ roadId, attempt }: Props) {
             </span>
           </span>
         </label>
-      </Section>
+      </RoadFormSection>
 
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => router.push(`/me/roads/${roadId}`)}
-          className="tap-target rounded-[var(--radius-pill)] border border-[var(--color-border)] px-5 py-2.5 text-sm font-semibold"
-        >
-          キャンセル
-        </button>
-        <button
-          type="submit"
-          disabled={busy}
-          className="tap-target rounded-[var(--radius-pill)] bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-[var(--color-primary-ink)] disabled:opacity-60"
-        >
-          {busy ? "保存中…" : editing ? "保存する" : "記録する"}
-        </button>
-      </div>
+      <RoadFormSubmit
+        busy={busy}
+        label={editing ? "保存する" : "記録する"}
+        icon={IconNotebookPen}
+      />
     </form>
   );
 }

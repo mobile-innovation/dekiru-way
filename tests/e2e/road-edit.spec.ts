@@ -498,3 +498,58 @@ test("自分の道 → 道を編集 → 道を育てる → 試したことを�
   await expect(page.getByLabel("次に試すこと")).toHaveValue("車への乗り移り方を調べてみる");
   await expect(page.getByLabel("いまの進捗")).toHaveValue("車いすから車への乗り移りを練習中");
 });
+
+test("試したことを記録: 道の画面と同じ見た目で、入力 → 結果 → メモ → 公開設定 → 記録 → 自分の道に表示", async ({
+  page,
+}) => {
+  const roadId = await loginAndCreateRoad(page, `試したこと記録テスト ${Date.now()}`);
+  // 既存データ（道の基本情報・その後）を入れておき、記録後も失われないことを確かめる
+  await page.request.patch(`/api/v1/roads/${roadId}`, {
+    data: { previouslyAble: "以前は普通に開けられていた", nextAction: "オープナーを試す" },
+  });
+  await page.goto(`/me/roads/${roadId}`);
+  await page.getByRole("link", { name: "試したことを記録" }).first().click();
+  await expect(page).toHaveURL(new RegExp(`/me/roads/${roadId}/attempts/new$`));
+  await expect(page.getByRole("heading", { name: "試したことを記録" })).toBeVisible();
+
+  // 道を編集・道を育てると同じカード（淡いグリーン地）・全幅の主ボタン
+  const sections = page.locator("form section");
+  await expect(sections).toHaveCount(4);
+  for (let i = 0; i < 4; i++) {
+    expect(await sections.nth(i).getAttribute("class")).toContain("bg-[var(--color-primary-tint)]");
+  }
+  const submit = page.getByRole("button", { name: "記録する" });
+  expect(await submit.getAttribute("class")).toContain("w-full");
+  // ページ幅も道の画面と同じ（max-w-6xl）
+  const width = async (path: string) => {
+    await page.goto(path);
+    return (await page.locator("main form").boundingBox())!.width;
+  };
+  const attemptWidth = await width(`/me/roads/${roadId}/attempts/new`);
+  expect(attemptWidth).toBe(await width(`/me/roads/${roadId}/grow`));
+  await page.goto(`/me/roads/${roadId}/attempts/new`);
+
+  await page.getByLabel("どんな方法を試しましたか？").fill("瓶にゴムシートを当てて回した");
+  await page.getByRole("radio", { name: /^少しできた/ }).click();
+  await page.getByLabel("メモ・気づき（任意）").fill("力を入れやすくなった");
+  const publish = page.getByRole("checkbox", { name: /この経験を公開する/ });
+  await expect(publish).not.toBeChecked();
+  await page.getByRole("button", { name: "記録する" }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/me/roads/${roadId}$`));
+  await expect(page.getByText("瓶にゴムシートを当てて回した")).toBeVisible();
+
+  const dto = await (await page.request.get(`/api/v1/roads/${roadId}`)).json();
+  expect(dto.attempts).toHaveLength(1);
+  expect(dto.attempts[0]).toMatchObject({
+    method: "瓶にゴムシートを当てて回した",
+    result: "partial",
+    memo: "力を入れやすくなった",
+    isPublished: false,
+  });
+  // 既存の道のデータは失われていない
+  expect(dto).toMatchObject({
+    previouslyAble: "以前は普通に開けられていた",
+    nextAction: "オープナーを試す",
+  });
+});
