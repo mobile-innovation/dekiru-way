@@ -3,14 +3,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { QuickSubmitForm } from "@/components/quick-submit-form";
 import { sanitizeProblemParam } from "@/lib/validation";
+import { OGP_IMAGE } from "@/lib/ogp";
 
 // SNS 共有時のタイトル・説明・画像。ページ本文の見た目は変えず、head の metadata だけ設定する。
 const SHARE_TITLE = "あなたが試したことを教えてください｜できる道";
 const SHARE_DESCRIPTION =
   "うまくいった方法だけでなく、うまくいかなかった方法も大切な経験です。あなたが試したことを教えてください。";
-// public/ogp20261002.png = 1726×911 (≒1.89:1)。SNS の大きい画像カード（推奨 1.91:1）にそのまま使える比率なので変換しない。
-// 2026-10-02 に ogp.png から差し替え。SNS 側は画像 URL ごとにキャッシュするので、差し替え時はファイル名を変える。
-const SHARE_IMAGE = "/ogp20261002.png";
+// 画像はサイト共通の OGP 画像（src/lib/ogp.ts）。このページは独自のタイトル・説明文を持つので openGraph を丸ごと定義する。
+const SHARE_IMAGE = OGP_IMAGE.url;
 
 export const metadata: Metadata = {
   // title.template ("%s | できる道") を通さず、SNS と完全一致の文字列にする。
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     url: "/try",
     siteName: "できる道",
     locale: "ja_JP",
-    images: [{ url: SHARE_IMAGE, width: 1726, height: 911, alt: "できる道" }],
+    images: [OGP_IMAGE],
   },
   twitter: {
     card: "summary_large_image",

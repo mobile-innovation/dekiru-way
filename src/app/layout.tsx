@@ -5,6 +5,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteChrome } from "@/components/site-chrome";
 import { env } from "@/lib/env";
+import { OGP_IMAGE } from "@/lib/ogp";
 
 export const metadata: Metadata = {
   // 各ページの metadata が持つ相対URL (og:image / canonical など) を絶対URLへ解決する基点。
@@ -19,6 +20,18 @@ export const metadata: Metadata = {
   // 既定は「検索エンジンに登録しない」。トップページ (app/page.tsx) だけが index を許可する。
   // リンクの追跡自体は塞がない (noindex, follow)。本人ページ・ログイン・管理は各所で nofollow も付ける。
   robots: { index: false, follow: true },
+  // 全ページ共通の OGP / Twitter カード画像（2026-10-02）。ページ側で openGraph / twitter を定義すると丸ごと上書きされる
+  // （/try は独自のタイトル・説明文で同じ画像を指定）。og:title はここでは指定せず、SNS は各ページの <title> を使う。
+  openGraph: {
+    type: "website",
+    siteName: "できる道",
+    locale: "ja_JP",
+    images: [OGP_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: [OGP_IMAGE.url],
+  },
 };
 
 export const viewport: Viewport = {

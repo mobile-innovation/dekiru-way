@@ -3705,3 +3705,14 @@ hover は `--color-primary-hover`）に。聞き取り中は hover と同じ濃�
 - `ogp.png`: `ogp20261002.png` に差し替えた旧 OGP 画像
 残したもの（参照あり）: `head.png`（トップのヒーロー）、`7-scene.png`（トップの CTA）、`brand-icon.png`（ヘッダー・フッター）、
 `comic1〜8.png`（8 枚ストーリー）、`try_image.png`（/try の導入イラスト）、`ogp20261002.png`（/try の OGP）
+
+### 2026-10-02 OGP 画像を全ページ共通に
+
+- これまで OGP 画像を持つのは `/try` だけで、トップ等をシェアしても画像が出なかった。ルートレイアウト（`src/app/layout.tsx`）の
+  metadata に既定の `openGraph`（type / siteName / locale / images）と `twitter`（summary_large_image / images）を追加し、
+  全ページで `ogp20261002.png` を使うようにした
+- 画像の URL・寸法は `src/lib/ogp.ts` の `OGP_IMAGE` に 1 か所にまとめ、`/try` もこれを参照
+- Next.js の metadata は openGraph / twitter をページ側で定義すると丸ごと上書きする。og:title / og:description は
+  レイアウトでは指定せず、SNS が各ページの `<title>` / description を使うようにした（レイアウトに書くと全ページが同じ題になるため）
+- テスト: `tests/unit/ogp.test.ts`（共通画像・レイアウト既定・/try が同じ画像）、`tests/e2e/quick-submit.spec.ts` に
+  「トップ・経験を探す・利用についての og:image / twitter:image が共通画像」を追加

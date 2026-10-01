@@ -142,3 +142,19 @@ test("/try の導入イラストは try_image.png（2:1）で、実際に読み�
   expect(w).toBeGreaterThan(0);
   expect(w / h).toBeCloseTo(2, 1);
 });
+
+test("全ページ共通の OGP 画像（2026-10-02）: トップ・経験を探す・利用についても ogp20261002.png", async ({
+  page,
+  baseURL,
+}) => {
+  for (const path of ["/", "/experiences", "/terms"]) {
+    await page.goto(path);
+    const og = await page.locator('meta[property="og:image"]').getAttribute("content");
+    expect(og, path).toBe(`${baseURL}/ogp20261002.png`);
+    const tw = await page.locator('meta[name="twitter:image"]').getAttribute("content");
+    expect(tw, path).toBe(`${baseURL}/ogp20261002.png`);
+    expect(await page.locator('meta[name="twitter:card"]').getAttribute("content"), path).toBe(
+      "summary_large_image",
+    );
+  }
+});
