@@ -48,12 +48,13 @@ export default async function TryPage({
     // PC でも左右余白が広くなりすぎないよう、フォームの最大幅は max-w-2xl (約 680px) までに留める。
     // スマホは main の px-4 で従来どおりの余白。
     <div className="mx-auto w-full max-w-2xl space-y-5">
-      {/* タイトルより上に置く導入イラスト（try.png 画像追加指示書）。加工・装飾（枠線・影・
+      {/* タイトルより上に置く導入イラスト（try.png 画像追加指示書。2026-10-01 に try_image.png へ差し替え、
+          サイズは同じ 1774×887）。加工・装飾（枠線・影・
           文字乗せ等）はしない。比率維持のため width/height を実寸で指定し、表示は w-full h-auto
           で縮小するだけ（引き伸ばし・トリミングをしない）。読み込めなくても下のタイトル以降は
           そのまま表示される。 */}
       <Image
-        src="/try.png"
+        src="/try_image.png"
         alt="困ったことを工夫しながら試し、その経験を次の人へつなげるイメージ"
         width={1774}
         height={887}
@@ -64,7 +65,8 @@ export default async function TryPage({
 
       <header className="space-y-2">
         <h1 className="text-xl font-bold">あなたの経験を教えてください</h1>
-        <p className="text-sm text-[var(--color-ink-muted)]">
+        {/* 本文は 14px・本文色（薄い補助色にしない。2026-10-01 最終UI調整） */}
+        <p className="text-sm leading-relaxed text-[var(--color-ink)]">
           困っていたことと、試してみた方法を教えてください。うまくいかなかったことも、
           誰かの次の一歩につながります。
         </p>
@@ -72,7 +74,7 @@ export default async function TryPage({
 
       <QuickSubmitForm initialProblem={initialProblem} />
 
-      <p className="text-xs text-[var(--color-ink-muted)]">
+      <p className="text-[13px] leading-relaxed text-[var(--color-ink-muted)]">
         氏名や連絡先など、個人が特定できる情報は書かないでください。くわしくは
         <Link href="/terms" className="underline">
           利用について

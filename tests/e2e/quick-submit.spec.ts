@@ -15,9 +15,7 @@ test("SNS から困りごと付きで開き、試したことを登録できる"
 
   await page.goto(`/try?problem=${encodeURIComponent(problem)}`);
 
-  await expect(
-    page.getByRole("heading", { name: "あなたの経験を教えてください" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "あなたの経験を教えてください" })).toBeVisible();
 
   // 「困っていたこと」は URL パラメータで先に入っていて、編集もできる
   const difficulty = page.getByLabel("困っていたこと");
@@ -28,9 +26,7 @@ test("SNS から困りごと付きで開き、試したことを登録できる"
 
   // 重大なアクセシビリティ違反がない
   const violations = (
-    await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-      .analyze()
+    await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze()
   ).violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(violations).toEqual([]);
 
@@ -41,15 +37,15 @@ test("SNS から困りごと付きで開き、試したことを登録できる"
     page.getByText("あなたの「試したこと」が、誰かの次の一歩につながります"),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "できる道のトップへ" })).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "ほかの人が試した方法を見る" }),
-  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "ほかの人が試した方法を見る" })).toBeVisible();
 
   // 承認前なので公開検索には出ない。
   // 検索語そのものは見出し（「…」が方法の中にあった記録）に出ることがあるので、
   // 結果カードの一覧（リスト）の中に無いことを確かめる。
   await page.goto(`/experiences?q=${encodeURIComponent(method)}&kind=method`);
-  await expect(page.getByRole("main").getByRole("listitem").filter({ hasText: method })).toHaveCount(0);
+  await expect(
+    page.getByRole("main").getByRole("listitem").filter({ hasText: method }),
+  ).toHaveCount(0);
 
   // 後片付け: 運営として確認キューに現れることを確かめ、「公開しない」で pending から外す
   // （このスペックが確認待ちを溜め続けて他テストの 1 ページ目を埋めないように）。
@@ -86,7 +82,9 @@ test("SNS 共有用の OGP / Twitter メタタグが絶対URLで設定されて�
 
   expect(await content('meta[property="og:type"]')).toBe("website");
   expect(await content('meta[property="og:title"]')).toBe(title);
-  expect(await content('meta[property="og:description"]')).toContain("うまくいかなかった方法も大切な経験");
+  expect(await content('meta[property="og:description"]')).toContain(
+    "うまくいかなかった方法も大切な経験",
+  );
   expect(await content('meta[property="og:site_name"]')).toBe("できる道");
   expect(await content('meta[property="og:locale"]')).toBe("ja_JP");
   expect(await content('meta[property="og:url"]')).toBe(`${baseURL}/try`);
@@ -103,4 +101,41 @@ test("SNS 共有用の OGP / Twitter メタタグが絶対URLで設定されて�
   const res = await page.request.get("/ogp.png");
   expect(res.status()).toBe(200);
   expect(res.headers()["content-type"]).toContain("image/");
+});
+
+test("/try の見た目（2026-10-01 最終UI調整）: 入力欄は 110px 以上、横にはみ出さない、PC は結果 2 列", async ({
+  page,
+}, info) => {
+  await page.goto("/try");
+  for (const label of ["困っていたこと", "試したこと"]) {
+    const box = (await page.getByLabel(label, { exact: false }).first().boundingBox())!;
+    expect(box.height, label).toBeGreaterThanOrEqual(110);
+  }
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(0);
+  const radios = page.getByRole("radio");
+  await expect(radios).toHaveCount(5);
+  const [a, b] = await Promise.all([radios.nth(0).boundingBox(), radios.nth(1).boundingBox()]);
+  if (info.project.name === "desktop") {
+    expect(Math.abs(a!.y - b!.y)).toBeLessThan(2); // 2 列
+  } else {
+    expect(b!.y).toBeGreaterThan(a!.y); // スマホは 1 列
+    expect(a!.height).toBeGreaterThanOrEqual(44); // タップしやすい高さ
+  }
+});
+
+test("/try の導入イラストは try_image.png（2:1）で、実際に読み込まれる", async ({ page }) => {
+  await page.goto("/try");
+  const img = page.getByAltText(/困ったことを工夫しながら試し/);
+  await expect(img).toBeVisible();
+  expect(decodeURIComponent((await img.getAttribute("src")) ?? "")).toContain("try_image.png");
+  const { w, h } = await img.evaluate((e: HTMLImageElement) => ({
+    w: e.naturalWidth,
+    h: e.naturalHeight,
+  }));
+  expect(w).toBeGreaterThan(0);
+  expect(w / h).toBeCloseTo(2, 1);
 });

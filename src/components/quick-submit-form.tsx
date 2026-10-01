@@ -14,6 +14,7 @@ import { api, ClientApiError } from "@/lib/client/api";
  * - 二重送信を防ぐ (送信中はボタンを無効化し「登録中…」表示)。
  * - エラーは項目ごとに具体的な文言で出す。
  * - 成功したら、その場でお礼メッセージに差し替える。
+ * - 2026-10-01 最終UI調整: 2 つの入力欄は 400 文字を想定して 4 行（約 120px）、登録前の注意文は 13px。
  */
 
 type FieldKey = "difficulty" | "method" | "result";
@@ -102,7 +103,7 @@ export function QuickSubmitForm({ initialProblem = "" }: { initialProblem?: stri
       <TextAreaField
         label="困っていたこと"
         required
-        rows={2}
+        rows={4}
         maxLength={FIELD_MAX.quickText}
         placeholder="例：シャツのボタンがとめにくい"
         value={difficulty}
@@ -113,7 +114,7 @@ export function QuickSubmitForm({ initialProblem = "" }: { initialProblem?: stri
       <TextAreaField
         label="試したこと"
         required
-        rows={3}
+        rows={4}
         maxLength={FIELD_MAX.quickText}
         hint="ひとことでも大丈夫です。うまくいかなかった方法でもかまいません。"
         placeholder="何を試しましたか？"
@@ -177,7 +178,7 @@ export function QuickSubmitForm({ initialProblem = "" }: { initialProblem?: stri
         <Button type="submit" disabled={busy} className="w-full sm:w-auto">
           {busy ? "登録中…" : "試したことを登録する"}
         </Button>
-        <p className="text-xs text-[var(--color-ink-muted)]">
+        <p className="text-[13px] leading-relaxed text-[var(--color-ink-muted)]">
           登録した内容は、運営が確認してから「できる道」で公開されます。
         </p>
       </div>

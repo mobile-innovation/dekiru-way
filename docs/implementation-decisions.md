@@ -3666,3 +3666,23 @@ hover は `--color-primary-hover`）に。聞き取り中は hover と同じ濃�
 - テスト: `tests/unit/swipe-carousel.test.tsx`（クラス・リンク維持・ドット・案内なし・タイマーなし）、
   `tests/e2e/story-strip.spec.ts` に方法カード（PC 3 列／スマホ横スライド・ドット追従・リンク遷移）とヒーロー下地（スマホ 0.72／PC 0.55、
   見出し・検索欄・ボタンが見える）を追加
+
+### 2026-10-01 「/try」（SNS 簡易登録）最終UI調整
+
+- 指示書は「試したことを記録」ページ宛てだったが、内容（上部イラスト・困っていたこと／試したこと 400 文字・
+  「試したことを登録する」・運営確認の注意文）から `/try`（`src/app/try/page.tsx` / `quick-submit-form.tsx`）と判断
+- 幅: 指示書の目安は 560〜640px だが、現状すでに `max-w-2xl`（672px、9/6 から）。目安に合わせると現状より狭くなり
+  「細すぎるのを広げる」目的に反するため変更なし（中央配置・スマホ 1 列も維持）
+- 説明文「困っていたことと、試してみた方法を…」: 14px のまま、色を補助色 → 本文色（`--color-ink`）、行間を広めに
+- 入力欄「困っていたこと」「試したこと」: rows 2 / 3 → どちらも 4（約 118px）。プレースホルダー・400 文字は変更なし
+- 注意文 2 つ（運営確認／個人情報・利用について）: 12px → 13px・行間広め。文言は変更なし
+- 結果 5 択（PC 2 列）・ボタン・送信内容・バリデーションは変更なし
+- テスト: `tests/unit/quick-submit-form.test.tsx`（新設）、`tests/e2e/quick-submit.spec.ts` に高さ・横はみ出し・結果の列数
+
+### 2026-10-01 /try の導入イラストを try_image.png に差し替え
+
+`public/try.png` を削除し `public/try_image.png`（1774×887、2:1。旧画像と同じ寸法なので `width` / `height` /
+`sizes` は変更なし、alt も内容に合うのでそのまま）に。ファイル名を変えたので、本番の `next/image` キャッシュ
+（`.next/cache/images`）やブラウザに旧画像が残っていても新しい画像が出る。
+- テスト: `tests/unit/try-page.test.tsx`（新設。画像が `/try_image.png`・1774×887・ファイルが public にあり旧 `try.png` は無い、
+  説明文・注意文の見た目）、`tests/e2e/quick-submit.spec.ts` に「try_image.png が実際に読み込まれ 2:1」を追加
