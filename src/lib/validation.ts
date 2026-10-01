@@ -48,9 +48,9 @@ export const roadCreateSchema = z.object({
   // 「以前できていたこと」は任意（Road登録・編集画面 必須項目修正指示）。
   // 全員が明確に答えられるとは限らないため、未入力でも作成・保存できる。
   previouslyAble: trimmedOptional(FIELD_MAX.text),
-  // 「できなくなったこと」「できるようになりたいこと」は必須のまま
+  // difficulty（画面上は「今、どんなことで困っていますか？」）と「できるようになりたいこと」は必須のまま
   // (登録画面・登録項目 更新指示書 §21 / §25。Road登録・編集画面 必須項目修正指示 §6 でも維持)。
-  difficulty: trimmedRequired(FIELD_MAX.text, "できなくなったこと"),
+  difficulty: trimmedRequired(FIELD_MAX.text, "困っていること"),
   goal: trimmedRequired(FIELD_MAX.text, "できるようになりたいこと"),
   startedAt: isoDateOptional,
   situation: trimmedOptional(FIELD_MAX.text),

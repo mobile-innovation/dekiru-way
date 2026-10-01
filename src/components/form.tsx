@@ -167,9 +167,17 @@ export function TextAreaField({
   required,
   id,
   rows = 4,
+  actions,
   ...rest
-}: { label: string; hint?: ReactNode; error?: string | null } & ComponentProps<"textarea">) {
+}: {
+  label: string;
+  hint?: ReactNode;
+  error?: string | null;
+  /** 入力欄のすぐ下、文字数カウンタと同じ行の左に置く操作（例: 音声入力ボタン） */
+  actions?: ReactNode;
+} & ComponentProps<"textarea">) {
   const max = typeof rest.maxLength === "number" ? rest.maxLength : undefined;
+  const counter = max !== undefined ? <CharCount value={rest.value} max={max} /> : null;
   return (
     <Field
       label={label}
@@ -177,7 +185,17 @@ export function TextAreaField({
       error={error}
       required={required}
       id={id}
-      footer={max !== undefined ? <CharCount value={rest.value} max={max} /> : undefined}
+      footer={
+        actions ? (
+          // カウンタを独立した行にするとボタンとの間が 1 行ぶん空くので、同じ行に並べる。
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1">{actions}</div>
+            <div className="ml-auto shrink-0">{counter}</div>
+          </div>
+        ) : (
+          counter ?? undefined
+        )
+      }
     >
       {({ id: fid, describedBy, invalid }) => (
         <textarea
@@ -185,7 +203,9 @@ export function TextAreaField({
           rows={rows}
           aria-describedby={describedBy}
           aria-invalid={invalid || undefined}
-          className={`${CONTROL} ${invalid ? CONTROL_ERR : CONTROL_OK} ${
+          // ボタンを添えるときは入力欄のすぐ下に寄せる。textarea は既定で inline-block のため下に
+          // 行の高さぶんの隙間ができるので block にし、Field の space-y-1.5（6px）も 4px に詰める。
+          className={`${CONTROL} ${actions ? "block mb-1" : ""} ${invalid ? CONTROL_ERR : CONTROL_OK} ${
             rest.readOnly || rest.disabled ? CONTROL_LOCKED : ""
           }`}
           {...rest}

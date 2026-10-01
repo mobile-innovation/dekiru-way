@@ -65,6 +65,12 @@ describe("roadCreateSchema", () => {
     expect(roadCreateSchema.safeParse({ ...REQUIRED_BASE, goal: "" }).success).toBe(false);
   });
 
+  it("difficulty が空のときの文言は「困っていること」（作成画面の入口の言い方に合わせる）", () => {
+    const r = roadCreateSchema.safeParse({ ...REQUIRED_BASE, difficulty: "" });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues.map((i) => i.message)).toContain("困っていることを入力してください");
+  });
+
   it("previouslyAble は任意（未入力・空文字でも作成できる。Road登録・編集画面 必須項目修正指示）", () => {
     expect(
       roadCreateSchema.safeParse({ ...REQUIRED_BASE, previouslyAble: undefined }).success,

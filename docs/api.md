@@ -61,7 +61,8 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
 {
   "previouslyAble": "string|null", // 以前できていた。任意（2026-09-11: 一度必須にしたが、
                                     // 「全員が明確に答えられるとは限らない」ため任意に戻した）
-  "difficulty": "string",          // できなくなった（一覧の見出しにも使う）。作成時は必須
+  "difficulty": "string",          // 困っていること／できなくなったこと（一覧の見出しにも使う）。作成時は必須
+                                    // 作成画面のラベルは「今、どんなことで困っていますか？」（2026-10-01）
   "goal": "string",                // やりたいこと。作成時は必須
   "startedAt": "YYYY-MM-DD|null",
   "situation": "string|null",
@@ -72,7 +73,8 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
   "tags": ["string", ...]          // 指定時のみ同期。Tag は自動 upsert
 }
 ```
-作成時（POST）は `difficulty`/`goal` が必須（空文字・省略は 400）。`previouslyAble` を含む
+作成時（POST）は `difficulty`/`goal` が必須（空文字・省略は 400。`difficulty` のエラー文言は
+「困っていることを入力してください」）。`previouslyAble` を含む
 それ以外は任意。更新（PATCH）はすべて optional。`tags` を省略するとタグは変更されない。
 `difficulty` は他の必須項目と同じ通常の編集可能項目（2026-09-11 に「一度値が入ると変更不可」を
 廃止）。ただし送る場合は空文字での保存はできない（省略は許可、空文字は 400）。

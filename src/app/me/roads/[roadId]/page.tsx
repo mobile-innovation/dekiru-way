@@ -23,11 +23,13 @@ export default async function MyRoadPage({ params }: { params: Promise<{ roadId:
   const road = await getMyRoad(userId, roadId);
   if (!road) notFound();
 
+  // 見出しは作成・編集画面の項目名と同じ言葉（2026-10-01「道を編集」画面 最終修正指示）。
+  // 並びは「以前 → 今 → これから」の時間の流れ（縦フローで道として見せるため、フォームの入力順とは違う）。
   const overview = [
-    road.previouslyAble && { label: "以前できていた", body: road.previouslyAble },
-    road.difficulty && { label: "できなくなった", body: road.difficulty },
-    road.goal && { label: "やりたいこと", body: road.goal },
-    road.situation && { label: "困っている場面", body: road.situation },
+    road.previouslyAble && { label: "以前は、どうしていましたか？", body: road.previouslyAble },
+    road.difficulty && { label: "今、どんなことで困っていますか？", body: road.difficulty },
+    road.goal && { label: "これから、何ができるようになりたいですか？", body: road.goal },
+    road.situation && { label: "どんな場面で困っていますか？", body: road.situation },
     road.progress && { label: "いまの進捗", body: road.progress },
     road.nextAction && { label: "次に試すこと", body: road.nextAction },
   ].filter(Boolean) as { label: string; body: React.ReactNode }[];

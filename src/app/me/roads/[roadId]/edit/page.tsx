@@ -19,19 +19,18 @@ export default async function EditRoadPage({
   if (!road) notFound();
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-8">
-      <div className="space-y-3">
-        <p className="text-sm">
-          <Link href={`/me/roads/${roadId}`}>← 道へ戻る</Link>
-        </p>
-        <h1 className="flex items-start gap-2 text-xl font-bold">
-          <IconSprout
-            aria-hidden="true"
-            className="mt-1 h-5 w-5 shrink-0 text-[var(--color-primary)]"
-          />
-          道を編集
-        </h1>
-      </div>
+    // ページの幅・間隔・見出しは作成画面（/me/roads/new）と同じ
+    <div className="mx-auto w-full max-w-6xl space-y-5">
+      <p className="text-sm">
+        <Link href={`/me/roads/${roadId}`}>← 道へ戻る</Link>
+      </p>
+      <h1 className="flex items-start gap-2 text-xl font-bold">
+        <IconSprout
+          aria-hidden="true"
+          className="mt-1 h-5 w-5 shrink-0 text-[var(--color-primary)]"
+        />
+        道を編集
+      </h1>
       <RoadEditForm road={road} />
     </div>
   );

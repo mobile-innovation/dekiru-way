@@ -29,9 +29,9 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
   await page.waitForURL(/\/me\/roads\/new$/);
 
   // --- 道を作る (1 画面のフォーム) ---
-  await page.getByLabel("以前は、どうしていましたか？").fill("以前は自分で結べていた");
+  await page.getByLabel("以前は、どうしていましたか？（任意）").fill("以前は自分で結べていた");
   await page
-    .getByLabel("何ができなくなりましたか？")
+    .getByLabel("今、どんなことで困っていますか？")
     .fill("エコバッグの結び目がほどけない");
   await page
     .getByLabel("これから、何ができるようになりたいですか？")

@@ -104,7 +104,7 @@ export function VoiceInputButton({
         type="button"
         onClick={toggle}
         aria-pressed={listening}
-        className="tap-target inline-flex items-center gap-2 rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm font-semibold"
+        className="tap-target inline-flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm font-semibold"
       >
         <IconMic
           aria-hidden="true"

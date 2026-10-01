@@ -13,7 +13,7 @@ export default function NewRoadPage() {
       <div className="space-y-1">
         <h1 className="text-xl font-bold">自分の道を作る</h1>
         <p className="text-sm text-[var(--color-ink-muted)]">
-          一度に全部書かなくて大丈夫です。あとから追加・修正できます。
+          一度に全部書かなくても大丈夫です。あとから追加・修正できます。
         </p>
       </div>
       <RoadForm />
