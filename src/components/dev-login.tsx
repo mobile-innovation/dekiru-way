@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { safeNextPath } from "@/lib/login-next";
 
 /**
  * 開発 / E2E 用モックログイン。E2E_TEST_LOGIN=true のときだけ表示される。
@@ -9,7 +10,7 @@ import { useState } from "react";
 export function DevLogin() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") || "/me";
+  const next = safeNextPath(params.get("next"));
   const [name, setName] = useState("テストユーザー");
   const [busy, setBusy] = useState(false);
 

@@ -41,6 +41,23 @@ export function QuickSubmitForm({ initialProblem = "" }: { initialProblem?: stri
         <p className="text-sm text-[var(--color-ink-muted)]">
           登録した内容は、運営が確認したうえで公開されます。
         </p>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Button
+            variant="secondary"
+            type="button"
+            onClick={() => {
+              setMethod("");
+              setResult("");
+              setErrors({});
+              setDone(false);
+            }}
+          >
+            もう1件教える
+          </Button>
+          <Link href="/login?next=/me/roads/new" className="text-sm font-semibold underline">
+            ログインして自分の道として残す
+          </Link>
+        </div>
         <div className="flex flex-wrap justify-center gap-3">
           <Link href="/" className="text-sm font-semibold underline">
             できる道のトップへ

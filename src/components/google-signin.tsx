@@ -2,10 +2,11 @@
 
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
+import { safeNextPath } from "@/lib/login-next";
 
 export function GoogleSigninButton({ disabled }: { disabled?: boolean }) {
   const params = useSearchParams();
-  const next = params.get("next") || "/me";
+  const next = safeNextPath(params.get("next"));
 
   return (
     <button

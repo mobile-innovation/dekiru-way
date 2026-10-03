@@ -7,7 +7,7 @@ import { MethodCard } from "@/components/method-card";
 import { AdSlot } from "@/components/ad-slot";
 import { RestoreSearch } from "@/components/restore-search";
 import { ExperienceSearchForm } from "@/components/experience-search-form";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, LinkButton } from "@/components/ui";
 import { RateLimitedNotice } from "@/components/rate-limited-notice";
 import { experienceQuerySchema } from "@/lib/validation";
 import { searchRoads, searchMethods, getPopularTags } from "@/lib/queries";
@@ -216,6 +216,13 @@ export default async function ExperiencesPage({
             <Link href="/me/roads/new"> 記録する </Link>
             と、次に同じことで困った人の道になります。
           </p>
+          <LinkButton
+            href={q.q?.trim() ? `/try?problem=${encodeURIComponent(q.q.trim())}` : "/try"}
+            variant="primary"
+            className="mt-3"
+          >
+            この困りごとで試したことを教える（ログイン不要）
+          </LinkButton>
         </EmptyState>
       )}
 

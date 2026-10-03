@@ -71,4 +71,27 @@ describe("簡易登録フォーム（/try）", () => {
       { difficulty: "瓶のフタが開けにくい", method: "ゴムシートを使った", result: "partial" },
     ]);
   });
+
+  it("完了画面の「もう1件教える」で、困っていたことを残したままフォームに戻る", async () => {
+    render(<QuickSubmitForm />);
+    fireEvent.change(screen.getByLabelText("困っていたこと", { exact: false }), {
+      target: { value: "瓶のフタが開けにくい" },
+    });
+    fireEvent.change(screen.getByLabelText("試したこと", { exact: false }), {
+      target: { value: "ゴムシートを使った" },
+    });
+    fireEvent.click(screen.getByRole("radio", { name: "少しできた" }));
+    fireEvent.click(screen.getByRole("button", { name: "試したことを登録する" }));
+    const again = await screen.findByRole("button", { name: "もう1件教える" });
+    expect(
+      screen.getByRole("link", { name: "ログインして自分の道として残す" }).getAttribute("href"),
+    ).toBe("/login?next=/me/roads/new");
+
+    fireEvent.click(again);
+    expect(
+      (screen.getByLabelText("困っていたこと", { exact: false }) as HTMLTextAreaElement).value,
+    ).toBe("瓶のフタが開けにくい");
+    expect((screen.getByLabelText("試したこと", { exact: false }) as HTMLTextAreaElement).value).toBe("");
+    expect(screen.getByRole("radio", { name: "少しできた" }).getAttribute("aria-checked")).toBe("false");
+  });
 });

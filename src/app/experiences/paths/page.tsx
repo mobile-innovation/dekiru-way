@@ -37,7 +37,7 @@ export default async function PathsOverviewPage({
         <EmptyState icon={IconRoute} title="表示できる道がまだありません">
           <p>
             <Link href="/experiences">経験を探す</Link> か、
-            <Link href="/me/roads/new"> 自分の道を作る </Link>
+            <Link href="/try"> 経験を教える </Link>
             ところから始められます。
           </p>
         </EmptyState>

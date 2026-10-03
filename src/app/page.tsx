@@ -235,10 +235,15 @@ export default async function TopPage() {
               <p className="mt-2 max-w-prose text-sm text-[var(--color-ink-muted)]">
                 うまくいったことも、いかなかったことも。記録すれば、同じことで困っている人の道になります。
               </p>
-              <LinkButton href="/me/roads/new" variant="primary" className="mt-4">
-                <IconPlus aria-hidden="true" className="h-4 w-4" />
-                自分の道を作る
-              </LinkButton>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <LinkButton href="/try" variant="primary">
+                  <IconPlus aria-hidden="true" className="h-4 w-4" />
+                  経験を教える（ログイン不要）
+                </LinkButton>
+                <LinkButton href="/me/roads/new" variant="secondary">
+                  自分の道を作る
+                </LinkButton>
+              </div>
             </div>
             <div className="relative h-24 w-full shrink-0 sm:h-auto sm:w-[38%] sm:max-w-[22rem]">
               <Image

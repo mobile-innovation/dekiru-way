@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { env } from "@/lib/env";
-import { Card, Callout } from "@/components/ui";
+import { Card, Callout, LinkButton } from "@/components/ui";
 import { GoogleSigninButton } from "@/components/google-signin";
 import { DevLogin } from "@/components/dev-login";
 
@@ -40,6 +40,16 @@ export default async function LoginPage() {
             <DevLogin />
           </Suspense>
         )}
+      </Card>
+
+      <Card className="space-y-3">
+        <p className="font-bold">Google アカウントが無い・使いたくない方へ</p>
+        <p className="text-sm text-[var(--color-ink-muted)]">
+          ログインしなくても、困っていたことと試したことを教えていただけます。運営が確認してから公開します。
+        </p>
+        <LinkButton href="/try" variant="secondary">
+          ログインせずに経験を教える
+        </LinkButton>
       </Card>
 
       <p className="text-xs text-[var(--color-ink-muted)]">

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { screenEdgeRequest, resolveClientId } from "@/lib/bot-guard";
+import { PATHNAME_HEADER } from "@/lib/login-next";
 
 /**
  * 全リクエスト共通の入口ガード (追加指示書 v1 ＋ 検索露出制御指示書)。
@@ -52,7 +53,15 @@ export function middleware(req: NextRequest) {
   }
 
   const { pathname } = req.nextUrl;
-  const res = NextResponse.next();
+  // /me* は元のパスをリクエストヘッダーで layout に渡し、ログイン後にそこへ戻れるようにする。
+  let res: NextResponse;
+  if (pathname === "/me" || pathname.startsWith("/me/")) {
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set(PATHNAME_HEADER, pathname + req.nextUrl.search);
+    res = NextResponse.next({ request: { headers: requestHeaders } });
+  } else {
+    res = NextResponse.next();
+  }
   res.headers.set("X-Robots-Tag", robotsTagFor(pathname));
 
   // 管理系はキャッシュ・BFCache に残さない (認証・認可が本体の防御。露出低減の多層のうちの 1 つ)。

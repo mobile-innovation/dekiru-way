@@ -3716,3 +3716,31 @@ hover は `--color-primary-hover`）に。聞き取り中は hover と同じ濃�
   レイアウトでは指定せず、SNS が各ページの `<title>` / description を使うようにした（レイアウトに書くと全ページが同じ題になるため）
 - テスト: `tests/unit/ogp.test.ts`（共通画像・レイアウト既定・/try が同じ画像）、`tests/e2e/quick-submit.spec.ts` に
   「トップ・経験を探す・利用についての og:image / twitter:image が共通画像」を追加
+
+### 2026-10-03 簡易登録 /try へのサイト内導線 ＋ ログイン後の戻り先修正
+
+登録数を増やすため、ログイン不要の `/try` へサイト内から行けるようにした。DB・API・`/try` ページ本体・
+トップのヒーロー／固定質問／8 枚ストーリー・道／記録フォームの入力項目は変更していない。
+
+- 導線（詳細は `docs/spec.md` §5.4）: ヘッダー「経験を教える」／トップ下部 CTA を「経験を教える（ログイン不要）」主＋
+  「自分の道を作る」副の 2 ボタンに／検索 0 件に `/try?problem=<検索語>` ボタン／経験詳細サイドカードの主ボタンを
+  `/try?problem=<困りごと>` に替え「ログインして自分の道を作る」を文字リンクで残す／ログイン画面に
+  「ログインせずに経験を教える」カード／道の見える化の空表示のリンクを `/try` に
+- `/try` 完了画面に「もう1件教える」（method・result・errors を空にして `done=false`。difficulty は残す）と
+  「ログインして自分の道として残す」（`/login?next=/me/roads/new`）を追加
+
+**不具合: 未ログインで `/me/roads/new` を開くとログイン後に `/me`（一覧）に着地する**
+
+- 原因: `src/app/me/layout.tsx` が未ログイン時に一律 `redirect("/login?next=/me")` していた。layout は
+  自分の配下のどのパスが要求されたかを知る手段が無いため、元のパスを next に入れられなかった
+- 直し方: `src/middleware.ts` が `/me` / `/me/*` のときだけリクエストヘッダー `x-dekiru-pathname` に
+  パス＋クエリを載せて `NextResponse.next({ request: { headers } })` で渡す（`X-Robots-Tag`・`/admin` の
+  `Cache-Control` 付与はそのまま）。layout は `headers()` でそれを読み、`src/lib/login-next.ts` の
+  `loginNextFor()` で `/login?next=<encodeURIComponent(パス)>` を作る
+- オープンリダイレクト対策: `loginNextFor` は `/me`・`/me/…`・`/me?…` 以外（外部 URL・`//host`・`/\host`・
+  `/meeting` のような前方一致だけのもの・ヘッダー無し）を `/login?next=/me` に落とす。ログイン画面側も
+  `safeNextPath()` で `/` 始まりかつ `//`・`/\` 始まりでないものだけを `callbackUrl` に使う
+  （`google-signin.tsx` と E2E 用 `dev-login.tsx` の両方）
+- テスト: `tests/unit/login-next.test.ts`、`tests/unit/quick-submit-form.test.tsx`（もう1件教える）、
+  `tests/e2e/try-entry-links.spec.ts`（検索 0 件→/try、ヘッダー→/try・375px で横スクロール無し、
+  ログイン画面→/try、/me/roads/new→ログイン→作成画面に戻る）

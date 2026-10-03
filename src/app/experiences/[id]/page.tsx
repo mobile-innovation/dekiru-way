@@ -209,10 +209,13 @@ export default async function ExperienceDetailPage({
               自分の困りごとや、試したことを記録してみませんか？うまくいかなくても、それも経験です。
             </p>
             <Link
-              href="/me/roads/new"
+              href={r.difficulty ? `/try?problem=${encodeURIComponent(r.difficulty)}` : "/try"}
               className="mt-3 block rounded-[var(--radius-pill)] bg-[var(--color-primary)] px-5 py-2.5 text-center text-sm font-semibold text-[var(--color-primary-ink)] no-underline"
             >
-              自分の道を作る
+              同じことで試したことを教える
+            </Link>
+            <Link href="/me/roads/new" className="mt-2 block text-center text-sm underline">
+              ログインして自分の道を作る
             </Link>
           </Card>
         </aside>

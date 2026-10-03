@@ -37,6 +37,12 @@ export async function SiteHeader() {
           >
             経験を探す
           </Link>
+          <Link
+            href="/try"
+            className="rounded-[var(--radius-pill)] px-3 py-2 no-underline hover:bg-[var(--color-surface-sunken)]"
+          >
+            経験を教える
+          </Link>
           {signedIn && (
             <Link
               href="/me"
