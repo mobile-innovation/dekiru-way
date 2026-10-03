@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor, act } from "@testing-library/react";
 
 /**
  * SNS からの簡易登録フォーム（/try）。2026-10-01 最終UI調整で見た目だけ変えた
@@ -93,5 +93,73 @@ describe("簡易登録フォーム（/try）", () => {
     ).toBe("瓶のフタが開けにくい");
     expect((screen.getByLabelText("試したこと", { exact: false }) as HTMLTextAreaElement).value).toBe("");
     expect(screen.getByRole("radio", { name: "少しできた" }).getAttribute("aria-checked")).toBe("false");
+  });
+});
+
+describe("簡易登録フォーム（/try）：音声入力（道・記録の画面と同じボタン）", () => {
+  type FakeRec = { onresult: ((e: unknown) => void) | null; onend: (() => void) | null };
+  let started: FakeRec | null = null;
+  class FakeSpeechRecognition {
+    lang = "";
+    interimResults = false;
+    maxAlternatives = 1;
+    onresult: ((e: unknown) => void) | null = null;
+    onerror: ((e: unknown) => void) | null = null;
+    onend: (() => void) | null = null;
+    start() {
+      started = this;
+    }
+    stop() {}
+    abort() {}
+  }
+  const w = window as unknown as { webkitSpeechRecognition?: unknown };
+  afterEach(() => {
+    delete w.webkitSpeechRecognition;
+    started = null;
+  });
+
+  it("困っていたこと・試したことの 2 欄に、入力欄のすぐ下の「音声で入力」がある", () => {
+    w.webkitSpeechRecognition = FakeSpeechRecognition;
+    render(<QuickSubmitForm />);
+    expect(screen.getAllByRole("button", { name: "音声で入力" })).toHaveLength(2);
+    for (const label of ["困っていたこと", "試したこと"]) {
+      const ta = screen.getByLabelText(label, { exact: false });
+      const btn = ta.parentElement!.querySelector("button");
+      expect(btn?.textContent, label).toContain("音声で入力");
+    }
+  });
+
+  it("話した内容が既存の文の後ろに足され、そのまま送信される", async () => {
+    w.webkitSpeechRecognition = FakeSpeechRecognition;
+    render(<QuickSubmitForm initialProblem="瓶のフタが" />);
+    const difficulty = screen.getByLabelText("困っていたこと", { exact: false }) as HTMLTextAreaElement;
+    fireEvent.click(screen.getAllByRole("button", { name: "音声で入力" })[0]);
+    act(() => {
+      started!.onresult?.({ results: { 0: { 0: { transcript: "開けにくい" } } } });
+      started!.onend?.();
+    });
+    expect(difficulty.value).toBe("瓶のフタが 開けにくい");
+
+    const method = screen.getByLabelText("試したこと", { exact: false }) as HTMLTextAreaElement;
+    fireEvent.click(screen.getAllByRole("button", { name: "音声で入力" })[1]);
+    act(() => {
+      started!.onresult?.({ results: { 0: { 0: { transcript: "ゴムシートを使った" } } } });
+      started!.onend?.();
+    });
+    expect(method.value).toBe("ゴムシートを使った");
+
+    fireEvent.click(screen.getByRole("radio", { name: "少しできた" }));
+    fireEvent.click(screen.getByRole("button", { name: "試したことを登録する" }));
+    await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(1));
+    expect(apiPost.mock.calls[0][1]).toEqual({
+      difficulty: "瓶のフタが 開けにくい",
+      method: "ゴムシートを使った",
+      result: "partial",
+    });
+  });
+
+  it("音声入力に対応していないブラウザではボタンを出さない", () => {
+    render(<QuickSubmitForm />);
+    expect(screen.queryAllByRole("button", { name: "音声で入力" })).toHaveLength(0);
   });
 });

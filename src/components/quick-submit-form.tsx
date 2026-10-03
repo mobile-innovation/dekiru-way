@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button, Card } from "@/components/ui";
 import { Field, TextAreaField } from "@/components/form";
+import { VoiceInputButton } from "@/components/voice-input-button";
 import { IconCheckCircle, resultIcon } from "@/components/icons";
 import { ATTEMPT_RESULTS, RESULT_META, FIELD_MAX } from "@/lib/constants";
 import { api, ClientApiError } from "@/lib/client/api";
@@ -15,6 +16,7 @@ import { api, ClientApiError } from "@/lib/client/api";
  * - エラーは項目ごとに具体的な文言で出す。
  * - 成功したら、その場でお礼メッセージに差し替える。
  * - 2026-10-01 最終UI調整: 2 つの入力欄は 400 文字を想定して 4 行（約 120px）、登録前の注意文は 13px。
+ * - 2026-10-03: 2 つの入力欄に音声入力ボタン（道・記録の画面と同じ。話した内容は後ろに足す）。
  */
 
 type FieldKey = "difficulty" | "method" | "result";
@@ -27,6 +29,9 @@ export function QuickSubmitForm({ initialProblem = "" }: { initialProblem?: stri
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+
+  const append = (set: React.Dispatch<React.SetStateAction<string>>) => (t: string) =>
+    set((p) => (p ? `${p} ${t}` : t));
 
   if (done) {
     return (
@@ -126,6 +131,7 @@ export function QuickSubmitForm({ initialProblem = "" }: { initialProblem?: stri
         value={difficulty}
         error={errors.difficulty}
         onChange={(e) => setDifficulty(e.target.value)}
+        actions={<VoiceInputButton onResult={append(setDifficulty)} />}
       />
 
       <TextAreaField
@@ -138,6 +144,7 @@ export function QuickSubmitForm({ initialProblem = "" }: { initialProblem?: stri
         value={method}
         error={errors.method}
         onChange={(e) => setMethod(e.target.value)}
+        actions={<VoiceInputButton onResult={append(setMethod)} />}
       />
 
       <Field label="試した結果" required error={errors.result}>
