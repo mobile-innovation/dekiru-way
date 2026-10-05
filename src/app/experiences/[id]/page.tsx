@@ -12,6 +12,7 @@ import {
 import { BranchingPaths, type Branch } from "@/components/branching-paths";
 import { RateLimitedNotice } from "@/components/rate-limited-notice";
 import { LikeButton } from "@/components/like-button";
+import { ShareButton } from "@/components/share-button";
 import { MarkRead } from "@/components/mark-read";
 import { MarkReadLocal } from "@/components/mark-read-local";
 import { AdSlot } from "@/components/ad-slot";
@@ -20,6 +21,8 @@ import { getExperience } from "@/lib/queries";
 import { getOptionalUserId } from "@/lib/authz";
 import { guardPublicPage } from "@/lib/page-guard";
 import { DISCLAIMER } from "@/lib/ai/client";
+import { env } from "@/lib/env";
+import { buildShareText, experienceShareUrl } from "@/lib/share";
 
 export async function generateMetadata({
   params,
@@ -32,6 +35,8 @@ export async function generateMetadata({
   return {
     title: exp.road.difficulty ?? exp.road.goal ?? "経験の詳細",
     description: `試したこと: ${exp.method.slice(0, 80)}`,
+    // 共有される URL はページ送り (?p=) を含まない正規 URL。SNS 共有指示書 §12 で canonical を追加。
+    alternates: { canonical: `/experiences/${id}` },
     // 検索エンジン露出方針 (2026-09-20 改定): 経験詳細はトップと並んで index 対象。
     // ルート layout の既定 (noindex) をここだけ上書きする。
     robots: { index: true, follow: true },
@@ -76,6 +81,14 @@ export default async function ExperienceDetailPage({
     },
   ];
 
+  // SNS 共有文（SNS共有機能追加指示書）。このページで公開表示している困りごと・方法・結果だけから作る。
+  const shareText = buildShareText({
+    difficulty: r.difficulty,
+    goal: r.goal,
+    methods: branches.map((b) => ({ method: b.method, result: b.result })),
+  });
+  const shareUrl = experienceShareUrl(env.site.url, exp.id);
+
   return (
     <div className="mx-auto w-full max-w-5xl space-y-8">
       {/* 経験詳細を開いた = 既読 (既読引き継ぎ指示書)。
@@ -118,20 +131,28 @@ export default async function ExperienceDetailPage({
         <div className="space-y-8">
           {/* ③ この人がたどった道（枝分かれ） */}
           <Card as="section">
-            {/* 見出しの右に「参考になった」= この道が役に立ったことを投稿者へ伝えるボタン（いいね指示書）。
-                スマホでは折り返して見出しの下に来る。 */}
+            {/* 見出しの右に「参考になった」= この道が役に立ったことを投稿者へ伝えるボタン（いいね指示書）と、
+                控えめな「この道をSNSで紹介」（SNS共有機能追加指示書）。スマホでは折り返して見出しの下に来る。
+                共有カードは押したときだけ開く（スマホはこの行の下、PC はボタン直下に重ねる。relative はその基点）。 */}
             <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
               <h2 className="flex items-center gap-2 text-base font-bold">
                 <IconRoute aria-hidden="true" className="h-5 w-5 shrink-0 text-[var(--color-primary)]" />
                 この人がたどった道
               </h2>
-              <LikeButton
-                attemptId={exp.id}
-                isMine={exp.like.isMine}
-                loggedIn={viewerUserId != null}
-                initialLiked={exp.like.likedByMe}
-                loginNext={`/experiences/${id}`}
-              />
+              <div className="relative flex flex-wrap items-start gap-x-3 gap-y-2">
+                <LikeButton
+                  attemptId={exp.id}
+                  isMine={exp.like.isMine}
+                  loggedIn={viewerUserId != null}
+                  initialLiked={exp.like.likedByMe}
+                  loginNext={`/experiences/${id}`}
+                />
+                <ShareButton
+                  text={shareText}
+                  url={shareUrl}
+                  title={r.difficulty ?? r.goal ?? "この人がたどった道"}
+                />
+              </div>
             </div>
         <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
           この人が試してきた方法を、時系列で見られます。うまくいかなかった方法も、道の一部です。
