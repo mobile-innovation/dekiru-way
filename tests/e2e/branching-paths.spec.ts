@@ -9,7 +9,7 @@ import { prisma } from "../../src/lib/db";
  *   - 「この人がたどった道」カードの中で、その人が試した方法が枝分かれして同時に見える
  *   - 経験詳細では各方法カードの中身を最初から全部表示する（タップして選ぶ／詳細へ飛ぶ操作は無い）
  *   - 失敗・変化なし・継続中も道として残る
- *   - 「現在」は Road 全体の独立ノードではなく、各方法カードの中（その方法を試した結果）にある
+ *   - その方法を試した後の状態（state_after）は Road 全体の独立ノードではなく、各方法カードの中に結果説明として出る
  */
 
 async function aRoadWithMultipleMethods(request: import("@playwright/test").APIRequestContext) {
@@ -24,7 +24,10 @@ async function aRoadWithMultipleMethods(request: import("@playwright/test").APIR
   return steps;
 }
 
-test("「この人がたどった道」の中で複数の方法が枝分かれして同時に見える", async ({ page, request }) => {
+test("「この人がたどった道」の中で複数の方法が枝分かれして同時に見える", async ({
+  page,
+  request,
+}) => {
   const steps = await aRoadWithMultipleMethods(request);
   await page.goto(`/experiences/${steps[0].experienceId}`);
 
@@ -32,8 +35,12 @@ test("「この人がたどった道」の中で複数の方法が枝分かれ�
   await expect(page.getByRole("heading", { name: "この人がたどった道" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "同じ困りごとへの道" })).toHaveCount(0);
 
-  // 幹
-  await expect(page.getByText("やりたいこと", { exact: true })).toBeVisible();
+  // 道の起点（情報設計・UI改善指示書）: タイトルは「困っていたこと」、カード内に「できるようにしたいこと」
+  await expect(page.getByText("困っていたこと", { exact: true })).toBeVisible();
+  await expect(page.getByText("できるようにしたいこと", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "試してきた方法" })).toBeVisible();
+  // 方法と結果がセットで読める（各カードに「結果」ラベル）
+  await expect(page.getByText("結果", { exact: true }).first()).toBeVisible();
 
   // 枝が同時に見えている（切り替え不要）
   await expect(page.getByText("方法A", { exact: true })).toBeVisible();
@@ -48,12 +55,19 @@ test("「この人がたどった道」の中で複数の方法が枝分かれ�
     "まだ試している",
   ];
   const anyResultVisible = await Promise.all(
-    resultWords.map((w) => page.getByText(w).first().isVisible().catch(() => false)),
+    resultWords.map((w) =>
+      page
+        .getByText(w)
+        .first()
+        .isVisible()
+        .catch(() => false),
+    ),
   );
   expect(anyResultVisible.some(Boolean)).toBe(true);
 
-  // 「現在」は方法カードの中にある（Road 全体の独立ノードではない）
-  await expect(page.getByText("現在：").first()).toBeVisible();
+  // その方法を試した後の状態（state_after）は、方法カードの中に結果説明として出る（Road 全体の独立ノードではない）。
+  // 結果と同じ意味なので「現在：」ラベルは付けない（最終仕上げ指示書 §1）
+  await expect(page.getByText("現在：").filter({ visible: true })).toHaveCount(0);
 
   // いま見ている方法は「選んだ状態」の見た目で示す（チップ文言は付けない）
   await expect(page.getByText("いま見ている道")).toHaveCount(0);
@@ -66,7 +80,9 @@ test("経験詳細では全方法をそのまま表示し、タップ用の「�
   request,
 }) => {
   // シードの「料理の火加減」の道（方法 4 件・1 ページに収まる）で確認する
-  const res = await request.get("/api/v1/experiences?q=" + encodeURIComponent("火加減") + "&limit=20");
+  const res = await request.get(
+    "/api/v1/experiences?q=" + encodeURIComponent("火加減") + "&limit=20",
+  );
   const { items } = await res.json();
   const road = items.filter((i: { method: string }) => i.method);
   const target = road.find((i: { method: string }) => i.method.includes("タイマー管理")) ?? road[0];
@@ -87,18 +103,32 @@ test("経験詳細では全方法をそのまま表示し、タップ用の「�
   }
   // 「詳しく見る →」でタップ表示させる導線は無い / ページ送りも出ない（10 件以下）
   await expect(page.getByRole("link", { name: /詳しく見る/ })).toHaveCount(0);
-  await expect(page.getByText(/\d+ \/ \d+ ページ/)).toHaveCount(0);
+  await expect(page.getByText(/件目 \/ 全\d+件/)).toHaveCount(0);
+  await expect(page.getByText("4つの方法", { exact: true })).toBeVisible();
 });
 
 test("v6: 経験詳細に「できた度」「気持ち」が出る（本人入力・任意）", async ({ page, request }) => {
   // シードの「料理の火加減」は できた％ / 気持ち / previous_attempt_id を持つ
-  const res = await request.get("/api/v1/experiences?q=" + encodeURIComponent("火加減") + "&limit=10");
+  const res = await request.get(
+    "/api/v1/experiences?q=" + encodeURIComponent("火加減") + "&limit=10",
+  );
   const { items } = await res.json();
-  const target = items.find((i: { method: string }) => i.method.includes("タイマー管理")) ?? items[0];
+  const target =
+    items.find((i: { method: string }) => i.method.includes("タイマー管理")) ?? items[0];
   await page.goto(`/experiences/${target.id}`);
   await expect(page.getByRole("heading", { name: "この人がたどった道" })).toBeVisible();
   await expect(page.getByText(/できた度\s*\d+%/).first()).toBeVisible();
-  await expect(page.getByText("気持ち：", { exact: false }).first()).toBeVisible();
+
+  // 二層構造（最終UI整理指示書）: 気持ち・気づき・次に試すことは「詳しく見る」の中。初期は閉じている
+  const feeling = page.getByText("そのときの気持ち：").first();
+  await expect(feeling).toBeHidden();
+  const toggles = page.locator("summary").filter({ hasText: "詳しく見る" });
+  expect(await toggles.count()).toBeGreaterThanOrEqual(2);
+  // 1 枚を開いても他のカードは開かない
+  await toggles.first().click();
+  await expect(feeling).toBeVisible();
+  await expect(page.locator("details[open]")).toHaveCount(1);
+  await expect(toggles.first()).toContainText("閉じる");
   // previous_attempt_id でつながった方法は「方法B-2」のように入れ子ラベルになる
   await expect(page.getByText(/方法[A-Z]-\d/).first()).toBeVisible();
 });
@@ -136,7 +166,10 @@ test("「経験を探す」のカードは方法別ではなく道（困りご�
 
 test("経験を探す: 語が困りごと・目標に当たると「道カード」で出る", async ({ page }) => {
   await page.goto("/experiences?q=" + encodeURIComponent("階段"));
-  const roadCard = page.locator("article").filter({ hasText: /試したこと（\d+）/ }).first();
+  const roadCard = page
+    .locator("article")
+    .filter({ hasText: /試したこと（\d+）/ })
+    .first();
   await expect(roadCard).toBeVisible();
   await expect(roadCard.getByText("だれかの道")).toBeVisible();
   await expect(roadCard.getByText(/駅の階段/)).toBeVisible();
@@ -285,9 +318,12 @@ test("経験を探す: 方法カードも道カードとは別に ?mp= でペー
 });
 
 test("v6: 「現在」は各方法カードの中にある（その方法を試した結果）", async ({ page, request }) => {
-  const res = await request.get("/api/v1/experiences?q=" + encodeURIComponent("火加減") + "&limit=10");
+  const res = await request.get(
+    "/api/v1/experiences?q=" + encodeURIComponent("火加減") + "&limit=10",
+  );
   const { items } = await res.json();
-  const target = items.find((i: { method: string }) => i.method.includes("タイマー管理")) ?? items[0];
+  const target =
+    items.find((i: { method: string }) => i.method.includes("タイマー管理")) ?? items[0];
   await page.goto(`/experiences/${target.id}`);
   await expect(page.getByRole("heading", { name: "この人がたどった道" })).toBeVisible();
   await expect(page.getByText("音声で知らせる調理タイマーを導入した")).toBeVisible();
@@ -295,13 +331,14 @@ test("v6: 「現在」は各方法カードの中にある（その方法を試�
   // 方法ごとに「現在」が独立する: IH化 と 音声タイマー(C-2) はそれぞれ state_after を持つ
   await expect(page.getByText("一人でも温度を決めて調理できるようになった。")).toBeVisible();
   await expect(page.getByText("煮物も炒め物も一人で作れるようになった。")).toBeVisible();
-  expect(await page.getByText("現在：").count()).toBeGreaterThanOrEqual(2);
-
-  // state_after を「その後：」としては表示しない（道の詳細では「現在：」に統一）
+  // state_after は結果の直下に結果説明として出し、「現在：」「その後：」のラベルは付けない（最終仕上げ指示書 §1）
+  await expect(page.getByText("現在：").filter({ visible: true })).toHaveCount(0);
   await expect(page.getByText("その後：", { exact: false })).toHaveCount(0);
 
-  // 「次に試すこと」は各方法カード内（Road 共通ノードではない）
-  await expect(page.getByText("次に試すこと：", { exact: false }).first()).toBeVisible();
+  // 「次に試すこと」は各方法カード内（Road 共通ノードではない）。「詳しく見る」を開くと読める
+  const withNext = page.locator("details").filter({ hasText: "次に試すこと：" }).first();
+  await withNext.locator("summary").click();
+  await expect(withNext.getByText("次に試すこと：", { exact: false })).toBeVisible();
 
   // previous_attempt_id でつながった方法は「方法A-2」のような入れ子ラベル
   await expect(page.getByText(/方法[A-Z]-\d/).first()).toBeVisible();
@@ -350,7 +387,11 @@ test("方法が多いとページが切り替わるが、枝分かれ（親子�
     // --- 1 ページ目: 方法J と その子 方法J-2 は同じページに収まる（10 で切らない） ---
     await page.goto(`/experiences/${ids[0]}`);
     await expect(page.getByRole("heading", { name: "この人がたどった道" })).toBeVisible();
-    await expect(page.getByText("1 / 2 ページ")).toBeVisible();
+    // 内部のページ番号ではなく件数で示す（情報設計・UI改善指示書 §18）
+    await expect(page.getByText("12件の方法", { exact: true })).toBeVisible();
+    await expect(page.getByText("全12件のうち 1〜11件目を表示しています")).toBeVisible();
+    await expect(page.getByText("1〜11件目 / 全12件")).toBeVisible();
+    await expect(page.getByText(/\d+ \/ \d+ ページ/)).toHaveCount(0);
     await expect(page.getByRole("link", { name: /次のページ/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /前のページ/ })).toHaveCount(0);
     await expect(page.getByText("方法A", { exact: true })).toBeVisible();
@@ -364,13 +405,13 @@ test("方法が多いとページが切り替わるが、枝分かれ（親子�
     // --- 2 ページ目: 独立した次の方法グループ（方法K）だけ。先頭が子にならない。 ---
     await page.getByRole("link", { name: /次のページ/ }).click();
     await expect(page).toHaveURL(new RegExp(`/experiences/${ids[0]}\\?p=2$`));
-    await expect(page.getByText("2 / 2 ページ")).toBeVisible();
+    await expect(page.getByText("12件目 / 全12件")).toBeVisible();
     await expect(page.getByText("方法A", { exact: true })).toHaveCount(0);
     await expect(page.getByText("方法K", { exact: true })).toBeVisible();
     await expect(page.getByText(/方法J-\d/)).toHaveCount(0);
     await expect(page.getByText(/からの続き/)).toHaveCount(0);
-    // 現在（state_after）はページを変えても各方法に残る
-    await expect(page.getByText("現在：", { exact: false }).first()).toBeVisible();
+    // 結果説明（state_after）はページを変えても各方法に残る
+    await expect(page.getByText(/方法 \d+ のあとの状態/).first()).toBeVisible();
   } finally {
     // 公開 Attempt を 12 件作るため、後始末しないと「経験を探す」に恒久的に残り続ける
     // （「経験を探すページ改善指示書 v1」§23/§24 で発覚）。

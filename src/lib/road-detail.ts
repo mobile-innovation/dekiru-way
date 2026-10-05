@@ -34,18 +34,14 @@ const clean = (s?: string | null): string | null => {
   return t ? t : null;
 };
 
-export function buildRoadDetailRows(
-  branches: Branch[],
-  progress?: string | null,
-): RoadDetailRow[] {
+export function buildRoadDetailRows(branches: Branch[], progress?: string | null): RoadDetailRow[] {
   if (branches.length === 0) return [];
 
   const byId = new Map(branches.map((b) => [b.id, b]));
   const childrenOf = new Map<string, Branch[]>();
   const roots: Branch[] = [];
   for (const b of branches) {
-    const pid =
-      b.previousAttemptId && byId.has(b.previousAttemptId) ? b.previousAttemptId : null;
+    const pid = b.previousAttemptId && byId.has(b.previousAttemptId) ? b.previousAttemptId : null;
     if (pid) childrenOf.set(pid, [...(childrenOf.get(pid) ?? []), b]);
     else roots.push(b);
   }
@@ -116,6 +112,11 @@ export interface PaginatedDetailRows {
   continuesFromLabel: string | null;
   /** このページのあとにまだ方法がある（次ページへ続く） */
   continuesToNextPage: boolean;
+  /** このページの先頭・末尾が全体の何件目か（1 起点）。「全12件のうち 1〜10件目」の表示用 */
+  firstNumber: number;
+  lastNumber: number;
+  /** 全体の方法の件数 */
+  total: number;
 }
 
 /**
@@ -140,8 +141,7 @@ export function splitDetailRowsIntoPages(
   let current: RoadDetailRow[] = [];
   for (const group of groups) {
     const wouldOverflow =
-      current.length > 0 &&
-      (current.length >= pageSize || current.length + group.length > softCap);
+      current.length > 0 && (current.length >= pageSize || current.length + group.length > softCap);
     if (wouldOverflow) {
       pages.push(current);
       current = [];
@@ -172,11 +172,16 @@ export function paginateDetailRows(
     }
   }
 
+  const before = pages.slice(0, page - 1).reduce((n, p) => n + p.length, 0);
+
   return {
     rows,
     page,
     pageCount,
     continuesFromLabel,
     continuesToNextPage: page < pageCount,
+    firstNumber: before + 1,
+    lastNumber: before + rows.length,
+    total: all.length,
   };
 }

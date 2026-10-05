@@ -148,6 +148,12 @@ describe("paginateDetailRows（表示上の 10 ブロックごとのページ分
     expect(p2.continuesToNextPage).toBe(false);
   });
 
+  it("何件目を表示しているかを返す（「全11件のうち 1〜10件目」の表示用）", () => {
+    const all = flatRows(11);
+    expect(paginateDetailRows(all, 1)).toMatchObject({ firstNumber: 1, lastNumber: 10, total: 11 });
+    expect(paginateDetailRows(all, 2)).toMatchObject({ firstNumber: 11, lastNumber: 11, total: 11 });
+  });
+
   it("20 件 → 2 ページ（10 / 10）", () => {
     const all = flatRows(20);
     expect(paginateDetailRows(all, 1).rows).toHaveLength(10);

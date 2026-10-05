@@ -57,7 +57,7 @@ const isUnsuccessful = (r: string) => r === "failed" || r === "no_change";
 const isPositive = (r: string) => r === "success" || r === "partial";
 
 /** 「3つの方法」「12件の方法」。10 以上で「〜つ」は不自然なので件にする */
-function methodCount(n: number): string {
+export function methodCount(n: number): string {
   return n <= 9 ? `${n}つ` : `${n}件`;
 }
 

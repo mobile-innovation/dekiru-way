@@ -2,13 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Callout, Card } from "@/components/ui";
-import {
-  IconHistory,
-  IconInfo,
-  IconRoute,
-  IconSprout,
-  IconTarget,
-} from "@/components/icons";
+import { IconHistory, IconInfo, IconRoute, IconSprout, IconTarget } from "@/components/icons";
 import { BranchingPaths, type Branch } from "@/components/branching-paths";
 import { RateLimitedNotice } from "@/components/rate-limited-notice";
 import { LikeButton } from "@/components/like-button";
@@ -22,7 +16,7 @@ import { getOptionalUserId } from "@/lib/authz";
 import { guardPublicPage } from "@/lib/page-guard";
 import { DISCLAIMER } from "@/lib/ai/client";
 import { env } from "@/lib/env";
-import { buildShareText, experienceShareUrl } from "@/lib/share";
+import { buildShareText, experienceShareUrl, methodCount } from "@/lib/share";
 
 export async function generateMetadata({
   params,
@@ -106,8 +100,18 @@ export default async function ExperienceDetailPage({
           <Link href="/experiences">← 経験を探すへ戻る</Link>
         </p>
         <header className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-bold">{r.difficulty ?? r.goal ?? "経験の詳細"}</h1>
+          {/* タイトル = 困っていたこと（Road.difficulty）。同じ文をカード内に重ねて出さず、ラベルで意味を示す
+              （経験詳細ページ 情報設計・UI改善指示書 §3、2026-10-06 ユーザー確認）。
+              difficulty が無い古いデータはタイトルが goal になるので、そのときはラベルを付けない。 */}
+          <div>
+            {r.difficulty && (
+              <p className="text-xs font-bold tracking-wide text-[var(--color-ink-muted)]">
+                困っていたこと
+              </p>
+            )}
+            <h1 className="mt-0.5 text-xl font-bold leading-snug sm:text-2xl">
+              {r.difficulty ?? r.goal ?? "経験の詳細"}
+            </h1>
           </div>
           {r.tags.length > 0 && (
             <ul className="flex flex-wrap gap-1.5">
@@ -136,7 +140,10 @@ export default async function ExperienceDetailPage({
                 共有カードは押したときだけ開く（スマホはこの行の下、PC はボタン直下に重ねる。relative はその基点）。 */}
             <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
               <h2 className="flex items-center gap-2 text-base font-bold">
-                <IconRoute aria-hidden="true" className="h-5 w-5 shrink-0 text-[var(--color-primary)]" />
+                <IconRoute
+                  aria-hidden="true"
+                  className="h-5 w-5 shrink-0 text-[var(--color-primary)]"
+                />
                 この人がたどった道
               </h2>
               <div className="relative flex flex-wrap items-start gap-x-3 gap-y-2">
@@ -154,51 +161,66 @@ export default async function ExperienceDetailPage({
                 />
               </div>
             </div>
-        <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-          この人が試してきた方法を、時系列で見られます。うまくいかなかった方法も、道の一部です。
-        </p>
+            <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
+              困りごとから、実際に試してきた方法を順番に見ることができます。
+            </p>
 
-        {/* できていたこと / やりたいこと（PC は横並び、スマホは縦。「できていた → やりたい → 道」の起点） */}
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-[var(--radius-sm)] bg-[var(--color-surface-sunken)] px-3 py-2">
-            <span className="flex items-center gap-1 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
-              <IconHistory aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-              <span>できていたこと</span>
-            </span>
-            <span className="mt-0.5 block whitespace-pre-wrap">
-              {r.previouslyAble ?? (
-                <span className="text-[var(--color-ink-muted)]">まだ登録されていません</span>
-              )}
-            </span>
-          </div>
-          <div className="rounded-[var(--radius-sm)] bg-[var(--color-primary-soft)] px-3 py-2 font-bold">
-            <span className="flex items-center gap-1 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
-              <IconTarget aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-              <span>やりたいこと</span>
-            </span>
-            <span className="mt-0.5 block whitespace-pre-wrap">
-              {r.goal ?? r.difficulty ?? "この困りごと"}
-            </span>
-          </div>
-        </div>
+            {/* 道の起点: できていたこと（控えめ・登録が無ければ出さない）→ できるようにしたいこと（強調）。
+                「困っていたこと」はページタイトル。値が無い項目は補わない（指示書 §10）。 */}
+            {(r.previouslyAble || (r.difficulty && r.goal)) && (
+              <div className="mt-4 space-y-2">
+                {r.previouslyAble && (
+                  <div className="rounded-[var(--radius-sm)] bg-[var(--color-surface-sunken)] px-3 py-1.5 text-sm">
+                    <span className="flex items-center gap-1 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+                      <IconHistory aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                      <span>できていたこと</span>
+                    </span>
+                    <span className="mt-0.5 block whitespace-pre-wrap text-[var(--color-ink-muted)]">
+                      {r.previouslyAble}
+                    </span>
+                  </div>
+                )}
+                {/* goal はタイトルに使っていない（difficulty がある）ときだけここに出す */}
+                {r.difficulty && r.goal && (
+                  <div className="rounded-[var(--radius-sm)] bg-[var(--color-primary-soft)] px-3 py-2">
+                    <span className="flex items-center gap-1 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+                      <IconTarget aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                      <span>できるようにしたいこと</span>
+                    </span>
+                    <span className="mt-0.5 block whitespace-pre-wrap font-bold">{r.goal}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
-        <div className="mt-4">
-          <BranchingPaths
-            heading={null}
-            note={null}
-            trunkLayout="none"
-            trunk={{
-              previouslyAble: r.previouslyAble,
-              difficulty: r.difficulty,
-              goal: r.goal,
-            }}
-            branches={branches}
-            present={{ progress: r.progress }}
-            page={page}
-            pageHref={(p) => (p <= 1 ? `/experiences/${id}` : `/experiences/${id}?p=${p}`)}
-          />
-        </div>
-      </Card>
+            {/* 中心コンテンツ: 試してきた方法（方法＋結果のカードを時系列の線でつなぐ） */}
+            <div className="mt-6 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <h3 className="text-base font-bold">試してきた方法</h3>
+              <span className="text-sm font-semibold text-[var(--color-ink-muted)]">
+                {methodCount(branches.length)}の方法
+              </span>
+            </div>
+            <p className="mt-0.5 text-sm text-[var(--color-ink-muted)]">
+              うまくいかなかった方法も含めて残っています。
+            </p>
+
+            <div className="mt-3">
+              <BranchingPaths
+                heading={null}
+                note={null}
+                trunkLayout="none"
+                trunk={{
+                  previouslyAble: r.previouslyAble,
+                  difficulty: r.difficulty,
+                  goal: r.goal,
+                }}
+                branches={branches}
+                present={{ progress: r.progress }}
+                page={page}
+                pageHref={(p) => (p <= 1 ? `/experiences/${id}` : `/experiences/${id}?p=${p}`)}
+              />
+            </div>
+          </Card>
 
           {/* 道の内容を読んだあとに広告を 1 枠（広告表示方針 v1 §3）。
               「次の一歩」(右サイドの CTA) より前・経験情報とは別枠。ADS_ENABLED=false なら何も出ない。 */}
@@ -212,28 +234,27 @@ export default async function ExperienceDetailPage({
               <IconInfo aria-hidden="true" className="h-4 w-4 shrink-0" />
               この情報について
             </span>
-            {DISCLAIMER}
-            {" "}
-            枝分かれの中で「できるようになった」が正解というわけではありません。
+            {DISCLAIMER} 枝分かれの中で「できるようになった」が正解というわけではありません。
             うまくいかなかった方法も、次の人にとって大切な情報です。
           </Callout>
 
           <Card as="section">
+            {/* 経験を読み終えたあとの導線（指示書 §14）。SNS で紹介する（他人に教える）とは別の行動 */}
             <p className="flex items-start gap-1.5 font-semibold">
               <IconSprout
                 aria-hidden="true"
                 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-primary)]"
               />
-              あなたの試した方法も、誰かの次の一歩になります。
+              あなたも同じことで困っていますか？
             </p>
             <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-              自分の困りごとや、試したことを記録してみませんか？うまくいかなくても、それも経験です。
+              あなたが試した方法も、誰かの次の一歩になるかもしれません。うまくいかなかったことも、大切な経験です。
             </p>
             <Link
               href={r.difficulty ? `/try?problem=${encodeURIComponent(r.difficulty)}` : "/try"}
               className="mt-3 block rounded-[var(--radius-pill)] bg-[var(--color-primary)] px-5 py-2.5 text-center text-sm font-semibold text-[var(--color-primary-ink)] no-underline"
             >
-              同じことで試したことを教える
+              自分が試した方法を残す
             </Link>
             <Link href="/me/roads/new" className="mt-2 block text-center text-sm underline">
               ログインして自分の道を作る

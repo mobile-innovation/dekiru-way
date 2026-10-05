@@ -89,6 +89,11 @@ interface Props {
 const DEFAULT_NOTE =
   "同じ困りごとに、この人がいろいろな方法を試した記録です。どれかが「正解」ではありません。うまくいかなかった記録も、道の一部として残しています。";
 
+/** 「1〜11件目」。1 件だけなら「12件目」 */
+function rangeLabel(first: number, last: number): string {
+  return first === last ? `${first}件目` : `${first}〜${last}件目`;
+}
+
 /** 縦の幹線は各行が自分の分を描く（Spine）。ここは並べる器だけ。 */
 function Guide({ children }: { children: ReactNode }) {
   return (
@@ -185,9 +190,7 @@ function NodeBox({
   return (
     <div
       className={`w-full rounded-[var(--radius-sm)] px-3 py-1.5 ${
-        strong
-          ? "bg-[var(--color-primary-soft)] font-bold"
-          : "bg-[var(--color-surface-sunken)]"
+        strong ? "bg-[var(--color-primary-soft)] font-bold" : "bg-[var(--color-surface-sunken)]"
       }`}
     >
       <span className="block text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
@@ -220,20 +223,89 @@ function BranchCardInner({
     Boolean(branch.note) ||
     Boolean(currentState) ||
     Boolean(branch.nextAction);
+  // 一覧（dense）は従来のコンパクト表示のまま
+  if (dense) {
+    return (
+      <>
+        {/* 1 段目: ラベル＋方法名（1 行に収まらなければ折り返す。CJK なので flex では潰さない） */}
+        <p className="text-sm font-medium">
+          <span className="mr-2 align-baseline text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+            {label}
+          </span>
+          <span className="whitespace-pre-wrap">{branch.method}</span>
+        </p>
+        {/* 2 段目: 結果・状態・試した時期を 1 行に */}
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <ResultBadge result={branch.result} size="sm" />
+          {typeof branch.achievementPercent === "number" && (
+            <span className="rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-ink-muted)]">
+              できた度 {branch.achievementPercent}%
+            </span>
+          )}
+          {branch.triedAt && (
+            <span className="text-[11px] text-[var(--color-ink-muted)]">{branch.triedAt}</span>
+          )}
+        </div>
+        {hasDetail && (
+          <dl className="mt-1.5 space-y-0.5 border-t border-[var(--color-border)] pt-1.5 text-xs text-[var(--color-ink-muted)]">
+            {branch.feeling && (
+              <div>
+                <dt className="inline font-bold">そのときの気持ち：</dt>
+                <dd className="inline whitespace-pre-wrap">{branch.feeling}</dd>
+              </div>
+            )}
+            {branch.note && (
+              <div>
+                <dt className="inline font-bold">気づき：</dt>
+                <dd className="inline whitespace-pre-wrap">{branch.note}</dd>
+              </div>
+            )}
+            {currentState && (
+              <div className="text-[var(--color-ink)]">
+                <dt className="inline font-bold">現在：</dt>
+                <dd className="inline whitespace-pre-wrap">{currentState}</dd>
+              </div>
+            )}
+            {branch.nextAction && (
+              <div>
+                <dt className="inline font-bold">次に試すこと：</dt>
+                <dd className="inline whitespace-pre-wrap">{branch.nextAction}</dd>
+              </div>
+            )}
+          </dl>
+        )}
+      </>
+    );
+  }
+
+  // 経験詳細は二層構造（最終UI整理指示書 §17 / 最終仕上げ指示書 §1〜§4）。
+  //   第 1 層（常に表示）: 方法 → 結果（5 分類のラベル。成功/失敗の二択にしない）＋できた度・時期 → 結果説明
+  //     結果説明 = その Attempt の state_after（「試した後の状態」）。結果と同じ意味なので「現在：」ラベルは付けない。
+  //   第 2 層（「詳しく見る」で開く）: 気づき → そのときの気持ち → 現在 → 次に試すこと
+  //     「現在」は、state_after が無い最新の方法に Road.progress（道全体の現在の進捗）を補ったときだけ。
+  //     結果説明とは意味が違うのでラベル付きで残す（同じ文を 2 回は出さない）。
+  // 折りたたみは各カード独立の <details>（初期は閉じる・JS 不要・キーボード/読み上げ対応）。値の無い項目は出さない。
+  const resultText = branch.stateAfter?.trim() || null;
+  const roadNow = currentState && currentState !== resultText ? currentState : null;
+  const details = [
+    branch.note && { label: "気づき", text: branch.note },
+    branch.feeling && { label: "そのときの気持ち", text: branch.feeling },
+    roadNow && { label: "現在", text: roadNow },
+    branch.nextAction && { label: "次に試すこと", text: branch.nextAction },
+  ].filter(Boolean) as { label: string; text: string }[];
   return (
     <>
-      {/* 1 段目: ラベル＋方法名（1 行に収まらなければ折り返す。CJK なので flex では潰さない） */}
-      <p className={`font-medium ${dense ? "text-sm" : ""}`}>
-        <span className="mr-2 align-baseline text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+      <p className="font-semibold leading-relaxed">
+        <span className="mr-2 inline-block rounded-[var(--radius-pill)] bg-[var(--color-surface)] px-2 py-0.5 align-[0.1em] text-[11px] font-bold tracking-wide text-[var(--color-primary-hover)]">
           {label}
         </span>
         <span className="whitespace-pre-wrap">{branch.method}</span>
       </p>
-      {/* 2 段目: 結果・状態・試した時期を 1 行に */}
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="text-xs font-bold text-[var(--color-ink-muted)]">結果</span>
         <ResultBadge result={branch.result} size="sm" />
         {typeof branch.achievementPercent === "number" && (
-          <span className="rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-ink-muted)]">
+          <span className="rounded-[var(--radius-pill)] bg-[var(--color-surface)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-ink-muted)]">
             できた度 {branch.achievementPercent}%
           </span>
         )}
@@ -241,33 +313,36 @@ function BranchCardInner({
           <span className="text-[11px] text-[var(--color-ink-muted)]">{branch.triedAt}</span>
         )}
       </div>
-      {hasDetail && (
-        <dl className="mt-1.5 space-y-0.5 border-t border-[var(--color-border)] pt-1.5 text-xs text-[var(--color-ink-muted)]">
-          {branch.feeling && (
-            <div>
-              <dt className="inline font-bold">そのときの気持ち：</dt>
-              <dd className="inline whitespace-pre-wrap">{branch.feeling}</dd>
-            </div>
-          )}
-          {branch.note && (
-            <div>
-              <dt className="inline font-bold">気づき：</dt>
-              <dd className="inline whitespace-pre-wrap">{branch.note}</dd>
-            </div>
-          )}
-          {currentState && (
-            <div className="text-[var(--color-ink)]">
-              <dt className="inline font-bold">現在：</dt>
-              <dd className="inline whitespace-pre-wrap">{currentState}</dd>
-            </div>
-          )}
-          {branch.nextAction && (
-            <div>
-              <dt className="inline font-bold">次に試すこと：</dt>
-              <dd className="inline whitespace-pre-wrap">{branch.nextAction}</dd>
-            </div>
-          )}
-        </dl>
+      {resultText && (
+        <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">{resultText}</p>
+      )}
+      {details.length > 0 && (
+        <details className="group mt-2 border-t border-[var(--color-border)] pt-1">
+          <summary className="inline-flex min-h-[var(--tap-min)] cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-[var(--color-primary-hover)] [&::-webkit-details-marker]:hidden">
+            <span
+              aria-hidden="true"
+              className="inline-block w-3 shrink-0 text-center group-open:hidden"
+            >
+              ＋
+            </span>
+            <span
+              aria-hidden="true"
+              className="hidden w-3 shrink-0 text-center group-open:inline-block"
+            >
+              −
+            </span>
+            <span className="shrink-0 whitespace-nowrap group-open:hidden">詳しく見る</span>
+            <span className="hidden shrink-0 whitespace-nowrap group-open:inline">閉じる</span>
+          </summary>
+          <dl className="space-y-2 pb-1 pt-1 text-sm leading-relaxed">
+            {details.map((d) => (
+              <div key={d.label}>
+                <dt className="text-xs font-bold text-[var(--color-ink-muted)]">{d.label}：</dt>
+                <dd className="whitespace-pre-wrap">{d.text}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
       )}
     </>
   );
@@ -338,11 +413,18 @@ export function BranchingPaths({
             </li>
           )}
 
+          {/* 方法が多くてページを分けているときは、何件目を見ているかを件数で示す（内部のページ番号だけを見せない） */}
+          {paginated && paginated.pageCount > 1 && (
+            <li className="relative pb-3 pl-6 text-xs font-bold text-[var(--color-ink-muted)]">
+              <Spine from={trunkNodes.length === 0 && !showBranchPoint ? "mid" : "top"} />
+              {`全${paginated.total}件のうち ${rangeLabel(paginated.firstNumber, paginated.lastNumber)}を表示しています`}
+            </li>
+          )}
+
           {/* ページ境界をまたいだチェーンの続き（表示上の補助。DB の親子関係は不変）。 */}
           {paginated?.continuesFromLabel && (
             <li className="relative pb-3 pl-6 text-[11px] font-bold text-[var(--color-ink-muted)]">
-              <Spine />
-              ← 「{paginated.continuesFromLabel}」からの続き
+              <Spine />← 「{paginated.continuesFromLabel}」からの続き
             </li>
           )}
 
@@ -354,6 +436,7 @@ export function BranchingPaths({
               trunkNodes.length === 0 &&
               !showBranchPoint &&
               !paginated?.continuesFromLabel &&
+              !(paginated && paginated.pageCount > 1) &&
               i === 0;
             // 方法カードはどれも「選んだ状態」の見た目（緑の枠線＋淡い緑の下地）でそろえる。
             // どの方法を見ているかのチップ／強調分けはしない（全部が同じ道の一部）。
@@ -363,12 +446,7 @@ export function BranchingPaths({
             const baseClass = `w-full rounded-[var(--radius-md)] border px-4 py-3 ${cardTone}`;
 
             const inner = (
-              <BranchCardInner
-                branch={b}
-                label={label}
-                currentState={currentState}
-                dense={dense}
-              />
+              <BranchCardInner branch={b} label={label} currentState={currentState} dense={dense} />
             );
 
             // 縦線を閉じるのは「本当に最後の行」だけ。次ページへ続くなら閉じない。
@@ -408,8 +486,7 @@ export function BranchingPaths({
           {/* 次ページへ続く（表示上の補助。新しい枝を作っているわけではない）。 */}
           {paginated?.continuesToNextPage && (
             <li className="relative pb-1 pl-6 text-[11px] font-bold text-[var(--color-ink-muted)]">
-              <Spine to="mid" />
-              ↓ この先は次のページに続きます
+              <Spine to="mid" />↓ この先は次のページに続きます
             </li>
           )}
         </Guide>
@@ -428,7 +505,7 @@ export function BranchingPaths({
             <span />
           )}
           <span className="text-[var(--color-ink-muted)]">
-            {paginated.page} / {paginated.pageCount} ページ
+            {rangeLabel(paginated.firstNumber, paginated.lastNumber)} / 全{paginated.total}件
           </span>
           {paginated.page < paginated.pageCount ? (
             <Link href={pageHref(paginated.page + 1)} className="font-semibold" rel="next">
