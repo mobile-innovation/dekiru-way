@@ -14,7 +14,10 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
   await page.getByRole("button", { name: "似た経験を探す" }).click();
 
   await expect(page).toHaveURL(/\/experiences\?q=/);
-  const firstCard = page.locator("article").filter({ hasText: "試したこと" }).first();
+  const firstCard = page
+    .locator("article")
+    .filter({ hasText: /の方法を試した/ })
+    .first();
   await expect(firstCard).toBeVisible();
 
   // --- 経験詳細へ ---
@@ -30,9 +33,7 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
 
   // --- 道を作る (1 画面のフォーム) ---
   await page.getByLabel("以前は、どうしていましたか？（任意）").fill("以前は自分で結べていた");
-  await page
-    .getByLabel("今、どんなことで困っていますか？")
-    .fill("エコバッグの結び目がほどけない");
+  await page.getByLabel("今、どんなことで困っていますか？").fill("エコバッグの結び目がほどけない");
   await page
     .getByLabel("これから、何ができるようになりたいですか？")
     .fill("買い物のあと自分で片付けたい");
@@ -60,9 +61,7 @@ test("困りごと入力 → 誰かの経験 → 自分の道に failed と succ
 
     // --- Attempt: success ---
     await page.getByRole("link", { name: "試したことを記録" }).click();
-    await expect(
-      page.getByRole("checkbox", { name: /この経験を公開する/ }),
-    ).not.toBeChecked();
+    await expect(page.getByRole("checkbox", { name: /この経験を公開する/ })).not.toBeChecked();
     await page.getByRole("checkbox", { name: /この経験を公開する/ }).check();
     await page.getByLabel("どんな方法を試しましたか？").fill("マグネット式のバッグ留めに替えた");
     await page.getByRole("radio", { name: /^できるようになった/ }).click();

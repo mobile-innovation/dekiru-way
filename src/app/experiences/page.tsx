@@ -60,7 +60,13 @@ export default async function ExperiencesPage({
   // 検索語なしでも「方法だけ」で公開された試したことの一覧を見られる。
   const roadEnabled = q.kind !== "method";
   const methodEnabled = q.kind !== "road";
-  const emptyRes = { items: [] as never[], total: 0, page: 1, hasMore: false, windowExceeded: false };
+  const emptyRes = {
+    items: [] as never[],
+    total: 0,
+    page: 1,
+    hasMore: false,
+    windowExceeded: false,
+  };
 
   // ログイン中なら各カードに既読/未読を付ける（未ログインは全て未読扱い）。
   const viewerUserId = await getOptionalUserId();
@@ -85,7 +91,10 @@ export default async function ExperiencesPage({
       semantic = await semanticIndex.rank(q.q, env.semantic.topK, env.semantic.margin);
     } catch (err) {
       if (!(err instanceof ApiError && err.code === "rate_limited")) {
-        console.warn("[semantic] search failed, using keyword search:", err instanceof Error ? err.message : "unknown");
+        console.warn(
+          "[semantic] search failed, using keyword search:",
+          err instanceof Error ? err.message : "unknown",
+        );
       }
     }
   }
@@ -129,7 +138,13 @@ export default async function ExperiencesPage({
   // （AIアシスト利用時はその結果も含め）で 1 件も見つからなかったときだけの最後の手段。
   // DB 内 (pg_trgm) で完結するため、課金や外部サービス停止のリスクが無い。
   let fuzzyFellBack = false;
-  if (!semantic && q.q && q.q.trim().length >= 2 && roadRes.total === 0 && methodMatch.total === 0) {
+  if (
+    !semantic &&
+    q.q &&
+    q.q.trim().length >= 2 &&
+    roadRes.total === 0 &&
+    methodMatch.total === 0
+  ) {
     // 候補は到達可能なページぶん (FUZZY_CANDIDATE_LIMIT) を、絞り込み条件を掛けたうえで類似度順に取る。
     const fuzzyFilters = { result: q.result, tag: q.tag, read: q.read, viewerUserId };
     const [fuzzyRoadIds, fuzzyAttemptIds] = await Promise.all([
@@ -165,14 +180,15 @@ export default async function ExperiencesPage({
     methodMatch.items.length === 0 &&
     !methodMatch.windowExceeded;
 
-  const resultsHeading = q.q ? `「${q.q}」への、いろいろな道` : "いろいろな道";
+  // 見出しは利用者目線で「誰かが試した道」（一覧ページ UI・情報設計改善指示書 §6）
+  const resultsHeading = q.q ? `「${q.q}」で見つかった、誰かが試した道` : "誰かが試した道";
   const liveMessage = windowExceeded
     ? "これ以上は道を表示できません。ことばやタグ、結果でもう少し絞り込んでください。"
     : items.length === 0
       ? q.q
         ? "「" + q.q + "」が困りごと・目標に当てはまる道はありませんでした。"
         : "この条件では、まだ道が見つかりませんでした。"
-      : `困りごと・目標に当てはまる道 ${total} 件`;
+      : `${total}件の道`;
 
   return (
     <div className="space-y-6">
@@ -180,10 +196,13 @@ export default async function ExperiencesPage({
       <Suspense fallback={null}>
         <RestoreSearch />
       </Suspense>
-      <div className="space-y-1">
-        <h1 className="text-xl font-bold">経験を探す</h1>
-        <p className="text-sm text-[var(--color-ink-muted)]">
-          できなくなったことや困ったことから、いろいろな人の「道」を探せます。
+      {/* SNS から直接来ても「人が困ったこと → 実際に試したこと → その経験を探せる」と分かる見出し・説明（指示書 §2・§20）。
+          ナビの「経験を探す」・<title> はそのまま */}
+      <div className="space-y-1.5">
+        <h1 className="text-xl font-bold sm:text-2xl">困りごとから、誰かの道を探す</h1>
+        <p className="text-sm text-[var(--color-ink-muted)] sm:text-base">
+          「これ、どうしたらいい？」と思ったことを検索してみてください。
+          同じことで困った人が実際に試したことと、その結果（うまくいかなかったことも）を読めます。
         </p>
       </div>
 
@@ -210,11 +229,10 @@ export default async function ExperiencesPage({
       {fuzzyFellBack && <FuzzyFallbackNotice />}
 
       {nothingFound && (
-        <EmptyState title="まだ見つかりませんでした">
+        <EmptyState title="まだ同じ経験は見つかりませんでした">
           <p>
-            ことばを変えて試してみてください。あなたの試行錯誤を
-            <Link href="/me/roads/new"> 記録する </Link>
-            と、次に同じことで困った人の道になります。
+            ことばを変えて探すこともできます。あなたが試した方法を残すと、次に同じことで困る人の道になるかもしれません。
+            （<Link href="/me/roads/new">ログインして自分の道として記録する</Link>こともできます）
           </p>
           <LinkButton
             href={q.q?.trim() ? `/try?problem=${encodeURIComponent(q.q.trim())}` : "/try"}

@@ -20,7 +20,11 @@ async function loginAs(page: Page, name: string) {
 async function createPublicExperience(page: Page, word: string) {
   const road = await (
     await page.request.post("/api/v1/roads", {
-      data: { previouslyAble: "以前はできていた", difficulty: `${word} で困っている`, goal: "できるように" },
+      data: {
+        previouslyAble: "以前はできていた",
+        difficulty: `${word} で困っている`,
+        goal: "できるように",
+      },
     })
   ).json();
   const attempt = await (
@@ -45,7 +49,7 @@ test("検索結果カードは詳細を開くまで未読、開くと既読に�
 
     // 検索結果に出ただけでは未読
     await page.goto(`/experiences?q=${encodeURIComponent(word)}&kind=road`);
-    const card = page.locator("article").filter({ hasText: `${word} を試した` });
+    const card = page.locator("article").filter({ hasText: word });
     await expect(card).toBeVisible();
     await expect(card.getByText("未読", { exact: true })).toBeVisible();
     await expect(card.getByText("既読", { exact: true })).toHaveCount(0);
@@ -55,13 +59,15 @@ test("検索結果カードは詳細を開くまで未読、開くと既読に�
     // 一覧を見ただけでは既読 API は呼ばれない → リロードしても未読のまま
     await page.reload();
     await expect(
-      page.locator("article").filter({ hasText: `${word} を試した` }).getByText("未読", { exact: true }),
+      page.locator("article").filter({ hasText: word }).getByText("未読", { exact: true }),
     ).toBeVisible();
 
     // カードから詳細へ。詳細表示で既読 API が呼ばれる
     await Promise.all([
       page.waitForResponse(
-        (r) => /\/api\/v1\/attempts\/[0-9a-f-]{36}\/read$/.test(r.url()) && r.request().method() === "POST",
+        (r) =>
+          /\/api\/v1\/attempts\/[0-9a-f-]{36}\/read$/.test(r.url()) &&
+          r.request().method() === "POST",
       ),
       card.getByRole("link", { name: /この道を見る/ }).click(),
     ]);
@@ -69,14 +75,14 @@ test("検索結果カードは詳細を開くまで未読、開くと既読に�
 
     // 検索に戻ると既読表示
     await page.goto(`/experiences?q=${encodeURIComponent(word)}&kind=road`);
-    const card2 = page.locator("article").filter({ hasText: `${word} を試した` });
+    const card2 = page.locator("article").filter({ hasText: word });
     await expect(card2.getByText("既読", { exact: true })).toBeVisible();
     await expect(card2.getByText("未読", { exact: true })).toHaveCount(0);
 
     // --- 自分の経験は「既読」ではなく「自分の投稿」バッジで見分けられる ---
     await loginAs(page, owner);
     await page.goto(`/experiences?q=${encodeURIComponent(word)}&kind=road`);
-    const ownCard = page.locator("article").filter({ hasText: `${word} を試した` });
+    const ownCard = page.locator("article").filter({ hasText: word });
     await expect(ownCard.getByText("自分の投稿", { exact: true })).toBeVisible();
     await expect(ownCard.getByText("既読", { exact: true })).toHaveCount(0);
     await expect(ownCard.getByText("未読", { exact: true })).toHaveCount(0);
@@ -87,7 +93,9 @@ test("検索結果カードは詳細を開くまで未読、開くと既読に�
   }
 });
 
-test("未ログインでは既読表示が付かず（すべて未読扱い）、既読 API も呼ばれない", async ({ page }) => {
+test("未ログインでは既読表示が付かず（すべて未読扱い）、既読 API も呼ばれない", async ({
+  page,
+}) => {
   const word = `ミログイン${Date.now()}`;
   const owner = `read-anon-owner-${Date.now()}`;
 
@@ -102,7 +110,7 @@ test("未ログインでは既読表示が付かず（すべて未読扱い）�
     });
 
     await page.goto(`/experiences?q=${encodeURIComponent(word)}&kind=road`);
-    const card = page.locator("article").filter({ hasText: `${word} を試した` });
+    const card = page.locator("article").filter({ hasText: word });
     await expect(card.getByText("未読", { exact: true })).toBeVisible();
 
     await card.getByRole("link", { name: /この道を見る/ }).click();
@@ -133,31 +141,27 @@ test("検索を「既読だけ / 未読だけ」で絞り込める（ログイ�
     await page.goto(`/experiences/${a.attemptId}`);
     await expect(page.getByRole("heading", { name: "この人がたどった道" })).toBeVisible();
     await page.waitForResponse(
-      (r) => /\/api\/v1\/attempts\/[0-9a-f-]{36}\/read$/.test(r.url()) && r.request().method() === "POST",
+      (r) =>
+        /\/api\/v1\/attempts\/[0-9a-f-]{36}\/read$/.test(r.url()) &&
+        r.request().method() === "POST",
     );
 
     // 既読/未読セレクトがある（ログイン中）
+    // （「詳細条件」に折りたたまれている。一覧ページ UI・情報設計改善指示書 §5）
     await page.goto("/experiences?kind=road");
+    await page.locator("summary", { hasText: "詳細条件" }).click();
     const readSelect = page.getByRole("combobox", { name: "既読 / 未読" });
     await expect(readSelect).toBeVisible();
 
     // 未読だけ: A（既読）は出ない、B（未読）は出る
     await page.goto(`/experiences?kind=road&read=unread`);
-    await expect(
-      page.locator("article").filter({ hasText: `${wordA} を試した` }),
-    ).toHaveCount(0);
-    await expect(
-      page.locator("article").filter({ hasText: `${wordB} を試した` }),
-    ).toBeVisible();
+    await expect(page.locator("article").filter({ hasText: wordA })).toHaveCount(0);
+    await expect(page.locator("article").filter({ hasText: wordB })).toBeVisible();
 
     // 既読だけ: 逆
     await page.goto(`/experiences?kind=road&read=read`);
-    await expect(
-      page.locator("article").filter({ hasText: `${wordA} を試した` }),
-    ).toBeVisible();
-    await expect(
-      page.locator("article").filter({ hasText: `${wordB} を試した` }),
-    ).toHaveCount(0);
+    await expect(page.locator("article").filter({ hasText: wordA })).toBeVisible();
+    await expect(page.locator("article").filter({ hasText: wordB })).toHaveCount(0);
 
     // 未ログインではセレクト自体が無い
     await page.context().clearCookies();

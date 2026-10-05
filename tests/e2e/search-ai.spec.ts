@@ -46,5 +46,7 @@ test("?ai=1 は公開ページでも AI 専用のレート制限（15/分）を�
   expect(sawFallbackWithoutPanel).toBe(true);
 
   // フォールバック中でも通常の検索結果（道カード）は出る（検索そのものは止まらない）
-  await expect(page.getByRole("heading", { name: "「階段」への、いろいろな道" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "「階段」で見つかった、誰かが試した道" }),
+  ).toBeVisible();
 });

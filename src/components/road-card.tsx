@@ -5,22 +5,33 @@ import { OwnPostBadge } from "@/components/read-badge";
 import { ReadAwareCard } from "@/components/read-aware-card";
 import { IconArrowRight, IconFootprints } from "@/components/icons";
 import type { RoadCardDTO } from "@/lib/queries";
+import { ATTEMPT_RESULTS } from "@/lib/constants";
+import { methodCount } from "@/lib/share";
 
-const MAX_METHODS = 3;
+const MAX_TAGS = 3;
 
 /**
  * 「経験を探す」画面のカード = 一人の道（= 1 Road）。
- * 方法別ではなく困りごと別。困ったこと＋その人が試した複数の方法・結果を見せ、
- * 「この道を見る →」で枝分かれの詳細へつなぐ。
+ * 一覧＝道を探す / 詳細＝道を読む（「経験を探す」一覧ページ UI・情報設計改善指示書）。
+ * カードの役割は「この経験、自分に関係ありそう」と判断してもらうこと。方法そのものは並べない。
+ *   困っていたこと（主役）→ タグ（主要 3 件まで）→ 試した方法の数 → 結果の内訳 → この道を見る
+ * 結果の内訳は公開 Attempt の result を機械的に数えるだけ（5 分類の順・件数つき）。「ほぼ解決」等の意味付けはしない。
  * 成功だけでなく、失敗・変化なし・継続中も同じように道として並べる。
- *
- * デザインはトップ画面の実例カードと統一（指示書「経験を探す UI 統一 v1」）:
- * 白カード＋方法の縦線（●│●│●）。困りごと → 方法 → 結果 → タグ → この道を見る の順。
  */
 export function RoadCard({ road, loggedIn = false }: { road: RoadCardDTO; loggedIn?: boolean }) {
-  const difficulty = road.difficulty ?? road.goal ?? "困っていたこと";
-  const shown = road.attempts.slice(0, MAX_METHODS);
-  const rest = road.attemptCount - shown.length;
+  // 主タイトルは困っていたこと（difficulty）。無い古いデータは goal を「できるようにしたいこと」として出す。
+  const title = road.difficulty ?? road.goal;
+  const titleLabel = road.difficulty
+    ? "困っていたこと"
+    : road.goal
+      ? "できるようにしたいこと"
+      : null;
+  const resultCounts = ATTEMPT_RESULTS.map((r) => ({
+    result: r,
+    count: road.attempts.filter((a) => a.result === r).length,
+  })).filter((x) => x.count > 0);
+  const tags = road.tags.slice(0, MAX_TAGS);
+  const moreTags = road.tags.length - tags.length;
 
   const attemptIds = road.attempts.map((a) => a.id);
 
@@ -46,52 +57,21 @@ export function RoadCard({ road, loggedIn = false }: { road: RoadCardDTO; logged
         )}
       </div>
       <Link href={`/experiences/${road.entryId}`} className="flex flex-1 flex-col no-underline">
-        <p className="flex items-center gap-1.5 pr-16 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
-          だれかの道
-        </p>
-
-        <p className="mt-1.5 flex items-start gap-1.5 font-semibold text-[var(--color-ink)]">
-          <IconFootprints
-            aria-hidden="true"
-            className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-primary)]"
-          />
-          <span className="underline underline-offset-2">{difficulty}</span>
-        </p>
-
-        <p className="mt-3 text-xs font-bold uppercase tracking-wide text-[var(--color-ink-muted)]">
-          試したこと（{road.attemptCount}）
-        </p>
-        <ol className="relative mt-2 space-y-2.5 pl-4">
-          <span aria-hidden="true" className="road-guide absolute bottom-2 left-1 top-2" />
-          {shown.map((a) => (
-            <li key={a.id} className="relative">
-              <span
-                aria-hidden="true"
-                className="road-dot absolute -left-4 top-1.5 ring-2 ring-[var(--color-surface)]"
-              />
-              <div className="flex items-start gap-2">
-                <span className="line-clamp-1 min-w-0 flex-1 text-sm text-[var(--color-ink)]">
-                  {a.method}
-                </span>
-                {typeof a.achievementPercent === "number" && (
-                  <span className="shrink-0 text-[11px] font-bold text-[var(--color-ink-muted)]">
-                    {a.achievementPercent}%
-                  </span>
-                )}
-              </div>
-              <div className="mt-0.5">
-                <ResultBadge result={a.result} size="sm" />
-              </div>
-            </li>
-          ))}
-        </ol>
-        {rest > 0 && (
-          <p className="mt-2 pl-4 text-xs text-[var(--color-ink-muted)]">ほかに {rest} 件の方法</p>
+        {titleLabel && (
+          <p className="pr-16 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+            {titleLabel}
+          </p>
+        )}
+        {title && (
+          // 長い困りごとはカードでは 3 行まで（CSS の省略のみ。文章は改変せず、読み上げ・全文は詳細ページで読める）
+          <p className="mt-1 line-clamp-3 text-base font-bold leading-snug text-[var(--color-ink)]">
+            {title}
+          </p>
         )}
 
-        {road.tags.length > 0 && (
-          <ul className="mt-3 flex flex-wrap gap-1.5">
-            {road.tags.map((t) => (
+        {tags.length > 0 && (
+          <ul className="mt-2.5 flex flex-wrap gap-1.5" aria-label="タグ">
+            {tags.map((t) => (
               <li
                 key={t}
                 className="rounded-[var(--radius-pill)] bg-[#e4f2ed] px-2.5 py-0.5 text-xs text-[#26756a]"
@@ -99,8 +79,37 @@ export function RoadCard({ road, loggedIn = false }: { road: RoadCardDTO; logged
                 #{t}
               </li>
             ))}
+            {moreTags > 0 && (
+              <li className="px-1 py-0.5 text-xs text-[var(--color-ink-muted)]">
+                ほか{moreTags}件
+              </li>
+            )}
           </ul>
         )}
+
+        <div className="mt-4 border-t border-[var(--color-border)] pt-3">
+          <p className="flex items-center gap-1.5 text-sm font-bold text-[var(--color-ink)]">
+            <IconFootprints
+              aria-hidden="true"
+              className="h-4 w-4 shrink-0 text-[var(--color-primary)]"
+            />
+            {methodCount(road.attemptCount)}の方法を試した
+          </p>
+          {resultCounts.length > 0 && (
+            <ul className="mt-2 flex flex-wrap gap-x-2 gap-y-1.5" aria-label="結果の内訳">
+              {resultCounts.map(({ result, count }) => (
+                <li key={result} className="inline-flex items-center gap-1">
+                  <ResultBadge result={result} size="sm" />
+                  {count > 1 && (
+                    <span className="text-xs font-bold text-[var(--color-ink-muted)]">
+                      {count}件
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         <span className="mt-auto inline-flex items-center gap-1 pt-4 text-sm font-semibold text-[var(--color-primary-hover)]">
           この道を見る

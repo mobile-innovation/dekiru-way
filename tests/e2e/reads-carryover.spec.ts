@@ -18,7 +18,11 @@ async function loginAs(page: Page, name: string) {
 async function createPublicExperience(page: Page, word: string) {
   const road = await (
     await page.request.post("/api/v1/roads", {
-      data: { previouslyAble: "以前はできていた", difficulty: `${word} で困っている`, goal: "できるように" },
+      data: {
+        previouslyAble: "以前はできていた",
+        difficulty: `${word} で困っている`,
+        goal: "できるように",
+      },
     })
   ).json();
   const attempt = await (
@@ -37,7 +41,9 @@ function getLocalReads(page: Page): Promise<string[]> {
   }, STORAGE_KEY);
 }
 
-test("未ログインでも詳細を開くと既読になる（localStorage）。既読 API は呼ばれない", async ({ page }) => {
+test("未ログインでも詳細を開くと既読になる（localStorage）。既読 API は呼ばれない", async ({
+  page,
+}) => {
   const word = `ミログインキドク${Date.now()}`;
   const owner = `carry-owner-${Date.now()}`;
 
@@ -52,7 +58,7 @@ test("未ログインでも詳細を開くと既読になる（localStorage）�
     });
 
     await page.goto(`/experiences?q=${encodeURIComponent(word)}&kind=road`);
-    const card = page.locator("article").filter({ hasText: `${word} を試した` });
+    const card = page.locator("article").filter({ hasText: word });
     await expect(card.getByText("未読", { exact: true })).toBeVisible();
     await expect(card).toHaveClass(/bg-\[var\(--color-primary-tint\)\]/); // 未読の背景色
 
@@ -66,7 +72,7 @@ test("未ログインでも詳細を開くと既読になる（localStorage）�
 
     // 検索へ戻ると、localStorage を見てバッジだけでなく背景色も既読表示になる
     await page.goto(`/experiences?q=${encodeURIComponent(word)}&kind=road`);
-    const card2 = page.locator("article").filter({ hasText: `${word} を試した` });
+    const card2 = page.locator("article").filter({ hasText: word });
     await expect(card2.getByText("既読", { exact: true })).toBeVisible();
     await expect(card2).toHaveClass(/bg-\[var\(--color-surface\)\]/); // 既読の背景色（白）
     await expect(card2).not.toHaveClass(/bg-\[var\(--color-primary-tint\)\]/);
@@ -91,7 +97,9 @@ test("ログアウトすると、それまでの既読がブラウザ側へ引�
     // ログイン中に詳細を開いて既読（サーバー側）にする
     await Promise.all([
       page.waitForResponse(
-        (r) => /\/api\/v1\/attempts\/[0-9a-f-]{36}\/read$/.test(r.url()) && r.request().method() === "POST",
+        (r) =>
+          /\/api\/v1\/attempts\/[0-9a-f-]{36}\/read$/.test(r.url()) &&
+          r.request().method() === "POST",
       ),
       page.goto(`/experiences/${attemptId}`),
     ]);
@@ -109,7 +117,7 @@ test("ログアウトすると、それまでの既読がブラウザ側へ引�
 
     // 未ログインの検索でも既読表示になる（バッジ・背景色とも）
     await page.goto(`/experiences?q=${encodeURIComponent(word)}&kind=road`);
-    const card = page.locator("article").filter({ hasText: `${word} を試した` });
+    const card = page.locator("article").filter({ hasText: word });
     await expect(card.getByText("既読", { exact: true })).toBeVisible();
     await expect(card).toHaveClass(/bg-\[var\(--color-surface\)\]/);
   } finally {
@@ -119,7 +127,9 @@ test("ログアウトすると、それまでの既読がブラウザ側へ引�
   }
 });
 
-test("ログイン中、詳細の「← 経験を探すへ戻る」で戻ると、カードが既読表示になる", async ({ page }) => {
+test("ログイン中、詳細の「← 経験を探すへ戻る」で戻ると、カードが既読表示になる", async ({
+  page,
+}) => {
   // React が同じ道のカードを使い回す（コンポーネントを作り直さない）ケースでも
   // 既読バッジ・背景が固まって「未読のまま」にならないことを確かめる。
   const word = `モドルリンク${Date.now()}`;
@@ -133,13 +143,15 @@ test("ログイン中、詳細の「← 経験を探すへ戻る」で戻ると�
     await loginAs(page, reader);
 
     await page.goto(`/experiences?q=${encodeURIComponent(word)}&kind=road`);
-    const card = page.locator("article").filter({ hasText: `${word} を試した` });
+    const card = page.locator("article").filter({ hasText: word });
     await expect(card.getByText("未読", { exact: true })).toBeVisible();
     await expect(card).toHaveClass(/bg-\[var\(--color-primary-tint\)\]/);
 
     await Promise.all([
       page.waitForResponse(
-        (r) => /\/api\/v1\/attempts\/[0-9a-f-]{36}\/read$/.test(r.url()) && r.request().method() === "POST",
+        (r) =>
+          /\/api\/v1\/attempts\/[0-9a-f-]{36}\/read$/.test(r.url()) &&
+          r.request().method() === "POST",
       ),
       card.getByRole("link", { name: /この道を見る/ }).click(),
     ]);
@@ -150,7 +162,7 @@ test("ログイン中、詳細の「← 経験を探すへ戻る」で戻ると�
     // URL はエンコードされた文字列で比較する（toHaveURL は生のURL文字列と照合するため）
     await expect(page).toHaveURL(new RegExp(`q=${encodeURIComponent(word)}`));
 
-    const card2 = page.locator("article").filter({ hasText: `${word} を試した` });
+    const card2 = page.locator("article").filter({ hasText: word });
     await expect(card2.getByText("既読", { exact: true })).toBeVisible();
     await expect(card2).toHaveClass(/bg-\[var\(--color-surface\)\]/);
     await expect(card2).not.toHaveClass(/bg-\[var\(--color-primary-tint\)\]/);
@@ -182,9 +194,7 @@ test("未ログイン中に付けた既読は、再ログイン時にアカウ�
     await expect(page.getByRole("button", { name: "アカウントのメニュー" })).toBeVisible();
 
     // 統合が終わると localStorage は空になる
-    await expect
-      .poll(async () => getLocalReads(page), { timeout: 5000 })
-      .toEqual([]);
+    await expect.poll(async () => getLocalReads(page), { timeout: 5000 }).toEqual([]);
 
     // アカウント側の既読として一覧に出る（サーバーの GET で確認）
     const res = await page.request.get("/api/v1/me/reads");
@@ -194,7 +204,7 @@ test("未ログイン中に付けた既読は、再ログイン時にアカウ�
 
     // ログイン中の検索でも既読表示になる
     await page.goto(`/experiences?q=${encodeURIComponent(word)}&kind=road`);
-    const card = page.locator("article").filter({ hasText: `${word} を試した` });
+    const card = page.locator("article").filter({ hasText: word });
     await expect(card.getByText("既読", { exact: true })).toBeVisible();
   } finally {
     await loginAs(page, owner);

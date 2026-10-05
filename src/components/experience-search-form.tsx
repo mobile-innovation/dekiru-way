@@ -23,7 +23,8 @@ import { clearStoredSearch } from "@/components/restore-search";
  * 送信で URL を組み立てて遷移（page / mp は付けない＝1 ページ目に戻す）。
  *
  * デザインはトップ画面の検索カードと統一（指示書「経験を探す UI 統一 v1」）:
- *   あなたの困りごと → 浮いた入力欄 → 音声入力 → ── 絞り込み ── → 4 セレクト → 実行/クリア。
+ *   何に困っていますか？ → 浮いた入力欄 → 音声入力 → AIで探す → ── 絞り込み ── → 分野・並び順
+ *   （表示する種類・結果・既読は「詳細条件」に折りたたみ）→ 実行/クリア。
  */
 
 const SORT_LABEL: Record<string, string> = {
@@ -111,14 +112,15 @@ export function ExperienceSearchForm({
     >
       {/* ① 困りごとを入力（浮いた入力欄。トップ画面と同じ見た目） */}
       <div>
+        {/* 検索欄がこのページの主役（一覧ページ UI・情報設計改善指示書 §3）。自然な言葉で探せることを例で示す */}
         <label
           htmlFor={inputId}
-          className="block text-sm font-bold text-[var(--color-ink)]"
+          className="block text-base font-bold text-[var(--color-ink)] sm:text-lg"
         >
-          あなたの困りごと
+          何に困っていますか？
         </label>
         <p id={hintId} className="mt-1 text-sm text-[var(--color-ink-muted)]">
-          できごとや場面を、いつもの言葉で書いてください。病名は必要ありません。
+          例：字が読みづらい、料理がしにくい、外出しづらい。いつもの言葉で大丈夫です。病名は必要ありません。
         </p>
         <div className="relative mt-2">
           <IconSearch
@@ -133,8 +135,8 @@ export function ExperienceSearchForm({
             value={qText}
             onChange={(e) => setQText(e.target.value)}
             aria-describedby={hintId}
-            placeholder="例：ボタンがとめにくい"
-            className="w-full rounded-[12px] border border-[color-mix(in_srgb,var(--color-primary)_30%,white)] bg-[var(--color-surface)] py-3 pl-11 pr-11 text-base shadow-[0_2px_8px_rgba(46,42,38,0.05)] transition-[border-color,box-shadow] focus-visible:rounded-[12px] focus-visible:border-[var(--color-primary)] focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_28%,white),0_2px_8px_rgba(46,42,38,0.05)] [&::-webkit-search-cancel-button]:appearance-none"
+            placeholder="例：字が読みづらい"
+            className="w-full rounded-[12px] border border-[color-mix(in_srgb,var(--color-primary)_30%,white)] bg-[var(--color-surface)] py-3.5 pl-11 pr-11 text-base sm:text-lg shadow-[0_2px_8px_rgba(46,42,38,0.05)] transition-[border-color,box-shadow] focus-visible:rounded-[12px] focus-visible:border-[var(--color-primary)] focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-primary)_28%,white),0_2px_8px_rgba(46,42,38,0.05)] [&::-webkit-search-cancel-button]:appearance-none"
           />
           {qText && (
             <ClearFieldButton
@@ -167,7 +169,9 @@ export function ExperienceSearchForm({
         </label>
       </div>
 
-      {/* ② 必要なら絞り込む（検索入力と視覚的に分ける） */}
+      {/* ② 必要なら絞り込む（検索入力と視覚的に分ける）。
+          常に見せるのは 分野（タグ）・並び順 だけ。表示する種類・結果・既読は「詳細条件」に折りたたむ
+          （一覧ページ UI・情報設計改善指示書 §5）。いずれかが指定されているときは最初から開いておく。 */}
       <div className="border-t border-[var(--color-border)] pt-4">
         <p className="flex items-center gap-1.5 text-sm font-bold text-[var(--color-ink)]">
           <IconSlidersHorizontal
@@ -177,42 +181,9 @@ export function ExperienceSearchForm({
           絞り込み
         </p>
 
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="block text-sm font-bold">
-            表示する種類
-            <select
-              name="kind"
-              value={kind}
-              onChange={(e) => setKind(e.target.value)}
-              className={SELECT_CLASS}
-            >
-              {EXPERIENCE_KINDS.map((k) => (
-                <option key={k} value={k}>
-                  {EXPERIENCE_KIND_LABEL[k]}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block text-sm font-bold">
-            結果で絞る
-            <select
-              name="result"
-              value={result}
-              onChange={(e) => setResult(e.target.value)}
-              className={SELECT_CLASS}
-            >
-              <option value="">すべて</option>
-              {ATTEMPT_RESULTS.map((r) => (
-                <option key={r} value={r}>
-                  {RESULT_META[r].label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block text-sm font-bold">
-            タグで絞る
+            分野（タグ）
             <select
               name="tag"
               value={tag}
@@ -243,26 +214,79 @@ export function ExperienceSearchForm({
               ))}
             </select>
           </label>
+        </div>
 
-          {/* 既読 / 未読はログイン中だけ（自分が読んだかの情報なので） */}
-          {loggedIn && (
+        <details
+          className="group mt-3"
+          open={
+            defaultKind !== EXPERIENCE_KIND_DEFAULT ||
+            !!defaultResult ||
+            (loggedIn && !!defaultRead)
+          }
+        >
+          <summary className="inline-flex min-h-[var(--tap-min)] cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-[var(--color-primary-hover)] [&::-webkit-details-marker]:hidden">
+            <span aria-hidden="true" className="inline-block w-3 text-center group-open:hidden">
+              ＋
+            </span>
+            <span aria-hidden="true" className="hidden w-3 text-center group-open:inline-block">
+              −
+            </span>
+            詳細条件
+          </summary>
+          <div className="mt-1 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <label className="block text-sm font-bold">
-              既読 / 未読
+              表示する種類
               <select
-                name="read"
-                value={read}
-                onChange={(e) => setRead(e.target.value)}
+                name="kind"
+                value={kind}
+                onChange={(e) => setKind(e.target.value)}
                 className={SELECT_CLASS}
               >
-                {EXPERIENCE_READ_OPTIONS.map((r) => (
-                  <option key={r || "all"} value={r}>
-                    {EXPERIENCE_READ_LABEL[r]}
+                {EXPERIENCE_KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {EXPERIENCE_KIND_LABEL[k]}
                   </option>
                 ))}
               </select>
             </label>
-          )}
-        </div>
+
+            <label className="block text-sm font-bold">
+              結果で絞る
+              <select
+                name="result"
+                value={result}
+                onChange={(e) => setResult(e.target.value)}
+                className={SELECT_CLASS}
+              >
+                <option value="">すべて</option>
+                {ATTEMPT_RESULTS.map((r) => (
+                  <option key={r} value={r}>
+                    {RESULT_META[r].label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {/* 既読 / 未読はログイン中だけ（自分が読んだかの情報なので） */}
+            {loggedIn && (
+              <label className="block text-sm font-bold">
+                既読 / 未読
+                <select
+                  name="read"
+                  value={read}
+                  onChange={(e) => setRead(e.target.value)}
+                  className={SELECT_CLASS}
+                >
+                  {EXPERIENCE_READ_OPTIONS.map((r) => (
+                    <option key={r || "all"} value={r}>
+                      {EXPERIENCE_READ_LABEL[r]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+        </details>
       </div>
 
       {/* ③ 探す（主操作）／クリア（副操作） */}

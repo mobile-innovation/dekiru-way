@@ -30,7 +30,7 @@ test("X-Robots-Tag: noai がレスポンスに付く", async ({ request }) => {
 
 test("通常利用: 未ログインの検索・詳細は妨げられない", async ({ page }) => {
   await page.goto("/experiences?q=つめ");
-  await expect(page.getByRole("heading", { name: /いろいろな道/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /誰かが試した道/ })).toBeVisible();
   await page.locator("article a").first().click();
   await expect(page.getByRole("heading", { name: "この人がたどった道" })).toBeVisible();
 });

@@ -11,7 +11,7 @@ const adLoc = (page: Page) => page.locator('[aria-label="広告"]');
 
 test("検索一覧: 最初の2件のあとに広告が1枠だけ出る（経験カードとは別物）", async ({ page }) => {
   await page.goto("/experiences");
-  await expect(page.getByRole("heading", { name: /いろいろな道/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /誰かが試した道/ })).toBeVisible();
 
   // 道カードが 3 件以上ある前提（シードに十分ある）
   const cards = page.locator('section[aria-labelledby="results-heading"] article');

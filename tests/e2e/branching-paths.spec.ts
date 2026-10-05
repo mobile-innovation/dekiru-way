@@ -143,20 +143,24 @@ test("道の見える化ページ（一覧）は枝分かれ＋各方法から�
 
 test("「経験を探す」のカードは方法別ではなく道（困りごと）別", async ({ page }) => {
   await page.goto("/experiences");
-  await expect(page.getByRole("heading", { name: /いろいろな道/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /誰かが試した道/ })).toBeVisible();
 
-  // カード = 一人の道。その中に複数の「試したこと」がまとまっている。
+  // カード = 一人の道（一覧ページ UI・情報設計改善指示書）。主役は困っていたこと。
+  // 方法そのものは並べず、試した方法の数と結果の内訳だけを出す。
   // 直前の他テストが作った 1 メソッドの道が先頭に来ても影響されないよう、
-  // 「試したこと（2 以上）」を持つ道カード（シードの道）を対象にする。
+  // 2 つ以上の方法を試した道カード（シードの道）を対象にする。
   const card = page
     .locator("article")
-    .filter({ hasText: /試したこと（(?!1）)\d+）/ })
+    .filter({ hasText: /(?:[2-9]つ|\d{2,}件)の方法を試した/ })
     .first();
-  await expect(card.getByText("だれかの道")).toBeVisible();
-  const methodsLabel = card.getByText(/試したこと（\d+）/);
+  await expect(card.getByText("困っていたこと", { exact: true })).toBeVisible();
+  const methodsLabel = card.getByText(/の方法を試した/);
   await expect(methodsLabel).toBeVisible();
-  const count = Number((await methodsLabel.textContent())!.match(/（(\d+)）/)![1]);
+  const count = Number((await methodsLabel.textContent())!.match(/(\d+)(?:つ|件)の方法/)![1]);
   expect(count).toBeGreaterThanOrEqual(2);
+  await expect(card.getByRole("list", { name: "結果の内訳" })).toBeVisible();
+  // 一覧では方法の本文や「試したこと（N）」の列挙をしない
+  await expect(card.getByText(/試したこと（\d+）/)).toHaveCount(0);
 
   // カードから、その道の枝分かれ詳細へ進める
   await card.getByRole("link", { name: /この道を見る/ }).click();
@@ -168,10 +172,10 @@ test("経験を探す: 語が困りごと・目標に当たると「道カード
   await page.goto("/experiences?q=" + encodeURIComponent("階段"));
   const roadCard = page
     .locator("article")
-    .filter({ hasText: /試したこと（\d+）/ })
+    .filter({ hasText: /の方法を試した/ })
     .first();
   await expect(roadCard).toBeVisible();
-  await expect(roadCard.getByText("だれかの道")).toBeVisible();
+  await expect(roadCard.getByText("困っていたこと", { exact: true })).toBeVisible();
   await expect(roadCard.getByText(/駅の階段/)).toBeVisible();
 });
 
@@ -184,8 +188,8 @@ test("経験を探す: 語が方法の中だけにあると「方法カード」
 
   const methodCard = page.locator("article").filter({ hasText: "方法の記録" }).first();
   await expect(methodCard.getByText(/ボタンエイド/)).toBeVisible();
-  // 困りごと・目標には当たらないので道カード（試したこと（N））は出ない
-  await expect(page.locator("article").filter({ hasText: /試したこと（\d+）/ })).toHaveCount(0);
+  // 困りごと・目標には当たらないので道カード（N つの方法を試した）は出ない
+  await expect(page.locator("article").filter({ hasText: /の方法を試した/ })).toHaveCount(0);
 
   await methodCard.getByRole("link", { name: /この方法の道を見る/ }).click();
   await expect(page).toHaveURL(/\/experiences\/[0-9a-f-]{36}$/);
@@ -207,25 +211,31 @@ test("経験を探す: 方法カードのタップ先は、その方法が実際
       },
     })
   ).json();
-  for (let i = 1; i <= 12; i++) {
-    await page.request.post(`/api/v1/roads/${road.id}/attempts`, {
-      data: {
-        method: i === 12 ? `${word} を試した` : `ふつうの方法 ${i}`,
-        result: "ongoing",
-        isPublished: true,
-        triedAt: `2025-01-${String(i).padStart(2, "0")}`,
-      },
-    });
+  try {
+    for (let i = 1; i <= 12; i++) {
+      await page.request.post(`/api/v1/roads/${road.id}/attempts`, {
+        data: {
+          method: i === 12 ? `${word} を試した` : `ふつうの方法 ${i}`,
+          result: "ongoing",
+          isPublished: true,
+          triedAt: `2025-01-${String(i).padStart(2, "0")}`,
+        },
+      });
+    }
+
+    await page.goto("/experiences?q=" + encodeURIComponent(word) + "&kind=method");
+    const methodCard = page.locator("article").filter({ hasText: "方法の記録" }).first();
+    await expect(methodCard.getByText(new RegExp(word))).toBeVisible();
+    await methodCard.getByRole("link", { name: /この方法の道を見る/ }).click();
+
+    // 12 件目は 2 ページ目。タップ先が ?p=2 で、その方法が見えている
+    await expect(page).toHaveURL(/\/experiences\/[0-9a-f-]{36}\?p=2$/);
+    await expect(page.getByText(new RegExp(`${word} を試した`))).toBeVisible();
+  } finally {
+    // 公開 Attempt を 12 件作るため、後始末しないと「経験を探す」の一覧に毎回 1 本ずつ残り続ける
+    // （2026-10-06、一覧ページ改善の確認中に 22 本たまっていたのを発見）。
+    await page.request.delete(`/api/v1/roads/${road.id}`);
   }
-
-  await page.goto("/experiences?q=" + encodeURIComponent(word) + "&kind=method");
-  const methodCard = page.locator("article").filter({ hasText: "方法の記録" }).first();
-  await expect(methodCard.getByText(new RegExp(word))).toBeVisible();
-  await methodCard.getByRole("link", { name: /この方法の道を見る/ }).click();
-
-  // 12 件目は 2 ページ目。タップ先が ?p=2 で、その方法が見えている
-  await expect(page).toHaveURL(/\/experiences\/[0-9a-f-]{36}\?p=2$/);
-  await expect(page.getByText(new RegExp(`${word} を試した`))).toBeVisible();
 });
 
 test("経験を探す: 「この条件で探す」で検索ワードが消えない", async ({ page }) => {
@@ -237,13 +247,17 @@ test("経験を探す: 「この条件で探す」で検索ワードが消えな
   await expect(page).toHaveURL(/[?&]q=%E9%9A%8E%E6%AE%B5(&|$)/);
   await expect(page).toHaveURL(/[?&]sort=helpful(&|$)/);
   await expect(page.getByRole("searchbox")).toHaveValue("階段");
-  await expect(page.getByRole("heading", { name: /「階段」への、いろいろな道/ })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /「階段」で見つかった、誰かが試した道/ }),
+  ).toBeVisible();
 });
 
 test("経験を探す: 検索ワードが無くても「表示する種類」を変えられる（方法だけ一覧）", async ({
   page,
 }) => {
   await page.goto("/experiences");
+  // 「表示する種類」は「詳細条件」に折りたたまれている（一覧ページ UI・情報設計改善指示書 §5）
+  await page.locator("summary", { hasText: "詳細条件" }).click();
   const kind = page.getByRole("combobox", { name: "表示する種類" });
   await expect(kind).toBeEnabled();
   await expect(kind).toHaveValue("road"); // 既定は「道だけ」
@@ -256,12 +270,12 @@ test("経験を探す: 検索ワードが無くても「表示する種類」を
   await expect(page.getByRole("heading", { name: "試したことの記録" })).toBeVisible();
   await expect(page.locator("article").filter({ hasText: "方法の記録" }).first()).toBeVisible();
   // 道カード側は出さない
-  await expect(page.locator("article").filter({ hasText: /試したこと（\d+）/ })).toHaveCount(0);
+  await expect(page.locator("article").filter({ hasText: /の方法を試した/ })).toHaveCount(0);
 });
 
 test("経験を探す: 表示する種類（道 / 方法 / 両方）を指定できる", async ({ page }) => {
   // 「階段」は道（goal）にも 方法（memo）にも当たる
-  const roadCard = () => page.locator("article").filter({ hasText: /試したこと（\d+）/ });
+  const roadCard = () => page.locator("article").filter({ hasText: /の方法を試した/ });
   const methodCard = () => page.locator("article").filter({ hasText: "方法の記録" });
 
   // 「道だけ」
@@ -279,7 +293,7 @@ test("経験を探す: 表示する種類（道 / 方法 / 両方）を指定で
   await page.goto("/experiences?q=" + encodeURIComponent("階段") + "&kind=method");
   await expect(methodCard().first()).toBeVisible();
   await expect(roadCard()).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: /いろいろな道/ })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: /誰かが試した道/ })).toHaveCount(0);
 });
 
 test("経験を探す: 方法カードも道カードとは別に ?mp= でページ送りできる", async ({ page }) => {

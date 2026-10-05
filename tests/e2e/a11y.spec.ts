@@ -20,7 +20,7 @@ test("トップ", async ({ page }) => {
 
 test("経験を探す", async ({ page }) => {
   await page.goto("/experiences?q=つめ");
-  await expect(page.getByRole("heading", { name: /いろいろな道/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /誰かが試した道/ })).toBeVisible();
   expect(await scan(page)).toEqual([]);
 });
 
