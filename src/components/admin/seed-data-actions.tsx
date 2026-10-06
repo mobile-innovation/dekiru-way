@@ -74,7 +74,7 @@ export function SeedRowActions({
       <button type="button" disabled={pending} onClick={remove} className={BTN_DANGER}>
         削除
       </button>
-      {msg && <span className="w-full text-[11px] text-[var(--color-ink-muted)]">{msg}</span>}
+      {msg && <span className="w-full text-[0.6875rem] text-[var(--color-ink-muted)]">{msg}</span>}
     </div>
   );
 }

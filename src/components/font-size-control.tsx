@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { FONT_SCALES as ORDER, FONT_SCALE_STORAGE_KEY as STORAGE_KEY, type FontScale as Scale } from "@/lib/font-scale";
 
-type Scale = "normal" | "large" | "xlarge";
-const ORDER: Scale[] = ["normal", "large", "xlarge"];
 const LABEL: Record<Scale, string> = { normal: "標準", large: "大", xlarge: "特大" };
-const STORAGE_KEY = "dekiru:font-scale";
 
 function apply(scale: Scale) {
   const el = document.documentElement;
@@ -16,6 +14,8 @@ function apply(scale: Scale) {
 export function FontSizeControl() {
   const [scale, setScale] = useState<Scale>("normal");
 
+  // 保存値は通常 layout の head スクリプト（FONT_SCALE_INIT_SCRIPT）が描画前に html へ適用済み。
+  // ここではボタンの選択表示を合わせ、head スクリプトが出ない画面（404 等）のために再適用もする。
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY) as Scale | null;

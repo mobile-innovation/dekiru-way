@@ -41,7 +41,7 @@ export function AdSlot({
       data-ad-subcategory={context?.subCategory}
       className={`rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] bg-[var(--color-surface-sunken)] px-4 py-3 text-center ${className}`}
     >
-      <p className="text-[11px] font-bold uppercase tracking-wide text-[var(--color-ink-muted)]">
+      <p className="text-[0.6875rem] font-bold uppercase tracking-wide text-[var(--color-ink-muted)]">
         広告
       </p>
       {useAdsense ? (

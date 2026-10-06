@@ -8,7 +8,7 @@ import { IconCheckCircle, IconCircleDashed, IconUser } from "@/components/icons"
 export function ReadBadge({ read }: { read: boolean }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-[var(--radius-pill)] px-2 py-0.5 text-[11px] font-bold ${
+      className={`inline-flex items-center gap-1 rounded-[var(--radius-pill)] px-2 py-0.5 text-[0.6875rem] font-bold ${
         read
           ? "bg-[var(--color-surface-sunken)] text-[var(--color-ink-muted)]"
           : "bg-[var(--color-primary)] text-[var(--color-primary-ink)]"
@@ -32,7 +32,7 @@ export function ReadBadge({ read }: { read: boolean }) {
  */
 export function OwnPostBadge() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-[var(--radius-pill)] bg-[var(--color-accent-soft)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-accent-strong)]">
+    <span className="inline-flex items-center gap-1 rounded-[var(--radius-pill)] bg-[var(--color-accent-soft)] px-2 py-0.5 text-[0.6875rem] font-bold text-[var(--color-accent-strong)]">
       <IconUser aria-hidden="true" className="h-3.5 w-3.5" />
       自分の投稿
     </span>

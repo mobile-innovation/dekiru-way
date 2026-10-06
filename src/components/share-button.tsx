@@ -117,7 +117,7 @@ export function ShareButton({ text, url, title }: { text: string; url: string; t
           </div>
 
           <div>
-            <span className="text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+            <span className="text-[0.6875rem] font-bold tracking-wide text-[var(--color-ink-muted)]">
               投稿内容
             </span>
             <pre

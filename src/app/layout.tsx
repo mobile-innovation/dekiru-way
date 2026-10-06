@@ -6,6 +6,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteChrome } from "@/components/site-chrome";
 import { env } from "@/lib/env";
 import { OGP_IMAGE } from "@/lib/ogp";
+import { FONT_SCALE_INIT_SCRIPT } from "@/lib/font-scale";
 
 export const metadata: Metadata = {
   // 各ページの metadata が持つ相対URL (og:image / canonical など) を絶対URLへ解決する基点。
@@ -43,7 +44,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ja">
+    // data-font-scale は下の head スクリプトがサーバー HTML に無い属性を付けるため、html だけ差分警告を抑止する
+    <html lang="ja" suppressHydrationWarning>
+      <head>
+        {/* 文字サイズ（標準・大・特大）の保存値を描画前に適用する。src/lib/font-scale.ts */}
+        <script dangerouslySetInnerHTML={{ __html: FONT_SCALE_INIT_SCRIPT }} />
+      </head>
       <body>
         <a href="#main" className="skip-link">
           本文へスキップ

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { FontSizeControl } from "@/components/font-size-control";
+import { HeaderNavLink } from "@/components/header-nav-link";
 import { UserMenu } from "@/components/user-menu";
 import { SyncLocalReadsOnLogin } from "@/components/sync-local-reads";
 
@@ -31,26 +32,9 @@ export async function SiteHeader() {
           aria-label="メインナビゲーション"
           className="flex items-center gap-0.5 text-sm font-medium"
         >
-          <Link
-            href="/experiences"
-            className="rounded-[var(--radius-pill)] px-3 py-2 no-underline hover:bg-[var(--color-surface-sunken)]"
-          >
-            経験を探す
-          </Link>
-          <Link
-            href="/try"
-            className="rounded-[var(--radius-pill)] px-3 py-2 no-underline hover:bg-[var(--color-surface-sunken)]"
-          >
-            経験を教える
-          </Link>
-          {signedIn && (
-            <Link
-              href="/me"
-              className="rounded-[var(--radius-pill)] px-3 py-2 font-semibold no-underline hover:bg-[var(--color-surface-sunken)]"
-            >
-              自分の道
-            </Link>
-          )}
+          <HeaderNavLink href="/experiences">経験を探す</HeaderNavLink>
+          <HeaderNavLink href="/try">経験を教える</HeaderNavLink>
+          {signedIn && <HeaderNavLink href="/me">自分の道</HeaderNavLink>}
         </nav>
 
         <div className="ml-auto flex items-center gap-2">

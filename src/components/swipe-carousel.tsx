@@ -120,7 +120,7 @@ export function SwipeCarousel({
         </div>
         {hint && !swiped && (
           // 補助的な案内: 画像・ドットより目立たせない（小さめ・薄め・余白控えめ）
-          <p className="text-center text-[11px] leading-tight text-[var(--color-ink-muted)] opacity-70">
+          <p className="text-center text-[0.6875rem] leading-tight text-[var(--color-ink-muted)] opacity-70">
             {hint}
           </p>
         )}

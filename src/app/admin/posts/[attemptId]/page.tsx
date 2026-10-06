@@ -88,7 +88,7 @@ export default async function AdminPostDetailPage({
                 {attempt.aiCategories.map((c) => (
                   <li
                     key={c}
-                    className="rounded-[var(--radius-pill)] border border-[var(--color-danger)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-danger)]"
+                    className="rounded-[var(--radius-pill)] border border-[var(--color-danger)] px-2 py-0.5 text-[0.6875rem] font-bold text-[var(--color-danger)]"
                   >
                     {CATEGORY_LABEL[c] ?? c}
                   </li>

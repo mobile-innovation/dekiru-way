@@ -177,7 +177,7 @@ export default async function MyRoadPage({ params }: { params: Promise<{ roadId:
                       <span className="text-xs font-bold text-[var(--color-ink-muted)]">結果</span>
                       <ResultBadge result={a.result} size="sm" />
                       {typeof a.achievementPercent === "number" && (
-                        <span className="rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-ink-muted)]">
+                        <span className="rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] px-2 py-0.5 text-[0.6875rem] font-bold text-[var(--color-ink-muted)]">
                           できた度 {a.achievementPercent}%
                         </span>
                       )}

@@ -45,7 +45,7 @@ export function MethodCard({
         )}
       </div>
       <Link href={href} className="block no-underline">
-        <p className="flex items-center gap-1.5 pr-16 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+        <p className="flex items-center gap-1.5 pr-16 text-[0.6875rem] font-bold tracking-wide text-[var(--color-ink-muted)]">
           方法の記録
         </p>
         <p className="mt-1 text-xs text-[var(--color-ink-muted)]">この道の困りごと：{context}</p>
@@ -57,12 +57,12 @@ export function MethodCard({
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <ResultBadge result={m.result} size="sm" />
           {typeof m.achievementPercent === "number" && (
-            <span className="rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-ink-muted)]">
+            <span className="rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] px-2 py-0.5 text-[0.6875rem] font-bold text-[var(--color-ink-muted)]">
               できた度 {m.achievementPercent}%
             </span>
           )}
           {m.triedAt && (
-            <span className="text-[11px] text-[var(--color-ink-muted)]">{m.triedAt}</span>
+            <span className="text-[0.6875rem] text-[var(--color-ink-muted)]">{m.triedAt}</span>
           )}
         </div>
 

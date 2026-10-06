@@ -71,7 +71,7 @@ export default async function TryPage({ searchParams }: { searchParams: Promise<
 
       <QuickSubmitForm initialProblem={initialProblem} />
 
-      <p className="text-[13px] leading-relaxed text-[var(--color-ink-muted)]">
+      <p className="text-[0.8125rem] leading-relaxed text-[var(--color-ink-muted)]">
         氏名や連絡先など、個人が特定できる情報は書かないでください。くわしくは
         <Link href="/terms" className="underline">
           利用について

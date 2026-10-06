@@ -52,7 +52,7 @@ describe("簡易登録フォーム（/try）", () => {
     render(<QuickSubmitForm />);
     expect(screen.getByRole("button", { name: "試したことを登録する" })).toBeTruthy();
     const note = screen.getByText("登録した内容は、運営が確認してから「できる道」で公開されます。");
-    expect(note.className).toContain("text-[13px]");
+    expect(note.className).toContain("text-[0.8125rem]"); // 標準で 13px。文字サイズ切替に追従させるため rem
   });
 
   it("送信内容は従来どおり（困っていたこと・試したこと・結果）", async () => {

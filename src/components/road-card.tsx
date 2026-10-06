@@ -58,7 +58,7 @@ export function RoadCard({ road, loggedIn = false }: { road: RoadCardDTO; logged
       </div>
       <Link href={`/experiences/${road.entryId}`} className="flex flex-1 flex-col no-underline">
         {titleLabel && (
-          <p className="pr-16 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+          <p className="pr-16 text-[0.6875rem] font-bold tracking-wide text-[var(--color-ink-muted)]">
             {titleLabel}
           </p>
         )}

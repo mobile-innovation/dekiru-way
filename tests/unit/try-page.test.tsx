@@ -39,7 +39,7 @@ describe("/try ページ", () => {
     expect(
       screen.getByText(/困っていたことと、試してみた方法を教えてください/).className,
     ).toContain("text-[var(--color-ink)]");
-    expect(screen.getByText(/氏名や連絡先など/).className).toContain("text-[13px]");
+    expect(screen.getByText(/氏名や連絡先など/).className).toContain("text-[0.8125rem]"); // 標準で 13px。文字サイズ切替に追従させるため rem
   });
 });
 

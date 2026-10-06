@@ -202,7 +202,7 @@ export function QuickSubmitForm({ initialProblem = "" }: { initialProblem?: stri
         <Button type="submit" disabled={busy} className="w-full sm:w-auto">
           {busy ? "登録中…" : "試したことを登録する"}
         </Button>
-        <p className="text-[13px] leading-relaxed text-[var(--color-ink-muted)]">
+        <p className="text-[0.8125rem] leading-relaxed text-[var(--color-ink-muted)]">
           登録した内容は、運営が確認してから「できる道」で公開されます。
         </p>
       </div>

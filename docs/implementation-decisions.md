@@ -3869,3 +3869,20 @@ hover は `--color-primary-hover`）に。聞き取り中は hover と同じ濃�
   → UI で偽装・データ書き換えはしない。ローカル DB の 22 本はユーザー判断待ち（テストには後始末を追加済み）
 - 整合を保証する e2e を追加: `tests/e2e/road-card.spec.ts`（困りごとで検索→カードの困っていたこと・方法数・結果内訳が実データどおり→
   「この道を見る」先の h1 と一致）
+
+### 2026-10-06 ヘッダーの文字サイズ切替（標準・大・特大）が効かない／標準に戻る問題の修正
+
+- 仕組み（`html[data-font-scale]` → `--font-scale` → html の font-size）自体は動いていた。実測で見つかった原因は 2 つ:
+  1. 保存値の適用が hydration 後の `useEffect` だけだったため、ページを開くたびに標準サイズで表示され、遅い端末では
+     load 完了後もしばらく標準のまま（その間ボタンも反応しない）。→ `src/lib/font-scale.ts` の `FONT_SCALE_INIT_SCRIPT` を
+     layout の `<head>` で描画前に実行（`<html suppressHydrationWarning>`）。head スクリプトが出ない画面（404 等）向けに
+     `useEffect` での再適用も保険として残す
+  2. 小さいラベル（バッジ・日付・注意文など 28 箇所）が `text-[11px]` / `text-[13px]` の px 固定で拡大されなかった。
+     → `text-[0.6875rem]` / `text-[0.8125rem]` に置換（標準時は同じ大きさ）。**文字サイズは px で固定しない**
+- 確認: Chromium / WebKit（iPhone 幅）で 標準 16px → 大 18.4px → 特大 21.12px、ページ遷移・リロード後も保持、横スクロールなし
+
+### 2026-10-06 ヘッダーナビ: 太字を「自分の道」固定 → 現在ページに変更
+
+- 2026-09-03（ヘッダーUI改善 v1）で `自分の道` のみ常に `font-semibold` にしていたのを撤回し、ユーザー判断で
+  「いま開いているページの項目だけ太字（`font-bold`）」に変更。配下ページも含む（/experiences/[id] → 経験を探す、/me/roads/… → 自分の道）
+- `src/components/header-nav-link.tsx`（`usePathname` で判定、`aria-current="page"` も付与）。リンクの文言・遷移先・色は不変

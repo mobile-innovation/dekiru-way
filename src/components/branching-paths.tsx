@@ -193,7 +193,7 @@ function NodeBox({
         strong ? "bg-[var(--color-primary-soft)] font-bold" : "bg-[var(--color-surface-sunken)]"
       }`}
     >
-      <span className="block text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+      <span className="block text-[0.6875rem] font-bold tracking-wide text-[var(--color-ink-muted)]">
         {label}
       </span>
       <span className="block whitespace-pre-wrap">{text}</span>
@@ -229,7 +229,7 @@ function BranchCardInner({
       <>
         {/* 1 段目: ラベル＋方法名（1 行に収まらなければ折り返す。CJK なので flex では潰さない） */}
         <p className="text-sm font-medium">
-          <span className="mr-2 align-baseline text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+          <span className="mr-2 align-baseline text-[0.6875rem] font-bold tracking-wide text-[var(--color-ink-muted)]">
             {label}
           </span>
           <span className="whitespace-pre-wrap">{branch.method}</span>
@@ -238,12 +238,12 @@ function BranchCardInner({
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
           <ResultBadge result={branch.result} size="sm" />
           {typeof branch.achievementPercent === "number" && (
-            <span className="rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-ink-muted)]">
+            <span className="rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] px-2 py-0.5 text-[0.6875rem] font-bold text-[var(--color-ink-muted)]">
               できた度 {branch.achievementPercent}%
             </span>
           )}
           {branch.triedAt && (
-            <span className="text-[11px] text-[var(--color-ink-muted)]">{branch.triedAt}</span>
+            <span className="text-[0.6875rem] text-[var(--color-ink-muted)]">{branch.triedAt}</span>
           )}
         </div>
         {hasDetail && (
@@ -296,7 +296,7 @@ function BranchCardInner({
   return (
     <>
       <p className="font-semibold leading-relaxed">
-        <span className="mr-2 inline-block rounded-[var(--radius-pill)] bg-[var(--color-surface)] px-2 py-0.5 align-[0.1em] text-[11px] font-bold tracking-wide text-[var(--color-primary-hover)]">
+        <span className="mr-2 inline-block rounded-[var(--radius-pill)] bg-[var(--color-surface)] px-2 py-0.5 align-[0.1em] text-[0.6875rem] font-bold tracking-wide text-[var(--color-primary-hover)]">
           {label}
         </span>
         <span className="whitespace-pre-wrap">{branch.method}</span>
@@ -305,12 +305,12 @@ function BranchCardInner({
         <span className="text-xs font-bold text-[var(--color-ink-muted)]">結果</span>
         <ResultBadge result={branch.result} size="sm" />
         {typeof branch.achievementPercent === "number" && (
-          <span className="rounded-[var(--radius-pill)] bg-[var(--color-surface)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-ink-muted)]">
+          <span className="rounded-[var(--radius-pill)] bg-[var(--color-surface)] px-2 py-0.5 text-[0.6875rem] font-bold text-[var(--color-ink-muted)]">
             できた度 {branch.achievementPercent}%
           </span>
         )}
         {branch.triedAt && (
-          <span className="text-[11px] text-[var(--color-ink-muted)]">{branch.triedAt}</span>
+          <span className="text-[0.6875rem] text-[var(--color-ink-muted)]">{branch.triedAt}</span>
         )}
       </div>
       {resultText && (
@@ -407,7 +407,7 @@ export function BranchingPaths({
           ))}
 
           {showBranchPoint && (
-            <li className="relative pb-2 pl-6 text-[11px] text-[var(--color-ink-muted)]">
+            <li className="relative pb-2 pl-6 text-[0.6875rem] text-[var(--color-ink-muted)]">
               <Spine />
               {branchPointLabel}
             </li>
@@ -423,7 +423,7 @@ export function BranchingPaths({
 
           {/* ページ境界をまたいだチェーンの続き（表示上の補助。DB の親子関係は不変）。 */}
           {paginated?.continuesFromLabel && (
-            <li className="relative pb-3 pl-6 text-[11px] font-bold text-[var(--color-ink-muted)]">
+            <li className="relative pb-3 pl-6 text-[0.6875rem] font-bold text-[var(--color-ink-muted)]">
               <Spine />← 「{paginated.continuesFromLabel}」からの続き
             </li>
           )}
@@ -485,7 +485,7 @@ export function BranchingPaths({
 
           {/* 次ページへ続く（表示上の補助。新しい枝を作っているわけではない）。 */}
           {paginated?.continuesToNextPage && (
-            <li className="relative pb-1 pl-6 text-[11px] font-bold text-[var(--color-ink-muted)]">
+            <li className="relative pb-1 pl-6 text-[0.6875rem] font-bold text-[var(--color-ink-muted)]">
               <Spine to="mid" />↓ この先は次のページに続きます
             </li>
           )}

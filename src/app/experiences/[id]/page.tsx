@@ -171,7 +171,7 @@ export default async function ExperienceDetailPage({
               <div className="mt-4 space-y-2">
                 {r.previouslyAble && (
                   <div className="rounded-[var(--radius-sm)] bg-[var(--color-surface-sunken)] px-3 py-1.5 text-sm">
-                    <span className="flex items-center gap-1 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+                    <span className="flex items-center gap-1 text-[0.6875rem] font-bold tracking-wide text-[var(--color-ink-muted)]">
                       <IconHistory aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
                       <span>できていたこと</span>
                     </span>
@@ -183,7 +183,7 @@ export default async function ExperienceDetailPage({
                 {/* goal はタイトルに使っていない（difficulty がある）ときだけここに出す */}
                 {r.difficulty && r.goal && (
                   <div className="rounded-[var(--radius-sm)] bg-[var(--color-primary-soft)] px-3 py-2">
-                    <span className="flex items-center gap-1 text-[11px] font-bold tracking-wide text-[var(--color-ink-muted)]">
+                    <span className="flex items-center gap-1 text-[0.6875rem] font-bold tracking-wide text-[var(--color-ink-muted)]">
                       <IconTarget aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
                       <span>できるようにしたいこと</span>
                     </span>

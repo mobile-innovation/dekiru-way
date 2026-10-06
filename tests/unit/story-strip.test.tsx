@@ -91,7 +91,7 @@ describe("8枚の紹介画像", () => {
     render(<StoryStrip />);
     const hint = screen.getByText("横にスワイプして続きを見る →");
     // 補助的な案内: ドットの文字より小さく薄く
-    expect(hint.className).toContain("text-[11px]");
+    expect(hint.className).toContain("text-[0.6875rem]"); // 標準で 11px。文字サイズ切替に追従させるため rem
     expect(hint.className).toContain("opacity-70");
     expect(vi.getTimerCount()).toBe(0);
     vi.useRealTimers();

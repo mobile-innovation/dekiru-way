@@ -138,7 +138,7 @@ export default async function MyRoadsPage() {
                                 </span>
                                 {/* 方法の右に、その試したことの公開状態を出す */}
                                 <span
-                                  className={`shrink-0 text-[11px] font-bold ${
+                                  className={`shrink-0 text-[0.6875rem] font-bold ${
                                     a.publishState === "published"
                                       ? "text-[var(--color-accent-strong)]"
                                       : "text-[var(--color-ink-muted)]"
