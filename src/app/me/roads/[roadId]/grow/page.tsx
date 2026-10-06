@@ -32,7 +32,7 @@ export default async function GrowRoadPage({ params }: { params: Promise<{ roadI
           道を育てる
         </h1>
         <p className="text-sm text-[var(--color-ink-muted)]">
-          今の状態や、これからの一歩を整理します。分かるところだけで大丈夫です。
+          今の状態や、これからの一歩を記録します。分かるところだけで大丈夫です。
         </p>
       </div>
       <RoadGrowForm road={road} />

@@ -9,6 +9,7 @@ import {
   AttemptPublishToggle,
   DeleteAttemptButton,
   DeleteRoadButton,
+  ToastRegion,
 } from "@/components/road-actions";
 
 export const metadata: Metadata = { title: "自分の道" };
@@ -29,7 +30,7 @@ export default async function MyRoadPage({ params }: { params: Promise<{ roadId:
     road.previouslyAble && { label: "以前は、どうしていましたか？", body: road.previouslyAble },
     road.difficulty && { label: "今、どんなことで困っていますか？", body: road.difficulty },
     road.goal && { label: "これから、何ができるようになりたいですか？", body: road.goal },
-    road.situation && { label: "どんな場面で困っていますか？", body: road.situation },
+    road.situation && { label: "どんなことで困っていますか？", body: road.situation },
     road.progress && { label: "いまの進捗", body: road.progress },
     road.nextAction && { label: "次に試すこと", body: road.nextAction },
   ].filter(Boolean) as { label: string; body: React.ReactNode }[];
@@ -37,6 +38,8 @@ export default async function MyRoadPage({ params }: { params: Promise<{ roadId:
   return (
     // 中央コンテナ幅・上部ブロックは「経験詳細」画面（/experiences/[id]）に合わせる。
     <div className="mx-auto w-full max-w-5xl">
+      {/* 試したことの削除などの短い通知（数秒で消える） */}
+      <ToastRegion />
       <div className="space-y-4">
         <p className="text-sm">
           <Link href="/me">← 自分の道の一覧へ</Link>
@@ -103,22 +106,42 @@ export default async function MyRoadPage({ params }: { params: Promise<{ roadId:
             試したこと（{road.attempts.length}）
           </h2>
 
-          <Callout tone="info" title="「経験として公開」するときの確認について">
+          {/* 公開の説明は短く（最終UI改善指示 §2）。注意事項は消さずに「詳しく見る」へ畳む。
+              公開は道ではなく試したこと 1 件ごと（道そのものに公開設定は無い。spec §5.1）。 */}
+          <Callout tone="info" title="公開について">
             <p>
-              公開ボタンを押すと、内容を AI が確認します。次のような内容が含まれていると、
-              運営が確認するまで <strong>「確認中」</strong> になり、その間は公開されません。
+              各記録のボタンで<strong>「公開中」</strong>にすると、その経験が他の人にも見えるようになります。
+              公開前に内容を確認します。
             </p>
-            <ul className="mt-2 list-disc space-y-0.5 pl-5">
-              <li>名前・住所・電話番号・勤務先など、個人が分かる情報</li>
-              <li>「必ず治る」「絶対に効く」などの医療的な断定</li>
-              <li>特定の人・団体への攻撃や誹謗中傷</li>
-              <li>宣伝・勧誘、他サービスへの誘導</li>
-              <li>差別的・暴力的な表現</li>
-            </ul>
-            <p className="mt-2">
-              問題がなければそのまま公開されます。確認が済むと公開され、見送られた場合は
-              内容を直して出し直せます。
-            </p>
+            <details className="group mt-1">
+              <summary className="inline-flex min-h-[var(--tap-min)] cursor-pointer list-none items-center gap-1.5 font-semibold text-[var(--color-primary-hover)] [&::-webkit-details-marker]:hidden">
+                <span aria-hidden="true" className="inline-block w-3 text-center group-open:hidden">
+                  ＋
+                </span>
+                <span aria-hidden="true" className="hidden w-3 text-center group-open:inline-block">
+                  −
+                </span>
+                <span className="group-open:hidden">詳しく見る</span>
+                <span className="hidden group-open:inline">閉じる</span>
+              </summary>
+              <div className="pb-1">
+                <p>
+                  公開ボタンを押すと、内容を AI が確認します。次のような内容が含まれていると、
+                  運営が確認するまで <strong>「確認中」</strong> になり、その間は公開されません。
+                </p>
+                <ul className="mt-2 list-disc space-y-0.5 pl-5">
+                  <li>名前・住所・電話番号・勤務先など、個人が分かる情報</li>
+                  <li>「必ず治る」「絶対に効く」などの医療的な断定</li>
+                  <li>特定の人・団体への攻撃や誹謗中傷</li>
+                  <li>宣伝・勧誘、他サービスへの誘導</li>
+                  <li>差別的・暴力的な表現</li>
+                </ul>
+                <p className="mt-2">
+                  問題がなければそのまま公開されます。見送られた場合は、内容を直して出し直せます。
+                  公開中の記録は、もう一度押すといつでも<strong>「自分だけに表示」</strong>に戻せます。
+                </p>
+              </div>
+            </details>
           </Callout>
 
           {road.attempts.length === 0 ? (
@@ -143,45 +166,35 @@ export default async function MyRoadPage({ params }: { params: Promise<{ roadId:
                     className="road-dot absolute -left-5 top-4 ring-2 ring-[var(--color-canvas)]"
                   />
                   <article className={`${CARD} bg-[var(--color-surface)] p-5`}>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-[var(--color-ink-muted)]">
-                        {i + 1} 件目
-                        {a.triedAt ? `・${a.triedAt}` : ""}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <ResultBadge result={a.result} size="sm" />
-                        {typeof a.achievementPercent === "number" && (
-                          <span className="rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-ink-muted)]">
-                            できた度 {a.achievementPercent}%
-                          </span>
-                        )}
-                      </div>
+                    {/* 並びは 何を試したか → 結果 → その後 → 詳細（最終UI改善指示 §6）。
+                        気づき・気持ち・次に試すことは経験詳細と同じ「詳しく見る」に畳む。 */}
+                    <span className="text-xs font-bold text-[var(--color-ink-muted)]">
+                      {i + 1} 件目
+                      {a.triedAt ? `・${a.triedAt}` : ""}
+                    </span>
+                    <p className="mt-1 whitespace-pre-wrap font-medium">{a.method}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-xs font-bold text-[var(--color-ink-muted)]">結果</span>
+                      <ResultBadge result={a.result} size="sm" />
+                      {typeof a.achievementPercent === "number" && (
+                        <span className="rounded-[var(--radius-pill)] bg-[var(--color-surface-sunken)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-ink-muted)]">
+                          できた度 {a.achievementPercent}%
+                        </span>
+                      )}
                     </div>
-                    <p className="mt-2 whitespace-pre-wrap font-medium">{a.method}</p>
-                    {a.feeling && (
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">
-                        <span className="font-bold">気持ち：</span>
-                        {a.feeling}
-                      </p>
-                    )}
-                    {a.memo && (
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">
-                        <span className="font-bold">気づき：</span>
-                        {a.memo}
-                      </p>
-                    )}
                     {a.stateAfter && (
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">
-                        <span className="font-bold">その後：</span>
+                      <p className="mt-1.5 whitespace-pre-wrap text-sm">
+                        <span className="font-bold text-[var(--color-ink-muted)]">その後：</span>
                         {a.stateAfter}
                       </p>
                     )}
-                    {a.nextAction && (
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">
-                        <span className="font-bold">次に試すこと：</span>
-                        {a.nextAction}
-                      </p>
-                    )}
+                    <AttemptDetails
+                      items={[
+                        a.memo && { label: "気づき", text: a.memo },
+                        a.feeling && { label: "そのときの気持ち", text: a.feeling },
+                        a.nextAction && { label: "次に試すこと", text: a.nextAction },
+                      ]}
+                    />
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                       <AttemptPublishToggle
                         attemptId={a.id}
@@ -191,11 +204,11 @@ export default async function MyRoadPage({ params }: { params: Promise<{ roadId:
                       <div className="flex items-center gap-4">
                         <Link
                           href={`/me/roads/${road.id}/attempts/${a.id}/edit`}
-                          className="text-sm font-semibold"
+                          className="tap-target inline-flex items-center text-sm font-semibold"
                         >
                           編集
                         </Link>
-                        <DeleteAttemptButton attemptId={a.id} />
+                        <DeleteAttemptButton attemptId={a.id} method={a.method} />
                       </div>
                     </div>
                   </article>
@@ -210,13 +223,45 @@ export default async function MyRoadPage({ params }: { params: Promise<{ roadId:
               <IconPlus aria-hidden="true" className="h-4 w-4 shrink-0" />
               試したことを記録
             </LinkButton>
+            <p className="mt-2 text-center text-xs text-[var(--color-ink-muted)]">
+              うまくいかなかったことも、少しできたことも、そのまま記録できます。
+            </p>
           </div>
         </section>
 
         <section className="border-t border-[var(--color-border)] pt-6">
-          <DeleteRoadButton roadId={road.id} />
+          <DeleteRoadButton roadId={road.id} attemptCount={road.attempts.length} />
         </section>
       </div>
     </div>
+  );
+}
+
+/** 試したことの第 2 層（「詳しく見る」で開く）。値の無い項目は出さず、1 つも無ければ何も出さない。
+ *  見た目は経験詳細（branching-paths の <details>）と同じ。 */
+function AttemptDetails({ items }: { items: (false | null | undefined | "" | { label: string; text: string })[] }) {
+  const details = items.filter(Boolean) as { label: string; text: string }[];
+  if (details.length === 0) return null;
+  return (
+    <details className="group mt-2 border-t border-[var(--color-border)] pt-1">
+      <summary className="inline-flex min-h-[var(--tap-min)] cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-[var(--color-primary-hover)] [&::-webkit-details-marker]:hidden">
+        <span aria-hidden="true" className="inline-block w-3 shrink-0 text-center group-open:hidden">
+          ＋
+        </span>
+        <span aria-hidden="true" className="hidden w-3 shrink-0 text-center group-open:inline-block">
+          −
+        </span>
+        <span className="shrink-0 whitespace-nowrap group-open:hidden">詳しく見る</span>
+        <span className="hidden shrink-0 whitespace-nowrap group-open:inline">閉じる</span>
+      </summary>
+      <dl className="space-y-2 pb-1 pt-1 text-sm leading-relaxed">
+        {details.map((d) => (
+          <div key={d.label}>
+            <dt className="text-xs font-bold text-[var(--color-ink-muted)]">{d.label}：</dt>
+            <dd className="whitespace-pre-wrap">{d.text}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
   );
 }

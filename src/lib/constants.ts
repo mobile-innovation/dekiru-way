@@ -12,7 +12,10 @@ export type AttemptResultValue = (typeof ATTEMPT_RESULTS)[number];
  * 片方だけずれることを防ぐ。
  */
 export const FIELD_MAX = {
-  statusLabel: 60,
+  // roads.status（「道を育てる」の「今の状態」）。もとは「継続中／一区切り」程度の短いラベル想定で 60。
+  // 「どの程度できるか・何が難しいか・道具でどう変わったか」を短く書く欄になったため 300 に（2026-10-06）。
+  // DB は長さ制限の無い text。バッジ等の短い表示には使っていない（入力欄と管理画面の編集欄のみ）。
+  statusLabel: 300,
   tagName: 30,
   text: 2000,
   longText: 4000,
@@ -35,35 +38,35 @@ export const RESULT_META: Record<AttemptResultValue, ResultMeta> = {
     value: "success",
     label: "できるようになった",
     short: "できた",
-    description: "試した結果、できるようになった",
+    description: "試したことで、できるようになった",
     tokenKey: "success",
   },
   partial: {
     value: "partial",
     label: "少しできた",
     short: "少し",
-    description: "完全ではないが、前より少しできるようになった",
+    description: "完全ではないけれど、前よりできるようになった",
     tokenKey: "partial",
   },
   no_change: {
     value: "no_change",
     label: "変化はなかった",
     short: "変化なし",
-    description: "試したが、特に変化はなかった",
+    description: "試してみたが、あまり変わらなかった",
     tokenKey: "no_change",
   },
   failed: {
     value: "failed",
     label: "うまくいかなかった",
     short: "うまくいかず",
-    description: "試したが、うまくいかなかった（これも大切な経験）",
+    description: "試したが、目的を達成できなかった",
     tokenKey: "failed",
   },
   ongoing: {
     value: "ongoing",
     label: "まだ試している",
     short: "継続中",
-    description: "いま試している途中",
+    description: "まだ途中なので、結果はこれから",
     tokenKey: "ongoing",
   },
 };

@@ -258,3 +258,41 @@ describe("試したことを記録：音声入力（道の画面と同じボタ�
     expect(screen.queryAllByRole("button", { name: "音声で入力" })).toHaveLength(0);
   });
 });
+
+describe("試したことを記録：何を書けばよいか・結果の違いが分かる（2026-10-06）", () => {
+  it("結果は質問の見出しと、失敗も書いてよい一言。5 つの説明文で違いが分かる（値は変えない）", () => {
+    render(<AttemptForm roadId={ROAD_ID} />);
+    expect(screen.getByText("試した結果を教えてください")).toBeTruthy();
+    expect(screen.getByText("うまくいかなかったことも、次の人のヒントになります。")).toBeTruthy();
+    for (const [name, desc] of [
+      [/^できるようになった/, "試したことで、できるようになった"],
+      [/^少しできた/, "完全ではないけれど、前よりできるようになった"],
+      [/^変化はなかった/, "試してみたが、あまり変わらなかった"],
+      [/^うまくいかなかった/, "試したが、目的を達成できなかった"],
+      [/^まだ試している/, "まだ途中なので、結果はこれから"],
+    ] as const) {
+      expect(screen.getByRole("radio", { name }).textContent).toContain(desc);
+    }
+    expect(screen.getAllByRole("radio")).toHaveLength(5);
+  });
+
+  it("試したこと・メモの例と、公開すると何が起こるかを示す", () => {
+    render(<AttemptForm roadId={ROAD_ID} />);
+    const method = screen.getByLabelText("どんな方法を試しましたか？", { exact: false });
+    expect(method.getAttribute("placeholder")).toContain("例：家族に手伝ってもらった");
+    expect(screen.getByText(/何をどう試したのかが分かるように/)).toBeTruthy();
+    expect(screen.getByText(/「試したこと」に書かなかったこと/)).toBeTruthy();
+    expect(
+      screen.getByRole("checkbox", { name: /公開すると、同じことで困っている他の人にも/ }),
+    ).toBeTruthy();
+  });
+
+  it("未入力のまま記録すると、足りない項目をまとめて示し、上部にも案内を出す", () => {
+    render(<AttemptForm roadId={ROAD_ID} />);
+    fireEvent.click(screen.getByRole("button", { name: "記録する" }));
+    expect(screen.getByText("試したことを書いてください")).toBeTruthy();
+    expect(screen.getByText("結果を選んでください")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("入力が足りない項目があります");
+    expect(apiPost).not.toHaveBeenCalled();
+  });
+});

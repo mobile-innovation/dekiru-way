@@ -17,18 +17,24 @@ import { ClientApiError } from "@/lib/client/api";
 export function RoadFormSection({
   icon: Icon,
   title,
+  lead,
   children,
 }: {
   icon: (p: ComponentProps<"svg">) => ReactNode;
   title: string;
+  /** 見出し直下の短い問いかけ（任意。1 行で済む長さにする）。 */
+  lead?: string;
   children: ReactNode;
 }) {
   return (
     <section className="min-w-0 space-y-5 rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-primary-tint)] p-5 shadow-[var(--shadow-card)] sm:p-6">
-      <h2 className="flex items-center gap-2 text-base font-bold">
-        <Icon aria-hidden="true" className="h-5 w-5 shrink-0 text-[var(--color-primary)]" />
-        {title}
-      </h2>
+      <div className="space-y-1">
+        <h2 className="flex items-center gap-2 text-base font-bold">
+          <Icon aria-hidden="true" className="h-5 w-5 shrink-0 text-[var(--color-primary)]" />
+          {title}
+        </h2>
+        {lead && <p className="pl-7 text-sm text-[var(--color-ink-muted)]">{lead}</p>}
+      </div>
       {children}
     </section>
   );

@@ -25,6 +25,7 @@ vi.mock("@/lib/client/api", () => ({
 import { RoadEditForm } from "@/components/road-edit-form";
 import { RoadGrowForm } from "@/components/road-grow-form";
 import type { RoadDTO } from "@/lib/serializers";
+import { FIELD_MAX } from "@/lib/constants";
 
 /** 「できなくなったこと」の言い方で保存された既存の道（DB の中身は変えない）。 */
 const EXISTING: RoadDTO = {
@@ -51,12 +52,12 @@ const L = {
   previouslyAble: "以前は、どうしていましたか？（任意）",
   memoBasic: "メモ・気づき",
   startedAt: "いつ頃から困るようになりましたか？",
-  situation: "どんな場面で困っていますか？",
-  status: "状態（例：継続中／一区切り）",
+  situation: "どんなことで困っていますか？",
+  status: "今の状態",
   progress: "いまの進捗",
   nextAction: "次に試すこと",
   memoGrow: "メモ",
-  tags: "タグ（カンマ区切り）",
+  tags: "タグ（任意）",
 } as const;
 
 const field = (label: string) =>
@@ -102,8 +103,10 @@ describe("道を編集：表示", () => {
 
   it("日付・場面・状態・進捗・次に試すこと・タグは出さない（「道を育てる」へ移した）", () => {
     render(<RoadEditForm road={EXISTING} />);
+    // 前方一致で見る（場面の「どんなことで困っていますか？」は困りごとの「今、どんなことで…」の部分文字列のため）
+    const labels = labelTexts();
     for (const t of [L.startedAt, L.situation, L.status, L.progress, L.nextAction, L.tags]) {
-      expect(screen.queryByLabelText(t, { exact: false }), t).toBeNull();
+      expect(labels.some((l) => l.startsWith(t)), t).toBe(false);
     }
   });
 
@@ -196,10 +199,10 @@ describe("道を育てる：表示", () => {
     const labels = labelTexts();
     expect(labels).toHaveLength(7);
     const idx = [
-      L.startedAt,
       L.situation,
       L.status,
       L.progress,
+      L.startedAt,
       L.nextAction,
       L.memoGrow,
       L.tags,
@@ -217,6 +220,30 @@ describe("道を育てる：表示", () => {
     expect(screen.getByText(/これから試してみたいことを書いてください/)).toBeTruthy();
     expect(screen.getByText(/「試したことを記録」から残せます/)).toBeTruthy();
     expect(screen.getByPlaceholderText("例：車への乗り移り方を調べてみる")).toBeTruthy();
+  });
+
+  it("状態＝今どんな状態か／いまの進捗＝前回から何が変わったか。日付はだいたいでよい", () => {
+    render(<RoadGrowForm road={EXISTING} />);
+    expect(screen.getByText("※だいたいの日付で大丈夫です")).toBeTruthy();
+    expect(screen.getByText(/今の状態を書いてください。例：一人では難しい／道具を使えばできる／できるようになった/)).toBeTruthy();
+    expect(screen.getByText(/前回と比べて、できるようになったことや、まだ難しいことを書いてください。/)).toBeTruthy();
+    expect(screen.getByText(/実際に試したことと結果は、あとで「試したことを記録」から残せます/)).toBeTruthy();
+    // 文字数制限・必須/任意は変えていない
+    expect(field(L.status).getAttribute("maxlength")).toBe("300");
+    expect(field(L.startedAt).hasAttribute("required")).toBe(false);
+  });
+
+  it("入力欄の初期表示は控えめな行数（文字数上限は変えない）", () => {
+    render(<RoadGrowForm road={EXISTING} />);
+    // 「今どうなっていますか？」は答える欄が無く迷うため置かない（2026-10-06）
+    expect(screen.queryByText("今どうなっていますか？")).toBeNull();
+    expect(screen.getByText("これから何を試しますか？")).toBeTruthy();
+    expect(field(L.situation).getAttribute("rows")).toBe("3");
+    expect(field(L.progress).getAttribute("rows")).toBe("2");
+    expect(field(L.nextAction).getAttribute("rows")).toBe("3");
+    expect(field(L.memoGrow).getAttribute("rows")).toBe("3");
+    expect(field(L.situation).getAttribute("maxlength")).toBe(String(FIELD_MAX.text));
+    expect(field(L.memoGrow).getAttribute("maxlength")).toBe(String(FIELD_MAX.longText));
   });
 
   it("既存データ（日付・場面・状態・進捗・次に試すこと・メモ・タグ）がそのまま出る", () => {

@@ -107,7 +107,7 @@ test("作成時の内容が「道を編集」「道を育てる」の同じ名�
   // 日付・場面は「道を育てる」側に出る。何も変えずに保存しても欠落しない
   await page.goto(`/me/roads/${road.id}/grow`);
   await expect(page.getByLabel("いつ頃から困るようになりましたか？")).toHaveValue(data.startedAt);
-  await expect(page.getByLabel("どんな場面で困っていますか？")).toHaveValue(data.situation);
+  await expect(page.getByLabel("どんなことで困っていますか？")).toHaveValue(data.situation);
   await page.getByRole("button", { name: "保存", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/me/roads/${road.id}$`));
 
@@ -119,7 +119,7 @@ test("作成時の内容が「道を編集」「道を育てる」の同じ名�
     "以前は、どうしていましたか？",
     "今、どんなことで困っていますか？",
     "これから、何ができるようになりたいですか？",
-    "どんな場面で困っていますか？",
+    "どんなことで困っていますか？",
   ]) {
     await expect(page.getByText(label, { exact: true })).toBeVisible();
   }
@@ -146,7 +146,7 @@ test("「道を編集」「道を育てる」とも自由記述の欄に音声�
     {
       path: `/me/roads/${roadId}/grow`,
       fields: [
-        page.getByLabel("どんな場面で困っていますか？"),
+        page.getByLabel("どんなことで困っていますか？"),
         page.getByLabel("いまの進捗"),
         page.getByLabel("次に試すこと"),
         page.getByLabel("メモ", { exact: true }),
@@ -367,14 +367,14 @@ test("画面分離のテスト 1〜5: 登録 → 道を編集 → 道を育て�
   // テスト4: 「道を育てる」で追加情報を変えて保存 → 再度開くと同じ欄に戻る
   const grow = {
     "いつ頃から困るようになりましたか？": "2025-03-01",
-    "どんな場面で困っていますか？": "ジャムの瓶を開けるとき",
-    "状態（例：継続中／一区切り）": "継続中",
+    "どんなことで困っていますか？": "ジャムの瓶を開けるとき",
+    今の状態: "継続中",
     いまの進捗: "ゴムシートで少し開けやすくなった",
     次に試すこと: "オープナーを試す",
   };
   for (const [label, value] of Object.entries(grow)) await page.getByLabel(label).fill(value);
   await page.getByLabel("メモ", { exact: true }).fill("ゴムシートが効いた");
-  await page.getByLabel("タグ（カンマ区切り）").fill("台所, 握力");
+  await page.getByLabel("タグ（任意）").fill("台所, 握力");
   await page.getByRole("button", { name: "保存", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/me/roads/${id}$`));
   await page.goto(`/me/roads/${id}/grow`);
@@ -384,7 +384,7 @@ test("画面分離のテスト 1〜5: 登録 → 道を編集 → 道を育て�
   }
   await expect(page.getByLabel("メモ", { exact: true })).toHaveValue("ゴムシートが効いた");
   // タグは保存後にタグ名順で並ぶ（既存仕様）ので、中身だけ比べる
-  const tagsShown = (await page.getByLabel("タグ（カンマ区切り）").inputValue())
+  const tagsShown = (await page.getByLabel("タグ（任意）").inputValue())
     .split(/,\s*/)
     .sort();
   expect(tagsShown).toEqual(["台所", "握力"].sort());
@@ -457,11 +457,11 @@ test("自分の道 → 道を編集 → 道を育てる → 試したことを�
   // 道を育てる
   await page.getByRole("link", { name: "道を育てる" }).click();
   await expect(page).toHaveURL(new RegExp(`/me/roads/${roadId}/grow$`));
-  await expect(page.getByText("今の状態や、これからの一歩を整理します。")).toBeVisible();
+  await expect(page.getByText("今の状態や、これからの一歩を記録します。分かるところだけで大丈夫です。")).toBeVisible();
   await expect(page.getByRole("heading", { name: "次の一歩", exact: true })).toBeVisible();
   await page.getByLabel("いつ頃から困るようになりましたか？").fill("2025-06-01");
-  await page.getByLabel("どんな場面で困っていますか？").fill("買い物に出かけるとき");
-  await page.getByLabel("状態（例：継続中／一区切り）").fill("継続中");
+  await page.getByLabel("どんなことで困っていますか？").fill("買い物に出かけるとき");
+  await page.getByLabel("今の状態", { exact: true }).fill("継続中");
   await page.getByLabel("いまの進捗").fill("車いすから車への乗り移りを練習中");
   await page.getByLabel("次に試すこと").fill("車への乗り移り方を調べてみる");
   await page.getByRole("button", { name: "保存", exact: true }).click();

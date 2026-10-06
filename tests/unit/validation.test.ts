@@ -152,3 +152,13 @@ describe("quickExperienceSchema（簡易登録 最終動作確認指示書）", 
     expect(r.difficulty).toBe("abc def ghi");
   });
 });
+
+describe("roads.status（「今の状態」）の文字数上限（2026-10-06: 60 → 300）", () => {
+  it("300 文字までは通り、301 文字は通らない。他の欄の上限は変えていない", async () => {
+    const { FIELD_MAX } = await import("@/lib/constants");
+    const { roadUpdateSchema } = await import("@/lib/validation");
+    expect(FIELD_MAX).toMatchObject({ statusLabel: 300, text: 2000, longText: 4000 });
+    expect(roadUpdateSchema.safeParse({ status: "あ".repeat(300) }).success).toBe(true);
+    expect(roadUpdateSchema.safeParse({ status: "あ".repeat(301) }).success).toBe(false);
+  });
+});

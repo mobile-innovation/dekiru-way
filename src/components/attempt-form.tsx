@@ -63,12 +63,16 @@ export function AttemptForm({ roadId, attempt }: Props) {
     setError(null);
     setFieldErrors({});
 
-    if (!method.trim()) {
-      setFieldErrors({ method: "試したことを書いてください" });
-      return;
-    }
-    if (!result) {
-      setFieldErrors({ result: "結果を選んでください" });
+    // 足りない項目はまとめて示し、上部にも案内を出して、最初の項目へ移動する（どこを直せばよいか分かるように）。
+    const fe: Record<string, string> = {};
+    if (!method.trim()) fe.method = "試したことを書いてください";
+    if (!result) fe.result = "結果を選んでください";
+    if (Object.keys(fe).length > 0) {
+      setFieldErrors(fe);
+      setError("入力が足りない項目があります。赤い表示の項目を確認してください。");
+      requestAnimationFrame(() =>
+        document.getElementById(fe.method ? "attempt-method" : "attempt-result-first")?.focus(),
+      );
       return;
     }
 
@@ -114,13 +118,16 @@ export function AttemptForm({ roadId, attempt }: Props) {
       {/* ① 何を試したか */}
       <RoadFormSection icon={IconFlask} title="試したこと">
         <TextAreaField
+          id="attempt-method"
           label="どんな方法を試しましたか？"
-          hint="実際にやってみた方法を書いてください。"
+          hint="道具や商品の名前だけでなく、何をどう試したのかが分かるように書いてください。"
           required
           value={method}
           onChange={(e) => setMethod(e.target.value)}
           error={fieldErrors.method}
-          placeholder={"例：クッションを変えてみた\n例：別の道具を使ってみた"}
+          placeholder={
+            "例：クッションを変えてみた\n例：別の道具を使ってみた\n例：家族に手伝ってもらった\n例：ネットで方法を調べてみた"
+          }
           maxLength={FIELD_MAX.text}
           actions={<VoiceInputButton onResult={append(setMethod)} />}
         />
@@ -128,7 +135,13 @@ export function AttemptForm({ roadId, attempt }: Props) {
 
       {/* ② 結果 */}
       <RoadFormSection icon={IconCheckCircle} title="結果">
-        <Field label="結果" required error={fieldErrors.result}>
+        {/* 保存する値（success 等）・5 分類は変えない。説明文は RESULT_META.description（この画面だけで使用）。 */}
+        <Field
+          label="試した結果を教えてください"
+          hint="うまくいかなかったことも、次の人のヒントになります。"
+          required
+          error={fieldErrors.result}
+        >
           {({ describedBy, invalid }) => (
             <div
               role="radiogroup"
@@ -137,13 +150,14 @@ export function AttemptForm({ roadId, attempt }: Props) {
               aria-invalid={invalid || undefined}
               className="grid gap-2 sm:grid-cols-2"
             >
-              {ATTEMPT_RESULTS.map((r) => {
+              {ATTEMPT_RESULTS.map((r, i) => {
                 const m = RESULT_META[r];
                 const RIcon = resultIcon(r);
                 const selected = result === r;
                 return (
                   <button
                     key={r}
+                    id={i === 0 ? "attempt-result-first" : undefined}
                     type="button"
                     role="radio"
                     aria-checked={selected}
@@ -189,10 +203,12 @@ export function AttemptForm({ roadId, attempt }: Props) {
       <RoadFormSection icon={IconNotebookPen} title="メモ・気づき">
         <TextAreaField
           label="メモ・気づき（任意）"
-          hint="やってみて感じたこと、気づいたこと、変化などを自由に書いてください。"
+          hint="「試したこと」に書かなかったこと（やってみて分かったこと、注意点、次に試したいことなど）を書いてください。"
           value={memo}
           onChange={(e) => setMemo(e.target.value)}
-          placeholder="例：やってみて分かったこと、次に活かせそうなこと"
+          placeholder={
+            "例：思ったより力が必要だった\n例：この方法なら一人でもできた\n例：次は別の道具を試してみたい"
+          }
           maxLength={FIELD_MAX.longText}
           actions={<VoiceInputButton onResult={append(setMemo)} />}
         />
@@ -210,9 +226,9 @@ export function AttemptForm({ roadId, attempt }: Props) {
           <span>
             <span className="block font-bold">この経験を公開する</span>
             <span className="block text-xs text-[var(--color-ink-muted)]">
-              あなたの経験が、誰かの次の一歩になるかもしれません。成功した方法だけでなく、
-              うまくいかなかった方法も、同じことで困っている人にとって大切な情報になります。
-              名前は表示されません。あとから公開をやめることもできます。
+              公開すると、同じことで困っている他の人にも、この経験が見えるようになります。
+              うまくいかなかった経験も、次の人が同じ遠回りをしないための情報になります。
+              公開前に内容を確認します。名前は表示されず、あとから公開をやめることもできます。
             </span>
           </span>
         </label>
