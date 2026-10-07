@@ -31,34 +31,46 @@ export default async function TopPage() {
 
   return (
     <>
-      {/* ── ① ヒーロー = head.png を全面背景にしたファーストビュー
-          (指示書「ヘッド画像を背景化する更新指示」)。
+      {/* ── ① ヒーロー = head.png（2026-10-07 に文字なしの横長ビジュアルへ差し替え。指示書「トップヒーロー更新指示」）。
           画像はカード化しない（角丸・枠線・影を付けない）。ヘッダーと同じ幅まで、
           main の左右パディング (px-4 / sm:px-6) と上パディング (pt-6) を打ち消して広げる。
-          画像内の baked-in テキストとは別に、実際に読み上げ・選択できる本物の見出しを重ねる。 */}
+          画像に文字は無いので、ブランドメッセージは HTML で空の上に重ねる（文言は変えない）。
+          - xl 以上: 画面幅いっぱい（ヘッダーの帯と同じ全幅）の背景にし、左のキッチンの明るい余白に見出し・検索を置く。
+            1152px 幅に収めると、検索エリアの高さ（約 500px）に合わせて画像が拡大され右の「道」が切れるため全幅にする。
+            左の余白はデザインの一部なので左はほぼ切らない（object-[15%_center]）。
+          - sm〜xl 未満: 横長画像の上に文字を重ねると女性に被るため、画像全体を 3:1 の帯で見せ、その下に見出し・検索。
+          - スマホ: 画像の右側（女性・空・道）を 2:1 の帯で見せ、その下に見出し・検索。 */}
       <section
         aria-labelledby="hero-heading"
-        className="relative isolate -mx-4 -mt-6 overflow-hidden sm:-mx-6"
+        className="relative isolate -mx-4 -mt-6 overflow-hidden bg-[var(--color-surface)] sm:-mx-6 xl:mx-[calc(50%-50vw)]"
       >
-        <Image
-          src="/head.png"
-          alt="リュックを背負った女性が、緑の丘に続く道を「できる道へ」の看板に向かって歩いていくイラスト。「できないが、できるに変わる。あなたのペースで。」という言葉が添えられている。"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-[68%_center] sm:object-[85%_center] lg:object-right"
-        />
-        {/* 可読性確保のための控えめな下地。画像全体を暗くはしない (指示書 §8)。
-            スマホは文字がほぼ全幅に乗るので均一の白（2026-10-01 に 55% → 72%。イラストが見出し・検索欄より
-            目立たないように）、PC以上は従来どおり 55% の白＋左側だけ効くグラデーション（変更なし）。 */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-white/72 sm:bg-white/55 sm:bg-gradient-to-r sm:from-white/85 sm:via-white/35 sm:to-transparent"
-        />
+        <div className="relative aspect-[2/1] w-full sm:aspect-[3/1] xl:absolute xl:inset-0 xl:aspect-auto">
+          <Image
+            src="/head.png"
+            alt="明るいキッチンでスマートフォンを手に空を見上げる女性と、窓の外の川沿いに続く道のイラスト。"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-right sm:object-center xl:object-[15%_center]"
+          />
+          {/* 可読性確保のための控えめな下地。画像全体は暗くも白くもしない。
+              xl 以上で、見出し・検索が乗る左のキッチン部分にだけ白のグラデーションを効かせる。 */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 hidden xl:block xl:bg-gradient-to-r xl:from-white/75 xl:via-white/30 xl:via-35% xl:to-transparent xl:to-50%"
+          />
+          {/* ブランドメッセージ（文言は変更しない）。右上の空の上に置き、女性の顔・道には掛けない。
+              スマホは 14px だと小さく見えるため 15px（2026-10-07 微調整。これ以上大きくすると 375px 幅で女性の髪に掛かる）。 */}
+          <p className="absolute right-3 top-3 rounded-[var(--radius-md)] bg-white/75 px-3 py-1.5 text-right text-[0.9375rem] font-bold leading-snug text-[var(--color-primary-hover)] shadow-[var(--shadow-card)] backdrop-blur-[2px] sm:right-5 sm:top-5 sm:text-base xl:right-[4vw] xl:top-10 xl:px-4 xl:py-2.5 xl:text-xl">
+            できないが、できるに変わる。
+            <br />
+            あなたのペースで。
+          </p>
+        </div>
 
-        <div className="relative flex min-h-[30rem] flex-col justify-center px-5 py-8 sm:min-h-[34rem] sm:px-10 sm:py-10 lg:min-h-[36rem] lg:px-14">
+        <div className="relative flex flex-col justify-center px-5 py-6 sm:px-10 sm:py-8 xl:min-h-[35rem] xl:px-[max(3.5rem,4vw)]">
           {/* 検索フォーム + 具体例チップを 1 つの検索エリアとしてまとめる (指示書「例えばこんなことをヘッド内へ」)。 */}
-          <div className="w-full sm:max-w-md md:max-w-lg">
+          <div className="w-full sm:max-w-lg xl:max-w-[30rem]">
             <h1
               id="hero-heading"
               className="text-2xl font-bold text-[var(--color-ink)] sm:text-3xl"
@@ -92,17 +104,17 @@ export default async function TopPage() {
         </div>
       </section>
 
-      {/* ── 中央コンテンツのまとまり。8枚ストーリーを基準に、その下の
+      {/* ── 中央コンテンツのまとまり。6枚ストーリーを基準に、その下の
         「試した結果の見かた」「いろいろな方法が試されています」「自分の道を作る」まで
         同じ左右幅・左右位置に揃える (指示書「幅統一」)。
         本文 (max-w-5xl) より少し広く、xl 以上で max-w-6xl。個別に max-width を持たせず
         この 1 つの共通コンテナで幅を決める。 */}
       <div className="mx-auto w-full max-w-5xl space-y-10 pt-10 xl:max-w-6xl">
-        {/* ── ② 8枚のストーリー。①→⑧ の順。タブレット以上は 2 列 × 4 行、
+        {/* ── ② 6枚のストーリー。①→⑥ の順。タブレット以上は 2 列 × 3 行、
           スマホは 1 枚ずつ大きく見せる横スクロール（自動では動かない。2026-10-01）。 */}
         <StoryStrip />
 
-        {/* ── ⑤ 試した結果の見かた。8枚ストーリー直後で存在感が弱くならないよう、
+        {/* ── ⑤ 試した結果の見かた。6枚ストーリー直後で存在感が弱くならないよう、
           card padding を CTA と揃えて少し広げ、結果チップも少し読みやすくする (指示書「最終微調整」§2)。
           新しいカード・説明・イラストは足さない。 */}
         <Card as="section" aria-labelledby="results-heading" className="sm:p-6">

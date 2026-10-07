@@ -22,7 +22,7 @@ export function SwipeCarousel({
   dotLabelSuffix = "件目を表示",
   hint,
 }: {
-  /** リストの読み上げ名（例: 「できる道の紹介（8枚）」） */
+  /** リストの読み上げ名（例: 「できる道の紹介（6枚）」） */
   label: string;
   items: { key: string; node: ReactNode }[];
   /** md 以上のレイアウト（例: "md:grid md:grid-cols-2 md:gap-4"） */

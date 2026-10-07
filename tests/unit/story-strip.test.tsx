@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 
 /**
- * トップ「できる道って、こんな場所です」8 枚（2026-10-01 スマホ表示変更）。
+ * トップ「できる道って、こんな場所です」6 枚（2026-10-01 スマホ表示変更。2026-10-07 に 8 枚 → 6 枚）。
  * jsdom はレイアウトを計算しないので、並び順・代替テキスト・クラス（レスポンシブ切り替え）・ドットを確かめる。
  * 実際の横スクロール・幅・インジケーター追従は e2e（tests/e2e/story-strip.spec.ts）で確かめる。
  */
@@ -19,22 +19,20 @@ import { StoryStrip } from "@/components/story-strip";
 afterEach(cleanup);
 
 const TITLES = [
-  "「困ったな…」から、はじめよう。",
-  "困っていることを、自分の「道」にしよう！",
-  "できる方法を、いろいろ試してみよう！",
-  "同じような経験を、探してみよう！",
-  "少しずつ、できることを増やしていこう！",
-  "やってみたことを、残しておこう！",
-  "経験を重ねて、自分の「道」を育てよう！",
-  "あなたの次の一歩へ！",
+  "あれ…これ、取りにくいな…",
+  "何に困ってるんだろう？",
+  "同じような経験を探してみよう！",
+  "これなら私にもできそう！",
+  "やってみよう！",
+  "どうだった？",
 ];
 
-describe("8枚の紹介画像", () => {
-  it("①〜⑧ の順で、画像は comic1〜8、代替テキストは画像の見出しどおり", () => {
+describe("6枚の紹介画像", () => {
+  it("①〜⑥ の順で、画像は comic1〜6、代替テキストは画像の見出しどおり", () => {
     render(<StoryStrip />);
     const imgs = screen.getAllByRole("img");
     expect(imgs.map((i) => i.getAttribute("src"))).toEqual(
-      Array.from({ length: 8 }, (_, i) => `/comic${i + 1}.png`),
+      Array.from({ length: 6 }, (_, i) => `/comic${i + 1}.png`),
     );
     imgs.forEach((img, i) => {
       expect(img.getAttribute("alt")).toContain(`${i + 1}枚目：${TITLES[i]}`);
@@ -43,7 +41,7 @@ describe("8枚の紹介画像", () => {
 
   it("スマホは横スクロール（スナップ・1 枚 85%）、md 以上は 2 列グリッドに切り替わる", () => {
     render(<StoryStrip />);
-    const list = screen.getByRole("list", { name: "できる道の紹介（8枚）" });
+    const list = screen.getByRole("list", { name: "できる道の紹介（6枚）" });
     for (const cls of [
       "flex",
       "overflow-x-auto",
@@ -58,7 +56,7 @@ describe("8枚の紹介画像", () => {
       );
     }
     const items = screen.getAllByRole("listitem");
-    expect(items).toHaveLength(8);
+    expect(items).toHaveLength(6);
     for (const li of items) {
       expect(li.className).toContain("w-[85%]");
       expect(li.className).toContain("snap-start");
@@ -66,10 +64,10 @@ describe("8枚の紹介画像", () => {
     }
   });
 
-  it("ドットは 8 個（スマホだけ表示）。最初は 1 枚目が現在位置。押すとその画像へスクロールする", () => {
+  it("ドットは 6 個（スマホだけ表示）。最初は 1 枚目が現在位置。押すとその画像へスクロールする", () => {
     render(<StoryStrip />);
     const dots = screen.getAllByRole("button", { name: /枚目を表示$/ });
-    expect(dots).toHaveLength(8);
+    expect(dots).toHaveLength(6);
     expect(dots[0].getAttribute("aria-current")).toBe("true");
     expect(dots.slice(1).every((d) => d.getAttribute("aria-current") === null)).toBe(true);
     expect(dots[0].closest(".md\\:hidden")).not.toBeNull();
@@ -79,7 +77,7 @@ describe("8枚の紹介画像", () => {
     expect(dots[1].querySelector("span")!.className).toContain("w-2");
     expect(dots[1].querySelector("span")!.className).toContain("bg-[var(--color-border)]");
 
-    const list = screen.getByRole("list", { name: "できる道の紹介（8枚）" });
+    const list = screen.getByRole("list", { name: "できる道の紹介（6枚）" });
     const scrollTo = vi.fn();
     (list as unknown as { scrollTo: typeof scrollTo }).scrollTo = scrollTo;
     fireEvent.click(dots[3]);

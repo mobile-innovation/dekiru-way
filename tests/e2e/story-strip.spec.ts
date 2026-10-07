@@ -1,23 +1,23 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * トップ「できる道って、こんな場所です」8 枚の表示（2026-10-01 スマホ表示変更指示）。
- * - desktop: 2 列 × 4 行のまま
- * - mobile: 1 枚ずつ大きく見せる横スクロール。次の画像が右に少し見える。ドット 8 個が追従。
+ * トップ「できる道って、こんな場所です」6 枚の表示（2026-10-01 スマホ表示変更指示。2026-10-07 に 8 枚 → 6 枚）。
+ * - desktop: 2 列 × 3 行
+ * - mobile: 1 枚ずつ大きく見せる横スクロール。次の画像が右に少し見える。ドット 6 個が追従。
  *   ページ全体は横にはみ出さない。自動では動かない。
  */
 
 const list = (page: import("@playwright/test").Page) =>
-  page.getByRole("list", { name: "できる道の紹介（8枚）" });
+  page.getByRole("list", { name: "できる道の紹介（6枚）" });
 
-test("PC・タブレット幅では 2 列 × 4 行で ①〜⑧ の順に並ぶ", async ({ page }, info) => {
+test("PC・タブレット幅では 2 列 × 3 行で ①〜⑥ の順に並ぶ", async ({ page }, info) => {
   test.skip(info.project.name !== "desktop", "PC 幅のみ");
   await page.goto("/");
   const items = list(page).getByRole("listitem");
-  await expect(items).toHaveCount(8);
-  const boxes = await Promise.all(Array.from({ length: 8 }, (_, i) => items.nth(i).boundingBox()));
+  await expect(items).toHaveCount(6);
+  const boxes = await Promise.all(Array.from({ length: 6 }, (_, i) => items.nth(i).boundingBox()));
   // 2 列: 奇数番目は左、偶数番目は右。行ごとに同じ高さ
-  for (let r = 0; r < 4; r++) {
+  for (let r = 0; r < 3; r++) {
     const [l, rt] = [boxes[r * 2]!, boxes[r * 2 + 1]!];
     expect(Math.abs(l.y - rt.y)).toBeLessThan(2);
     expect(rt.x).toBeGreaterThan(l.x + l.width - 1);
@@ -36,7 +36,7 @@ test("スマホでは 1 枚ずつ大きい横スクロール。次の画像が�
   const ol = list(page);
   await ol.scrollIntoViewIfNeeded();
   const items = ol.getByRole("listitem");
-  await expect(items).toHaveCount(8);
+  await expect(items).toHaveCount(6);
 
   const olBox = (await ol.boundingBox())!;
   const first = (await items.nth(0).boundingBox())!;
@@ -55,9 +55,9 @@ test("スマホでは 1 枚ずつ大きい横スクロール。次の画像が�
   );
   expect(overflow).toBeLessThanOrEqual(0);
 
-  // ドット 8 個、最初は 1 枚目
+  // ドット 6 個、最初は 1 枚目
   const dots = page.getByRole("button", { name: /枚目を表示$/ });
-  await expect(dots).toHaveCount(8);
+  await expect(dots).toHaveCount(6);
   await expect(dots.nth(0)).toHaveAttribute("aria-current", "true");
   await expect(page.getByText("横にスワイプして続きを見る →")).toBeVisible();
 
@@ -74,9 +74,9 @@ test("スマホでは 1 枚ずつ大きい横スクロール。次の画像が�
   await expect(dots.nth(0)).not.toHaveAttribute("aria-current", "true");
   await expect(page.getByText("横にスワイプして続きを見る →")).toHaveCount(0);
 
-  // ドットを押すと 8 枚目へ
-  await dots.nth(7).click();
-  await expect(dots.nth(7)).toHaveAttribute("aria-current", "true");
+  // ドットを押すと 6 枚目へ
+  await dots.nth(5).click();
+  await expect(dots.nth(5)).toHaveAttribute("aria-current", "true");
 
   // 再読み込みしても ① から始まる（ブラウザが横位置を復元しても戻す）
   await page.reload();
@@ -146,19 +146,40 @@ test("いろいろな方法: スマホは 1 件ずつ横スライド。次のカ
   await expect(page).toHaveURL(/\/experiences\/[0-9a-f-]{36}$/);
 });
 
-test("ヒーロー: スマホは白い下地を濃くして見出し・検索欄を読みやすく、PC は従来の下地のまま", async ({
+test("ヒーロー: 新しい横長画像。ブランドメッセージは HTML で重ね、スマホは画像の帯の下に見出し・検索、PC は画像の左の余白に重ねる", async ({
   page,
 }, info) => {
   await page.goto("/");
-  const overlay = page
-    .locator("section[aria-labelledby=hero-heading] > div[aria-hidden=true]")
-    .first();
-  const bg = await overlay.evaluate((e) => getComputedStyle(e).backgroundColor);
-  // rgba(255, 255, 255, a) の a を取り出す
-  const alpha = Number(bg.match(/rgba?\([^)]*,\s*([\d.]+)\)$/)?.[1] ?? 1);
-  if (info.project.name === "mobile") expect(alpha).toBeCloseTo(0.72, 2);
-  else expect(alpha).toBeCloseTo(0.55, 2);
-  await expect(page.getByRole("heading", { name: "できる道", level: 1 })).toBeVisible();
+  const hero = page.locator("section[aria-labelledby=hero-heading]");
+  const img = hero.locator('img[src*="head.png"]');
+  await expect(img).toBeVisible();
+  // ブランドメッセージは文言を変えずに HTML で表示する（画像には文字が無い）
+  const message = hero.getByText("できないが、できるに変わる。あなたのペースで。");
+  await expect(message).toBeVisible();
+  const h1 = page.getByRole("heading", { name: "できる道", level: 1 });
+  await expect(h1).toBeVisible();
   await expect(page.getByRole("searchbox", { name: "あなたの困りごと" })).toBeVisible();
   await expect(page.getByRole("button", { name: "似た経験を探す" })).toBeVisible();
+
+  const imgBox = (await img.boundingBox())!;
+  const h1Box = (await h1.boundingBox())!;
+  const heroBox = (await hero.boundingBox())!;
+  if (info.project.name === "mobile") {
+    // 画像は帯として上に置き、見出しは画像の下（女性に文字が重ならない）
+    expect(h1Box.y).toBeGreaterThanOrEqual(imgBox.y + imgBox.height - 1);
+    // ブランドメッセージは画像の帯の中
+    const m = (await message.boundingBox())!;
+    expect(m.y + m.height).toBeLessThanOrEqual(imgBox.y + imgBox.height);
+  } else {
+    // PC（1280px）は画面幅いっぱいの背景。見出しは画像の上に重なり、左寄せ
+    expect(heroBox.width).toBeGreaterThanOrEqual(1279);
+    expect(imgBox.height).toBeGreaterThanOrEqual(heroBox.height - 1);
+    expect(h1Box.x).toBeLessThan(heroBox.width * 0.2);
+  }
+  // ページ全体は横にはみ出さない
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(0);
 });

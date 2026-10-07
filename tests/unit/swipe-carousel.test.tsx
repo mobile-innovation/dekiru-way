@@ -3,7 +3,7 @@ import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { SwipeCarousel } from "@/components/swipe-carousel";
 
 /**
- * スマホだけ横スライドになる共通リスト（トップの 8 枚ストーリー・「いろいろな方法」で使う。2026-10-01）。
+ * スマホだけ横スライドになる共通リスト（トップの 6 枚ストーリー・「いろいろな方法」で使う。2026-10-01）。
  * jsdom はレイアウトを計算しないので、クラス・ドット・案内・タイマーなしを確かめる（動きは e2e）。
  */
 

@@ -29,8 +29,11 @@
   html {
     font-size: calc(100% * var(--font-scale));
     -webkit-text-size-adjust: 100%;
-    /* 上部固定ヘッダーの下にアンカー先（#main など）が隠れないようにする */
-    scroll-padding-top: 5rem;
+    /* 上部固定ヘッダーの下にアンカー先（#main など）・フォーカス移動先が隠れないようにする。
+       --header-height はヘッダーの実測値（components/header-height-sync.tsx）。スマホはヘッダーが 2 段（約 117px、
+       文字サイズ「特大」で約 196px）になるため固定値では足りない。JS が動く前・ヘッダーの無い管理画面は 5rem。
+       0.5rem はヘッダーと見出しの間の小さなすき間。 */
+    scroll-padding-top: calc(var(--header-height, 4.5rem) + 0.5rem);
   }
 
   body {
@@ -45,6 +48,10 @@
     flex-direction: column;
     min-height: 100vh;
     min-height: 100dvh;
+    /* トップのヒーローは xl 以上で画面幅いっぱい (100vw) に広げる。100vw は縦スクロールバーの幅を含むため、
+       スクロールバーが常に出る環境 (Windows 等) で横スクロールが出ないよう、はみ出しを切る。
+       clip はスクロールコンテナを作らないので、sticky ヘッダーには影響しない。 */
+    overflow-x: clip;
   }
   body > main {
     flex: 1 0 auto;

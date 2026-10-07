@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { FontSizeControl } from "@/components/font-size-control";
 import { HeaderNavLink } from "@/components/header-nav-link";
+import { HeaderHeightSync } from "@/components/header-height-sync";
 import { UserMenu } from "@/components/user-menu";
 import { SyncLocalReadsOnLogin } from "@/components/sync-local-reads";
 
@@ -11,7 +12,7 @@ export async function SiteHeader() {
   const signedIn = Boolean(session?.user?.id);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+    <header data-site-header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5 sm:px-6">
         <Link
           href="/"
@@ -55,6 +56,8 @@ export async function SiteHeader() {
           )}
         </div>
       </div>
+      {/* 固定ヘッダーの実際の高さを --header-height に反映する（アンカー移動の位置補正用。表示は無い）。 */}
+      <HeaderHeightSync />
     </header>
   );
 }
