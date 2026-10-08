@@ -6,11 +6,6 @@ import { roadUpdateSchema } from "@/lib/validation";
 import { serializeRoad } from "@/lib/serializers";
 import { syncRoadTags } from "@/lib/tags";
 import { toDbDate } from "@/lib/dates";
-import {
-  readRoadPublicSnapshot,
-  roadPublicContentChanged,
-  remoderateApprovedAttemptsOfRoad,
-} from "@/lib/moderation";
 
 const roadInclude = {
   roadTags: { include: { tag: true } },
@@ -47,22 +42,16 @@ export const PATCH = handle(async (req, ctx) => {
     ...rest,
     ...(startedAt !== undefined ? { startedAt: toDbDate(startedAt) } : {}),
   };
-  // 比較は保存後の値どうしで行う (trim・タグ名の正規化後に同じなら「変更なし」)。
-  const before = await readRoadPublicSnapshot(roadId);
   // タグだけの更新など、road テーブルに書く scalar 項目が無いときは空の UPDATE を発行しない。
   if (Object.keys(updateData).length > 0) {
     await prisma.road.update({ where: { id: roadId }, data: updateData });
   }
   await syncRoadTags(roadId, tags);
 
-  // 道そのものは審査状態を持たない。道の公開テキスト (困っていること・タグ等) は、その道の
-  // 試したことを公開する時点の AI 審査本文に含まれる (applyModerationOnPublish が attempt.road を読む)。
-  // 承認後に公開項目が変わったときは、その道の公開中・承認済みの経験を再審査する (H-2)。
-  // NG・不明なら試したことの編集と同じく pending に戻り、公開面から外れる。
-  const after = await readRoadPublicSnapshot(roadId);
-  if (roadPublicContentChanged(before, after)) {
-    await remoderateApprovedAttemptsOfRoad(roadId);
-  }
+  // 道は自由に編集でき、道の編集では AI 審査しない (道は審査状態を持たない)。
+  // 道の公開テキスト (困っていること・進捗・タグ等) は、その道の試したことを公開・編集する
+  // 時点の AI 審査本文に含まれる (applyModerationOnPublish が attempt.road を読む)。
+  // 承認後に道が編集された経験は、管理画面で運営が見つけて AI 再チェックできる。
 
   const road = await prisma.road.findUniqueOrThrow({ where: { id: roadId }, include: roadInclude });
   return ok(serializeRoad(road));

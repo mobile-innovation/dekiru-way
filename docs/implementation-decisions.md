@@ -3945,6 +3945,8 @@ hover は `--color-primary-hover`）に。聞き取り中は hover と同じ濃�
   （11px・opacity-70）のコントラスト不足（3.47）で失敗。特大ではヒーローのブランドメッセージ（rem 指定）が大きくなり女性の顔に掛かる
 
 ### 2026-10-08 承認後に道の公開項目を変えたら、その道の承認済み経験を再審査する（セキュリティレビュー H-2）
+> ⚠️ この節のうち **A（道の PATCH での再審査）は同日中に撤回**した（次節「2026-10-08 H-2 の見直し」参照）。
+> **D（審査本文に道の progress / nextAction を追加）は維持**している。以下は当時の記録。
 - 発見: security-and-hardening によるレビューで、承認済みの経験を持つ道を `PATCH /api/v1/roads/{id}` で
   書き換えると AI 審査を通らずに公開面へ出ることが分かった（「道を編集」「道を育てる」どちらの画面からも）。
   2026-09-09 の道モデレーション廃止時、「外れるのはタイトルとタグだけ」として両者を経験の審査本文へ
@@ -3975,3 +3977,31 @@ hover は `--color-primary-hover`）に。聞き取り中は hover と同じ濃�
   AI 再チェックで個別に）。
 - テスト: `tests/unit/moderation.test.ts`（審査本文に progress / nextAction が入る）、
   `tests/integration/road-remoderation.test.ts`（再審査の対象・トリガー・結果、AI はモック）。
+
+### 2026-10-08 H-2 の見直し: 道の編集での再審査（A）を撤回し、D は維持。道と試したことの役割を分離
+- 方針（ユーザー判断）: **道は自由に育てられる情報**、**試したことは公開コンテンツとして AI 審査する情報**と
+  分離する。道の審査は復活させない（`Road.moderationStatus` なし・編集ロックなし・マイグレーションなし）。
+- 撤回（A）: `PATCH /api/v1/roads/{id}` の保存前後比較と、その道の公開中・承認済み経験の再審査
+  （`ROAD_PUBLIC_FIELDS` / `readRoadPublicSnapshot` / `roadPublicContentChanged` /
+  `remoderateApprovedAttemptsOfRoad`）を削除。道の編集（タグ・progress・nextAction を含む）では AI を
+  呼ばず、経験の状態も変えない。
+  - 撤回理由（A の最終レビュー指摘）: 道の編集 1 回で経験数分の AI 呼び出し（M-2、日常的な
+    「いまの進捗」更新でも発生・費用増幅の経路）、同時編集で古い AI 判定が新しい判定を上書きし得る（M-1）、
+    途中失敗で一部の経験だけ再審査され再送でも直らない（L-1）、経験数に比例した管理者メール（L-2）、
+    運営が承認した経験が道の編集のたびに AI で再審査される（L-3）。A を外すとこれらの道編集起因の経路は
+    なくなる（`applyModerationOnPublish` 自体の「審査中の運営判断が AI 結果で上書きされ得る」性質は既存のまま）。
+- 維持（D）: 試したことの公開・編集時の審査本文に道の `progress`（いまの進捗）/ `nextAction`
+  （道で次に試すこと）を含める。
+- 追加: 管理画面の AI 再チェック（`POST /api/admin/posts/{id}/recheck`）が道の `progress` /
+  `nextAction` / **タグ**を審査本文に含めていなかった（タグは 2026-09-09 からの漏れ）。審査対象の select と
+  入力の組み立てを `src/lib/moderation.ts#ATTEMPT_MODERATION_SELECT` / `toAttemptModerationInput` に
+  共通化し、公開・編集時の審査と再チェックで審査対象が常に一致するようにした。再チェックの権限・
+  「状態は変えず AI 判定だけ記録する」仕様は変更なし。
+- 受容したリスク: 承認後に道を編集すると、その道の経験が次に公開・編集されるか運営が AI 再チェックする
+  までは、編集後の道の記述が審査されないまま公開経験と一緒に表示される（H-2 の中心部分は残る）。
+  運営が「承認後に道が編集された経験」を見つけられる仕組みを管理画面に別途用意する（次節）。
+- 既存データ: A は DB 構造を変えていない。A が本番で動いていた間に再審査された経験の AI 判定・pending への
+  変化はそのまま残す（pending になった経験は運営の確認待ちキューで判断する）。
+- テスト: `tests/integration/road-remoderation.test.ts` を `road-edit-moderation.test.ts` に置き換え
+  （道の編集で AI を呼ばない・経験の状態が変わらない／試したことの公開・編集と AI 再チェックで最新の
+  progress / nextAction / タグが審査本文に入る）。

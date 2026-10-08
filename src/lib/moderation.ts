@@ -1,7 +1,11 @@
 import { ModerationStatus, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
-import { moderateAttemptContent, type ModerationVerdict } from "@/lib/ai/moderation";
+import {
+  moderateAttemptContent,
+  type AttemptModerationInput,
+  type ModerationVerdict,
+} from "@/lib/ai/moderation";
 import { notifyAdminOfNewPending } from "@/lib/admin-notify";
 
 export { publishStateOf, PUBLISH_STATE_LABEL, type PublishState } from "@/lib/publish-state";
@@ -13,6 +17,53 @@ export { publishStateOf, PUBLISH_STATE_LABEL, type PublishState } from "@/lib/pu
  */
 export async function bumpRoadUpdatedAt(roadId: string): Promise<void> {
   await prisma.road.update({ where: { id: roadId }, data: { updatedAt: new Date() } });
+}
+
+/**
+ * AI 審査本文に使う Attempt と道の項目。公開・編集時の審査 ({@link applyModerationOnPublish}) と
+ * 管理画面の AI 再チェックで審査対象をそろえるため、両方がこの select を使う。
+ * 道は審査状態を持たないが、公開経験と一緒に公開面へ出る記述 (進捗・道の次に試すこと・タグを含む)
+ * は試したことの審査本文に含める。
+ */
+export const ATTEMPT_MODERATION_SELECT = {
+  method: true,
+  memo: true,
+  feeling: true,
+  stateAfter: true,
+  nextAction: true,
+  road: {
+    select: {
+      difficulty: true,
+      goal: true,
+      situation: true,
+      previouslyAble: true,
+      progress: true,
+      nextAction: true,
+      roadTags: { select: { tag: { select: { name: true } } } },
+    },
+  },
+} as const satisfies Prisma.AttemptSelect;
+
+type AttemptModerationRow = Prisma.AttemptGetPayload<{ select: typeof ATTEMPT_MODERATION_SELECT }>;
+
+/** {@link ATTEMPT_MODERATION_SELECT} で読んだ行を AI 審査の入力に変換する。 */
+export function toAttemptModerationInput(a: AttemptModerationRow): AttemptModerationInput {
+  return {
+    method: a.method,
+    memo: a.memo,
+    feeling: a.feeling,
+    stateAfter: a.stateAfter,
+    nextAction: a.nextAction,
+    road: {
+      difficulty: a.road.difficulty,
+      goal: a.road.goal,
+      situation: a.road.situation,
+      previouslyAble: a.road.previouslyAble,
+      progress: a.road.progress,
+      nextAction: a.road.nextAction,
+      tags: a.road.roadTags.map((rt) => rt.tag.name),
+    },
+  };
 }
 
 /**
@@ -41,49 +92,13 @@ export async function applyModerationOnPublish(attemptId: string): Promise<Moder
 
   const attempt = await prisma.attempt.findUnique({
     where: { id: attemptId },
-    select: {
-      roadId: true,
-      createdAt: true,
-      method: true,
-      memo: true,
-      feeling: true,
-      stateAfter: true,
-      nextAction: true,
-      road: {
-        select: {
-          difficulty: true,
-          goal: true,
-          situation: true,
-          previouslyAble: true,
-          progress: true,
-          nextAction: true,
-          roadTags: { select: { tag: { select: { name: true } } } },
-        },
-      },
-    },
+    select: { roadId: true, createdAt: true, ...ATTEMPT_MODERATION_SELECT },
   });
   if (!attempt) {
     return { verdict: "unknown", reason: "対象の投稿が見つかりませんでした。", categories: [] };
   }
 
-  const result = await moderateAttemptContent({
-    method: attempt.method,
-    memo: attempt.memo,
-    feeling: attempt.feeling,
-    stateAfter: attempt.stateAfter,
-    nextAction: attempt.nextAction,
-    road: attempt.road
-      ? {
-          difficulty: attempt.road.difficulty,
-          goal: attempt.road.goal,
-          situation: attempt.road.situation,
-          previouslyAble: attempt.road.previouslyAble,
-          progress: attempt.road.progress,
-          nextAction: attempt.road.nextAction,
-          tags: attempt.road.roadTags.map((rt) => rt.tag.name),
-        }
-      : null,
-  });
+  const result = await moderateAttemptContent(toAttemptModerationInput(attempt));
 
   const data: Prisma.AttemptUpdateInput = {
     aiVerdict: result.verdict,
@@ -107,68 +122,4 @@ export async function applyModerationOnPublish(attemptId: string): Promise<Moder
     await notifyAdminOfNewPending(attemptId, attempt.createdAt);
   }
   return result;
-}
-
-/**
- * 公開経験と一緒に公開面へ出る道の項目 (H-2)。これとタグのどれかが変わったら、
- * その道の公開中・承認済みの経験を再審査する。memo / status / startedAt は公開面に出ない
- * (日付のみの startedAt を除く) か審査対象外なので含めない。
- */
-export const ROAD_PUBLIC_FIELDS = [
-  "difficulty",
-  "goal",
-  "previouslyAble",
-  "situation",
-  "progress",
-  "nextAction",
-] as const;
-
-export type RoadPublicSnapshot = Record<(typeof ROAD_PUBLIC_FIELDS)[number], string | null> & {
-  tags: string[];
-};
-
-/** 道の公開項目とタグ名 (並び順を正規化) を DB から読む。比較用。 */
-export async function readRoadPublicSnapshot(roadId: string): Promise<RoadPublicSnapshot> {
-  const road = await prisma.road.findUniqueOrThrow({
-    where: { id: roadId },
-    select: {
-      difficulty: true,
-      goal: true,
-      previouslyAble: true,
-      situation: true,
-      progress: true,
-      nextAction: true,
-      roadTags: { select: { tag: { select: { name: true } } } },
-    },
-  });
-  const { roadTags, ...fields } = road;
-  return { ...fields, tags: roadTags.map((rt) => rt.tag.name).sort() };
-}
-
-/** 保存後の値どうしで比べる (PATCH に含まれていても値が同じなら変更なし)。 */
-export function roadPublicContentChanged(
-  before: RoadPublicSnapshot,
-  after: RoadPublicSnapshot,
-): boolean {
-  if (ROAD_PUBLIC_FIELDS.some((f) => before[f] !== after[f])) return true;
-  return before.tags.join("\n") !== after.tags.join("\n");
-}
-
-/**
- * 道の公開項目が変わったとき、その道の公開中・承認済みの経験を既存の
- * {@link applyModerationOnPublish} で 1 件ずつ再審査する (H-2)。
- * 道自体は審査状態を持たない (2026-09-09 の方針を維持)。保留中 (pending) と
- * 却下済み (rejected) は対象にしない。件数上限は設けない (2026-10-08 時点の判断)。
- * 再審査した経験の id を返す。
- */
-export async function remoderateApprovedAttemptsOfRoad(roadId: string): Promise<string[]> {
-  const targets = await prisma.attempt.findMany({
-    where: { roadId, isPublished: true, moderationStatus: ModerationStatus.approved },
-    select: { id: true },
-    orderBy: { createdAt: "asc" },
-  });
-  for (const { id } of targets) {
-    await applyModerationOnPublish(id);
-  }
-  return targets.map((t) => t.id);
 }

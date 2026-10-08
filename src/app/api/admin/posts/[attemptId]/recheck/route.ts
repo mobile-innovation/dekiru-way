@@ -4,6 +4,7 @@ import { requireAdminApi } from "@/lib/admin/auth";
 import { writeAudit } from "@/lib/admin/audit";
 import { moderateAttemptContent } from "@/lib/ai/moderation";
 import { serializeAttempt } from "@/lib/serializers";
+import { ATTEMPT_MODERATION_SELECT, toAttemptModerationInput } from "@/lib/moderation";
 
 // POST /api/admin/posts/{attemptId}/recheck — AI 審査だけをもう一度走らせる。
 // moderationStatus は自動では変えない (運営が結果を見て判断する)。AI フィールドのみ更新。
@@ -14,25 +15,12 @@ export const POST = handle(async (_req, ctx) => {
 
   const attempt = await prisma.attempt.findUnique({
     where: { id: attemptId },
-    select: {
-      method: true,
-      memo: true,
-      feeling: true,
-      stateAfter: true,
-      nextAction: true,
-      road: { select: { difficulty: true, goal: true, situation: true, previouslyAble: true } },
-    },
+    // 公開・編集時の審査と同じ審査対象 (道の進捗・道の次に試すこと・タグを含む)。
+    select: ATTEMPT_MODERATION_SELECT,
   });
   if (!attempt) throw new ApiError("not_found", "投稿が見つかりません");
 
-  const result = await moderateAttemptContent({
-    method: attempt.method,
-    memo: attempt.memo,
-    feeling: attempt.feeling,
-    stateAfter: attempt.stateAfter,
-    nextAction: attempt.nextAction,
-    road: attempt.road,
-  });
+  const result = await moderateAttemptContent(toAttemptModerationInput(attempt));
 
   const updated = await prisma.attempt.update({
     where: { id: attemptId },
