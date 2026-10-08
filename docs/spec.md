@@ -275,7 +275,12 @@ AI・外部の従量課金 API は使わない（Transformers.js / onnxruntime-n
 
 - **経験の公開**（Attempt を `isPublished=true` で作成／公開中の本文を編集）→ AI 審査。
   審査本文には、その経験が属する道の記述（できなくなったこと／やりたいこと／場面／
-  以前できていたこと）・タグも含める（道の公開テキストも 1 回はチェックされる）。
+  以前できていたこと／いまの進捗／道で次に試すこと）・タグも含める（道の公開テキストも経験の審査でチェックされる）。
+- **公開中の道の公開項目を変更**（`PATCH /roads/{id}` で difficulty / goal / previouslyAble /
+  situation / progress / nextAction / タグのいずれかが実際に変わった）→ その道に紐づく
+  **公開中・承認済み**（`isPublished=true` かつ `approved`）の経験を同じ AI 審査で再審査する。
+  ok なら公開維持、`ng`・`unknown` は確認待ち（pending）に戻る。保留中・却下済みの経験は対象外。
+  memo / status / startedAt だけの変更では再審査しない。道自体は引き続き審査状態を持たない（2026-10-08）。
 - 判定: `ok` → 自動的に **公開（approved）** ／ `ng`・`unknown`（`ANTHROPIC_API_KEY` 未設定を含む）
   → **確認待ち（pending）** になり運営レビューへ。
 - **公開ゲートは 1 箇所に集約**（`src/lib/search.ts#PUBLIC_ATTEMPT_WHERE`）:

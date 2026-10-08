@@ -136,6 +136,10 @@ export interface AttemptModerationInput {
     goal?: string | null;
     situation?: string | null;
     previouslyAble?: string | null;
+    /** 道の「いまの進捗」。公開経験の詳細に「現在」として出るため審査本文に含める。 */
+    progress?: string | null;
+    /** 道の「次に試すこと」(Attempt の nextAction とは別)。公開 API に出るため審査本文に含める。 */
+    nextAction?: string | null;
     /** その道のタグ名。タグも公開経験と一緒に表示されるため審査本文に含める。 */
     tags?: string[] | null;
   } | null;
@@ -155,6 +159,8 @@ export function moderateAttemptContent(input: AttemptModerationInput): Promise<M
     block("やりたいこと", input.road?.goal) +
     block("困っている場面", input.road?.situation) +
     block("以前できていたこと", input.road?.previouslyAble) +
+    block("いまの進捗", input.road?.progress) +
+    block("道で次に試すこと", input.road?.nextAction) +
     block("タグ", roadTags.length > 0 ? roadTags.join("、") : null);
   return runModeration("投稿", body);
 }

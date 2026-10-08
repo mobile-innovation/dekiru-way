@@ -53,7 +53,7 @@ OAuth 本体は Auth.js: `GET/POST /api/auth/*`（`/api/auth/signin/google` な�
 | GET | `/roads` | 自分の道一覧 `{ items: Road[] }`（新しい更新順） |
 | POST | `/roads` | 道を作成。201。 |
 | GET | `/roads/{roadId}` | 道の詳細（attempts / tags 込み）。他人は 403、無ければ 404。 |
-| PATCH | `/roads/{roadId}` | 部分更新。空ボディは 400。`difficulty` は他の必須項目と同じ通常の編集可能項目（2026-09-11 に「一度値が入ると変更不可」を廃止。空文字を送ると 400、省略は許可）。 |
+| PATCH | `/roads/{roadId}` | 部分更新。空ボディは 400。`difficulty` は他の必須項目と同じ通常の編集可能項目（2026-09-11 に「一度値が入ると変更不可」を廃止。空文字を送ると 400、省略は許可）。公開項目（`difficulty` / `goal` / `previouslyAble` / `situation` / `progress` / `nextAction` / `tags`）が保存前と比べて実際に変わったときは、その道の公開中・承認済みの試したことを AI で再審査する（ok は公開維持、ng・不明は確認待ちに戻る。保留中・却下済みは対象外。`memo` / `status` / `startedAt` だけの変更では再審査しない）。レスポンスの `attempts` は再審査後の状態。 |
 | DELETE | `/roads/{roadId}` | 削除（attempts は cascade）。204。 |
 
 ### Road 作成 / 更新ボディ

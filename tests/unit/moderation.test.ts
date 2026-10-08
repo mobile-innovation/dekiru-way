@@ -1,5 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { ModerationStatus } from "@prisma/client";
+
+// 実 AI は呼ばない。キーありのケースでは callJson に渡る審査本文だけを検証する。
+vi.mock("@/lib/ai/client", () => ({
+  callJson: vi.fn(async (_prompt: string, fallback: unknown) => fallback),
+  DISCLAIMER: "テスト用の注意書き",
+}));
+
+import { callJson } from "@/lib/ai/client";
 import { moderateAttemptContent } from "@/lib/ai/moderation";
 import { publishStateOf, PUBLISH_STATE_LABEL } from "@/lib/publish-state";
 import { deriveManualModerationAction } from "@/lib/admin/audit";
@@ -35,6 +43,55 @@ describe("モデレーション (AIキー未設定)", () => {
       road: { difficulty: "", goal: null, tags: [] },
     });
     expect(res.verdict).toBe("ok");
+  });
+});
+
+describe("モデレーション: 審査本文 (H-2)", () => {
+  let saved: string | undefined;
+  beforeEach(() => {
+    saved = process.env.ANTHROPIC_API_KEY;
+    // ダミーキー (callJson はモック済みなので外部には出ない)
+    process.env.ANTHROPIC_API_KEY = "test-dummy-not-a-real-key";
+    vi.mocked(callJson).mockClear();
+  });
+  afterEach(() => {
+    if (saved !== undefined) process.env.ANTHROPIC_API_KEY = saved;
+    else delete process.env.ANTHROPIC_API_KEY;
+  });
+
+  const promptOf = () => String(vi.mocked(callJson).mock.calls[0]?.[0] ?? "");
+
+  it("道の progress (いまの進捗) が審査本文に含まれる", async () => {
+    await moderateAttemptContent({
+      method: "手すりをつけた",
+      road: { difficulty: "立ち上がれない", progress: "進捗に書いた内容 090-0000-0000" },
+    });
+    expect(callJson).toHaveBeenCalledTimes(1);
+    expect(promptOf()).toContain("いまの進捗: 進捗に書いた内容 090-0000-0000");
+  });
+
+  it("道の nextAction (道で次に試すこと) が審査本文に含まれる", async () => {
+    await moderateAttemptContent({
+      method: "手すりをつけた",
+      road: { difficulty: "立ち上がれない", nextAction: "道の次の一手 https://example.com" },
+    });
+    expect(callJson).toHaveBeenCalledTimes(1);
+    expect(promptOf()).toContain("道で次に試すこと: 道の次の一手 https://example.com");
+  });
+
+  it("試したこと側の nextAction とは別ラベルで並ぶ", async () => {
+    await moderateAttemptContent({
+      method: "手すりをつけた",
+      nextAction: "試したことの次",
+      road: { nextAction: "道の次" },
+    });
+    expect(promptOf()).toContain("次に試すこと: 試したことの次");
+    expect(promptOf()).toContain("道で次に試すこと: 道の次");
+  });
+
+  it("progress / nextAction だけが入っていても審査対象になる (空扱いで ok にしない)", async () => {
+    await moderateAttemptContent({ method: "  ", road: { progress: "進捗だけ" } });
+    expect(callJson).toHaveBeenCalledTimes(1);
   });
 });
 

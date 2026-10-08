@@ -3943,3 +3943,35 @@ hover は `--color-primary-hover`）に。聞き取り中は hover と同じ濃�
 - アンカー移動の位置補正は `--header-height` の実測なので自動で追従（見出しはヘッダー下 8〜11px）
 - 既知（本変更とは無関係・未対応）: a11y e2e「トップ」(mobile) がカルーセルの「横にスワイプして続きを見る →」
   （11px・opacity-70）のコントラスト不足（3.47）で失敗。特大ではヒーローのブランドメッセージ（rem 指定）が大きくなり女性の顔に掛かる
+
+### 2026-10-08 承認後に道の公開項目を変えたら、その道の承認済み経験を再審査する（セキュリティレビュー H-2）
+- 発見: security-and-hardening によるレビューで、承認済みの経験を持つ道を `PATCH /api/v1/roads/{id}` で
+  書き換えると AI 審査を通らずに公開面へ出ることが分かった（「道を編集」「道を育てる」どちらの画面からも）。
+  2026-09-09 の道モデレーション廃止時、「外れるのはタイトルとタグだけ」として両者を経験の審査本文へ
+  移したが、(1) 以前の `ROAD_MODERATED_FIELDS` にあった `progress` / `nextAction` が審査本文から漏れ、
+  (2) PATCH 時の再審査そのものも失われていた。`progress` は公開経験詳細の「現在」、道の `nextAction` は
+  公開 API に出る。
+- 変更（D）: `moderateAttemptContent` の審査本文に道の `progress`（「いまの進捗」）と `nextAction`
+  （「道で次に試すこと」）を追加。プロンプトの構造は変えていない。
+- 変更（A）: `PATCH /api/v1/roads/{id}` で公開項目（`ROAD_PUBLIC_FIELDS` = difficulty / goal /
+  previouslyAble / situation / progress / nextAction）かタグが**実際に変わった**ら、その道の
+  `isPublished=true` かつ `moderationStatus=approved` の経験を既存の `applyModerationOnPublish` で 1 件ずつ
+  再審査する（`src/lib/moderation.ts#remoderateApprovedAttemptsOfRoad`）。ok なら公開維持、ng / unknown は
+  公開中の経験を編集したときと同じく pending に戻り運営へ通知。`AI_MODERATION_ENABLED=false` は既存関数の
+  挙動（即 approved）のまま。
+  - 変更の判定は保存前後に DB から読んだ値どうしで比べる（PATCH に含まれていても trim・タグ名の正規化後に
+    同じなら再審査しない）。memo / status / startedAt だけの変更では再審査しない（公開面に出ないか、日付のみ）。
+- 維持した方針: **道自体は審査状態を持たない**（2026-09-09 を維持。マイグレーションなし）。公開可否は
+  これまでどおり経験（Attempt）だけが持ち、道の公開情報の変更は「その道の公開済み経験に影響する変更」として
+  経験の再審査で扱う。道の編集のロック（2026-09-11 に廃止）も戻さない。
+- 対象外（意図的）: 保留中（pending。既に運営の確認待ち）と却下済み（rejected）は再審査しない。
+  rejected を対象にすると AI の ok で運営の却下が覆るため。なお「本人が公開をオフ→オンにすると rejected の
+  経験も AI 再審査で approved に戻り得る」問題は既存の別課題として残す（今回は触らない）。
+- 件数上限: 設けない（まず正しい動作を優先）。公開中の経験が多い道では編集の応答が「1〜3 秒 × 件数」
+  遅くなり得る。API コスト・応答時間・同時実行が問題になったら別途最適化を検討する。
+- UI: 変更なし。保存後に遷移する道の詳細（`/me/roads/[roadId]`）で、保留に戻った経験は既存の
+  「確認中」「運営が内容を確認しています」表示になる（試したことを編集して pending に戻ったときと同じ）。
+- 既存データ: 今回より前に承認後に書き換えられた道は自動では再審査されない（必要なら管理画面の
+  AI 再チェックで個別に）。
+- テスト: `tests/unit/moderation.test.ts`（審査本文に progress / nextAction が入る）、
+  `tests/integration/road-remoderation.test.ts`（再審査の対象・トリガー・結果、AI はモック）。
