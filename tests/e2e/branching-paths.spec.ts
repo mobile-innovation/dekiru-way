@@ -142,7 +142,8 @@ test("道の見える化ページ（一覧）は枝分かれ＋各方法から�
 });
 
 test("「経験を探す」のカードは方法別ではなく道（困りごと）別", async ({ page }) => {
-  await page.goto("/experiences");
+  // 検索前（素の /experiences）は一覧を出さないので、検索結果のカードで確かめる。
+  await page.goto("/experiences?q=" + encodeURIComponent("自分で"));
   await expect(page.getByRole("heading", { name: /誰かが試した道/ })).toBeVisible();
 
   // カード = 一人の道（一覧ページ UI・情報設計改善指示書）。主役は困っていたこと。

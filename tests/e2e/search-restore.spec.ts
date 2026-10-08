@@ -16,6 +16,7 @@ test("経験詳細 → ヘッダーの「経験を探す」で戻ると前回の
   // 2. 経験詳細へ
   await card.getByRole("link").first().click();
   await expect(page).toHaveURL(/\/experiences\/[0-9a-f-]{36}/);
+  const detailUrl = page.url();
 
   // 3. ヘッダーの「経験を探す」で素の /experiences へ戻る
   await page.getByRole("link", { name: "経験を探す", exact: true }).click();
@@ -29,9 +30,9 @@ test("経験詳細 → ヘッダーの「経験を探す」で戻ると前回の
   await page.getByRole("button", { name: "条件をクリア" }).click();
   await expect(page).toHaveURL(/\/experiences$/);
 
-  const card2 = page.locator("article").first();
-  await expect(card2).toBeVisible();
-  await card2.getByRole("link").first().click();
+  // 検索前の画面には一覧を出さない（検索欄だけ）。詳細へは直接移動して戻りを確かめる。
+  await expect(page.locator("article")).toHaveCount(0);
+  await page.goto(detailUrl);
   await expect(page).toHaveURL(/\/experiences\/[0-9a-f-]{36}/);
   await page.getByRole("link", { name: "経験を探す", exact: true }).click();
   await expect(page).toHaveURL(/\/experiences$/);

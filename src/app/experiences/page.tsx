@@ -10,6 +10,7 @@ import { ExperienceSearchForm } from "@/components/experience-search-form";
 import { EmptyState, LinkButton } from "@/components/ui";
 import { RateLimitedNotice } from "@/components/rate-limited-notice";
 import { experienceQuerySchema } from "@/lib/validation";
+import { EXPERIENCE_KIND_DEFAULT } from "@/lib/constants";
 import { searchRoads, searchMethods, getPopularTags } from "@/lib/queries";
 import { expandSearchIntent, type SearchIntent } from "@/lib/ai/search";
 import {
@@ -170,11 +171,21 @@ export default async function ExperiencesPage({
   const tags = await tagsPromise;
   const { items, total, page, hasMore, windowExceeded } = roadRes;
 
-  const hasRoadSection = roadEnabled;
+  // 検索前（URL に検索条件が 1 つも無い素の /experiences）は、検索に集中できるよう結果・一覧を出さない。
+  // 条件はフォームが URL に載せるものと同じ（キーワード・タグ・結果・既読・既定以外の種類/並び順）。
+  // タグだけ・結果だけ・「方法だけ」の絞り込みは検索後として従来どおり一覧を出す。
+  const hasSearchCondition = Boolean(
+    q.q || q.tag || q.result || q.read || q.kind !== EXPERIENCE_KIND_DEFAULT || q.sort !== "recent",
+  );
+
+  const hasRoadSection = roadEnabled && hasSearchCondition;
   // 方法（試したこと本文・気づき）の中に検索語が当たった記録カード。道カードと独立にページ制御（?mp=）。
   const hasMethodSection =
-    methodEnabled && (methodMatch.items.length > 0 || methodMatch.windowExceeded);
+    hasSearchCondition &&
+    methodEnabled &&
+    (methodMatch.items.length > 0 || methodMatch.windowExceeded);
   const nothingFound =
+    hasSearchCondition &&
     items.length === 0 &&
     !windowExceeded &&
     methodMatch.items.length === 0 &&

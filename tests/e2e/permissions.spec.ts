@@ -8,6 +8,10 @@ test("未ログインで /me は /login に誘導される", async ({ page }) =>
 test("未ログインでも公開経験の検索・閲覧はできる (指示書 10)", async ({ page }) => {
   await page.goto("/experiences");
   await expect(page.getByRole("heading", { name: "困りごとから、誰かの道を探す" })).toBeVisible();
+  // 検索前は検索欄だけで、一覧は出さない
+  await expect(page.getByRole("searchbox")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /誰かが試した道/ })).toHaveCount(0);
+  await page.goto("/experiences?q=" + encodeURIComponent("自分で"));
   await expect(page.getByRole("heading", { name: /誰かが試した道/ })).toBeVisible();
   // シードには公開 failed が含まれる
   await page.goto("/experiences?result=failed");
