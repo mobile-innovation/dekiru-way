@@ -35,7 +35,8 @@ export default async function AdminPostDetailPage({
   const { attemptId } = await params;
   const data = await postDetail(attemptId);
   if (!data) notFound();
-  const { attempt, audit } = data;
+  const { attempt, audit, roadEdited } = data;
+  const fmt = (d: Date) => d.toISOString().slice(0, 16).replace("T", " ");
 
   return (
     <div className="space-y-6">
@@ -50,6 +51,24 @@ export default async function AdminPostDetailPage({
         <StatusBadge status={attempt.moderationStatus} />
         <VerdictBadge verdict={attempt.aiVerdict} />
       </header>
+
+      {/* 承認後に道が編集された (道は AI 審査しないので運営が確認する) */}
+      {roadEdited && (
+        <section
+          aria-label="承認後に道が編集されています"
+          className="space-y-1 rounded-[var(--radius-lg)] border border-[var(--color-status-warning)] bg-[var(--color-status-warning-soft)] p-4 text-sm"
+        >
+          <p className="font-bold">この経験の承認後に、道が編集されています</p>
+          <p>
+            道の更新: {fmt(roadEdited.roadUpdatedAt)} ／ この経験の最終確認:{" "}
+            {fmt(roadEdited.reviewedAt)}
+          </p>
+          <p className="text-[var(--color-ink-muted)]">
+            道の編集は AI 審査されません。下の「道の文脈」を確認し、必要なら「AI
+            再チェック」をしてください（再チェックするとこの表示は消えます）。
+          </p>
+        </section>
+      )}
 
       {/* 操作 */}
       <section className="space-y-3 rounded-[var(--radius-lg)] border border-[var(--color-primary)] bg-[var(--color-surface)] p-4">
@@ -127,6 +146,8 @@ export default async function AdminPostDetailPage({
           <Field label="できなくなったこと" value={attempt.road.difficulty} />
           <Field label="やりたいこと" value={attempt.road.goal} />
           <Field label="困っている場面" value={attempt.road.situation} />
+          <Field label="いまの進捗" value={attempt.road.progress} />
+          <Field label="道で次に試すこと" value={attempt.road.nextAction} />
         </dl>
         {attempt.road.roadTags.length > 0 && (
           <ul className="flex flex-wrap gap-1 text-xs">

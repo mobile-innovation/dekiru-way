@@ -4005,3 +4005,33 @@ hover は `--color-primary-hover`）に。聞き取り中は hover と同じ濃�
 - テスト: `tests/integration/road-remoderation.test.ts` を `road-edit-moderation.test.ts` に置き換え
   （道の編集で AI を呼ばない・経験の状態が変わらない／試したことの公開・編集と AI 再チェックで最新の
   progress / nextAction / タグが審査本文に入る）。
+
+### 2026-10-08 管理画面「承認後に道が編集された経験」（H-2 の見直し・案1）
+- 目的: 道は AI 審査しない（前節）ので、「承認済み・公開中の試したことがある道が、その後編集された」ことを
+  運営が発見できるようにする。道の編集で AI を呼ぶ／経験を保留にする／編集をロックする／道に審査状態を
+  持たせる、はいずれもしない。
+- 案の比較: 案1（DB 変更なし・`roads.updated_at` で近似）／案2（`roads.public_content_updated_at` を 1 列追加して
+  公開項目の実変更時だけ記録＝正確だがマイグレーションが必要）／案3（管理者メール＝一覧で見つけられず
+  送信量・本番メール未稼働の問題）。**ユーザー判断で案1**（猶予 5 秒・仮データ除外・3 か所表示）。
+  案1 の誤検知が運用上つらければ案2 を次段とする。
+- 判定（`src/lib/admin/queries.ts#roadEditedAfterReview`。Prisma では表をまたぐ列比較ができないので生 SQL）:
+  公開中・承認済み（`publicAttemptSql`）で仮データでない道の経験のうち、`roads.updated_at` が経験の最終確認時刻
+  `COALESCE(GREATEST(ai_checked_at, moderated_at), updated_at)` より `ROAD_EDIT_GRACE_SECONDS`（5 秒）以上あと、
+  かつ同じ道のどの公開中・承認済み経験の最終確認時刻 ± 5 秒にも重ならないもの。後者は、経験の承認時に
+  `bumpRoadUpdatedAt` が道の `updated_at` を進めることによる誤検知（AI 承認直後の経験・兄弟経験が全部出る）を除くため。
+  AI 無効時（`AI_MODERATION_ENABLED=false`）の承認は ai_checked_at / moderated_at が残らないので経験の `updated_at` を使う。
+- 表示（最小限・既存の構造に追加）: ダッシュボード「確認が必要なもの」に件数カード（確認待ち 0 件でもこれがあれば
+  「✓ 確認が必要な経験はありません」は出さない）／`/admin/posts` のタブ「承認後に道が編集された」
+  （`?status=road-edited`、`ROAD_EDITED_FILTER`。ModerationStatus とは別の擬似値）＋説明文／経験詳細の上部に注記
+  （道の更新日時・この経験の最終確認日時）。
+- 運営の対応: 既存の「AI でもう一度チェック」（前節で道の progress / nextAction / タグも審査対象に）。
+  ai_checked_at が進むので一覧から外れる。状態は変えない既存仕様のまま。新しいボタン・状態・監査アクションは追加しない。
+- 既知の限界: 誤検知＝memo / status / startedAt だけの編集・値を変えない保存（フォームは全項目を送る）も出る。
+  見逃し＝道の編集後に同じ道の別の経験が承認されると `updated_at` が上書きされて外れる（その場合、編集後の道の記述は
+  その経験の AI 審査本文で一度見られている）。経験の result / triedAt だけの編集など、審査を伴わない経験の更新は
+  AI 無効時の確認時刻（updated_at）を進めるため、AI 無効環境では見逃しになり得る。
+- 性能: 公開中・承認済み経験 × 同じ道の経験の NOT EXISTS。ダッシュボード表示ごとに 1 回、一覧の絞り込み時に 1 回、
+  詳細で 1 件分。現状の件数では問題にならない想定（増えたら `attempts(road_id)` の既存インデックスと件数を見直す）。
+- テスト: `tests/integration/admin-road-edited.test.ts`（承認後の更新を出す／承認 ±5 秒の bump・兄弟経験の承認・
+  運営判断が新しい場合は出さない／AI 無効時のフォールバック／保留・却下・非公開・仮データは出さない／
+  実際の道 PATCH 後に出て AI 再チェックで外れる・状態は変わらない／一覧・詳細・ダッシュボードに反映）。

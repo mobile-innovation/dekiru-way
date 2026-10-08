@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/auth";
-import { dashboardStats, moderationQueue, postList, auditLog } from "@/lib/admin/queries";
+import {
+  dashboardStats,
+  moderationQueue,
+  postList,
+  auditLog,
+  ROAD_EDITED_FILTER,
+} from "@/lib/admin/queries";
 import { ACTION_LABEL } from "@/components/admin/post-card";
 
 export const dynamic = "force-dynamic";
@@ -77,7 +83,7 @@ export default async function AdminDashboardPage() {
           確認が必要なもの
         </h2>
 
-        {needsReview === 0 ? (
+        {needsReview === 0 && s.roadEditedAfterApproval > 0 ? null : needsReview === 0 ? (
           <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-primary-tint)] p-4 text-sm">
             <span aria-hidden="true">✓ </span>
             現在、確認が必要な経験はありません。
@@ -107,6 +113,25 @@ export default async function AdminDashboardPage() {
               className="tap-target mt-3 inline-flex items-center rounded-[var(--radius-pill)] bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary-ink)] no-underline"
             >
               経験を確認する →
+            </Link>
+          </div>
+        )}
+
+        {s.roadEditedAfterApproval > 0 && (
+          <div className="rounded-[var(--radius-lg)] border border-[var(--color-status-warning)] bg-[var(--color-status-warning-soft)] p-4">
+            <p className="text-base">
+              <span className="text-2xl font-bold">{s.roadEditedAfterApproval}</span>{" "}
+              件の公開中の経験で、承認後に道が編集されています
+            </p>
+            <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
+              道の編集は AI 審査されません。道の文脈を見て、必要なら「AI
+              再チェック」をしてください。
+            </p>
+            <Link
+              href={`/admin/posts?status=${ROAD_EDITED_FILTER}`}
+              className="tap-target mt-3 inline-flex items-center rounded-[var(--radius-pill)] bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary-ink)] no-underline"
+            >
+              道が編集された経験を確認する →
             </Link>
           </div>
         )}

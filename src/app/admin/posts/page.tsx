@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/auth";
-import { postList } from "@/lib/admin/queries";
+import { postList, ROAD_EDITED_FILTER } from "@/lib/admin/queries";
 import { AdminPostCard } from "@/components/admin/post-card";
 import { AdminPostSearch } from "@/components/admin/post-search";
 
@@ -13,6 +13,7 @@ const STATUS_TABS = [
   { value: "pending", label: "確認待ち" },
   { value: "approved", label: "公開中" },
   { value: "rejected", label: "公開停止" },
+  { value: ROAD_EDITED_FILTER, label: "承認後に道が編集された" },
 ];
 
 export default async function AdminPostsPage({ searchParams }: { searchParams: SearchParams }) {
@@ -57,6 +58,15 @@ export default async function AdminPostsPage({ searchParams }: { searchParams: S
           </Link>
         ))}
       </nav>
+
+      {status === ROAD_EDITED_FILTER && (
+        <p className="text-sm text-[var(--color-ink-muted)]">
+          公開中の経験のうち、承認（AI 判定・運営判断）の後に道が編集されたものです。道の編集は AI
+          審査されないので、詳細で道の文脈を見て「AI
+          再チェック」をしてください。再チェックすると一覧から外れます。
+          道のメモなど公開されない項目だけの編集も含まれます。
+        </p>
+      )}
 
       <AdminPostSearch defaultValue={q} status={status} />
 
